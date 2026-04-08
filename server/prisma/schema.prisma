@@ -1,0 +1,68 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/client"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+}
+
+model Distributor {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  region    String?
+  contact   String?
+  email     String?
+  phone     String?
+  active    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  items     InventoryItem[]
+}
+
+model InventoryItem {
+  id            String              @id @default(cuid())
+  udi           String              @unique
+  gtin          String
+  gtinShort     String
+  lot           String
+  expDate       DateTime?
+  rawBarcode    String
+  productLabel  String?
+  distributorId String?
+  distributor   Distributor?        @relation(fields: [distributorId], references: [id])
+  assignedAt    DateTime?
+  assignedBy    String?
+  deletedAt     DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  history       AssignmentHistory[]
+
+  @@index([distributorId])
+  @@index([expDate])
+  @@index([deletedAt])
+  @@index([gtinShort])
+}
+
+model AssignmentHistory {
+  id                  String        @id @default(cuid())
+  itemId              String
+  item                InventoryItem @relation(fields: [itemId], references: [id])
+  fromDistributorId   String?
+  fromDistributorName String?
+  toDistributorId     String?
+  toDistributorName   String?
+  changedAt           DateTime      @default(now())
+  changedBy           String?
+  note                String?
+
+  @@index([itemId])
+}
