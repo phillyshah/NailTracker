@@ -11,6 +11,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { scanBarcode, assignItems } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { compressImage } from '../utils/compressImage';
+import { extractBarcodeText } from '../utils/ocrBarcode';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
@@ -332,17 +333,18 @@ export default function Receive() {
 }
 
 async function detectBarcodeFromFile(file: File): Promise<string | null> {
+  // Step 1: Try barcode reader
   const scanner = new Html5Qrcode('barcode-scanner-hidden');
   try {
     const result = await scanner.scanFile(file, false);
-    return result || null;
+    if (result) return result;
   } catch {
-    return null;
+    // fall through to OCR
   } finally {
-    try {
-      await scanner.clear();
-    } catch {
-      // ignore
-    }
+    try { await scanner.clear(); } catch { /* ignore */ }
   }
+
+  // Step 2: Try OCR to read the text on the label
+  const ocrResult = await extractBarcodeText(file);
+  return ocrResult;
 }

@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { Camera, Upload, X, RotateCcw } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { compressImage } from '../utils/compressImage';
+import { extractBarcodeText } from '../utils/ocrBarcode';
 
 interface BarcodeScannerProps {
   onResult: (barcode: string, imageDataUrl: string) => void;
@@ -10,6 +11,7 @@ interface BarcodeScannerProps {
 
 export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
   const [mode, setMode] = useState<'idle' | 'camera' | 'processing'>('idle');
+  const [statusText, setStatusText] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -29,7 +31,7 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
     setMode('camera');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -65,23 +67,39 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
 
   async function processImage(blob: Blob | File) {
     setMode('processing');
+    setStatusText('Scanning barcode...');
     try {
       const compressed = await compressImage(blob);
       setPreview(compressed);
 
-      // Try to detect barcode from the image
+      // Step 1: Try barcode detection on the original high-res image
       const barcode = await detectBarcode(blob);
       if (barcode) {
         onResult(barcode, compressed);
         setPreview(null);
         setMode('idle');
-      } else {
-        // Show preview with manual entry option
-        setMode('idle');
-        onError?.('Could not detect barcode from image. You can enter it manually below.');
+        setStatusText('');
+        return;
       }
+
+      // Step 2: Try OCR to read the text next to the barcode
+      setStatusText('Reading label text...');
+      const ocrResult = await extractBarcodeText(blob);
+      if (ocrResult) {
+        onResult(ocrResult, compressed);
+        setPreview(null);
+        setMode('idle');
+        setStatusText('');
+        return;
+      }
+
+      // Neither worked — show manual entry fallback
+      setMode('idle');
+      setStatusText('');
+      onError?.('Could not read barcode or label text. You can enter it manually below.');
     } catch {
       setMode('idle');
+      setStatusText('');
       onError?.('Failed to process image. Please try again.');
     }
   }
@@ -89,6 +107,7 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
   function reset() {
     setPreview(null);
     setCameraError(null);
+    setStatusText('');
     setMode('idle');
   }
 
@@ -128,7 +147,7 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
       )}
 
       {/* Preview image */}
-      {preview && mode !== 'camera' && (
+      {preview && mode !== 'camera' && mode !== 'processing' && (
         <div className="relative overflow-hidden rounded-2xl">
           <img src={preview} alt="Captured" className="w-full rounded-2xl" />
           <button
@@ -144,7 +163,7 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
       {mode === 'processing' && (
         <div className="flex flex-col items-center justify-center rounded-2xl bg-gray-100 py-12">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
-          <p className="mt-3 text-base text-gray-600">Detecting barcode...</p>
+          <p className="mt-3 text-base text-gray-600">{statusText || 'Processing...'}</p>
         </div>
       )}
 
