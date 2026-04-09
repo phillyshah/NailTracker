@@ -90,12 +90,6 @@ export interface SummaryReport {
   unassigned: number;
 }
 
-export interface DistributorCount {
-  distributorId: string | null;
-  distributorName: string;
-  count: number;
-}
-
 export interface ExpiringItem {
   udi: string;
   productLabel: string | null;

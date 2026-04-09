@@ -80,8 +80,8 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
-          Summa Orthopaedics &middot; ver {APP_VERSION}
+        <p className="mt-6 text-center text-sm text-gray-500">
+          Summa Orthopaedics &middot; v{APP_VERSION}
         </p>
       </div>
     </div>

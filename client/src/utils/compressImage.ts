@@ -1,11 +1,11 @@
 /**
- * Compress an image file to a JPEG data URL.
- * Resizes to maxDimension on the longest side and compresses to given quality.
+ * Compress an image file to a JPEG data URL for database storage.
+ * Sized for reference/tracking only — not print quality.
  */
 export async function compressImage(
   file: File | Blob,
-  maxDimension = 800,
-  quality = 0.7,
+  maxDimension = 600,
+  quality = 0.5,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -38,18 +38,4 @@ export async function compressImage(
     reader.onerror = () => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
   });
-}
-
-/**
- * Convert a data URL to a Blob (useful for sending to barcode scanner).
- */
-export function dataUrlToBlob(dataUrl: string): Blob {
-  const [header, base64] = dataUrl.split(',');
-  const mime = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
-  const bytes = atob(base64);
-  const arr = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) {
-    arr[i] = bytes.charCodeAt(i);
-  }
-  return new Blob([arr], { type: mime });
 }
