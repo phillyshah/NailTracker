@@ -100,8 +100,46 @@ export async function assign(req: Request, res: Response) {
 
     for (const item of items) {
       const existing = await prisma.inventoryItem.findUnique({ where: { udi: item.udi } });
-      if (existing) {
+
+      if (existing && !existing.deletedAt && !existing.usedAt) {
+        // Active item already exists — skip
         skipped++;
+        continue;
+      }
+
+      if (existing && (existing.deletedAt || existing.usedAt)) {
+        // Previously deleted or used — restore with updated data
+        await prisma.inventoryItem.update({
+          where: { udi: item.udi },
+          data: {
+            gtin: item.gtin,
+            gtinShort: item.gtinShort,
+            lot: item.lot,
+            expDate: item.expDate ? new Date(item.expDate) : null,
+            rawBarcode: item.rawBarcode,
+            productLabel: item.productLabel,
+            imageData: item.imageData || imageData || null,
+            distributorId: distributorId || null,
+            assignedAt: distributorId ? new Date() : null,
+            assignedBy: req.user?.username || null,
+            deletedAt: null,
+            usedAt: null,
+          },
+        });
+
+        if (distributorId) {
+          await prisma.assignmentHistory.create({
+            data: {
+              itemId: existing.id,
+              toDistributorId: distributorId,
+              toDistributorName: distributor?.name || null,
+              changedBy: req.user?.username || null,
+              note: 'Re-added to inventory',
+            },
+          });
+        }
+
+        created++;
         continue;
       }
 
