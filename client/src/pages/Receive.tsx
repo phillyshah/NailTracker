@@ -48,42 +48,50 @@ export default function Receive() {
     mutationFn: (params: { barcode: string; imageData?: string }) => scanBarcode(params),
   });
 
-  const assignMutation = useMutation({
-    mutationFn: () => {
-      if (!homeOffice) throw new Error('Home Office distributor not found');
-      const newItems = receivedItems
-        .filter((i) => i.status === 'new')
-        .map((i) => ({
-          ...i.parsed,
-          imageData: i.imageData,
-        }));
-      return assignItems(newItems, homeOffice.id);
-    },
-    onSuccess: (data) => {
-      addToast(`${data.created} items received to Home Office`, 'success');
-      setReceivedItems([]);
-      setScanning(true);
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-    },
-    onError: (err: Error) => addToast(err.message, 'error'),
-  });
-
   async function handleBarcode(barcode: string, imageData: string) {
     try {
       const result = await scanMutation.mutateAsync({ barcode, imageData });
-      const item: ReceivedItem = {
-        id: nextId++,
-        parsed: result.parsed,
-        imageData,
-        status: result.existing ? 'duplicate' : result.parsed.status === 'error' ? 'error' : 'new',
-        error: result.parsed.status === 'error' ? result.parsed.errorMessage : undefined,
-      };
-      setReceivedItems((prev) => [item, ...prev]);
 
-      if (item.status === 'new') {
-        addToast(`Added: ${result.parsed.productLabel}`, 'success');
-      } else if (item.status === 'duplicate') {
+      if (result.parsed.status === 'error') {
+        addToast(result.parsed.errorMessage || 'Could not parse barcode', 'error');
+        setScanning(true);
+        return;
+      }
+
+      if (result.existing) {
+        setReceivedItems((prev) => [
+          { id: nextId++, parsed: result.parsed, imageData, status: 'duplicate' },
+          ...prev,
+        ]);
         addToast('Item already in system', 'error');
+        setScanning(true);
+        return;
+      }
+
+      // Auto-receive new items directly to Home Office
+      if (homeOffice) {
+        try {
+          const itemData = { ...result.parsed, imageData };
+          const assignResult = await assignItems([itemData], homeOffice.id);
+          if (assignResult.created > 0) {
+            setReceivedItems((prev) => [
+              { id: nextId++, parsed: result.parsed, imageData, status: 'new' },
+              ...prev,
+            ]);
+            addToast(`Received: ${result.parsed.productLabel}`, 'success');
+            queryClient.invalidateQueries({ queryKey: ['inventory'] });
+          } else {
+            addToast('Item was skipped (may already exist)', 'error');
+          }
+        } catch {
+          addToast('Failed to save item', 'error');
+        }
+      } else {
+        setReceivedItems((prev) => [
+          { id: nextId++, parsed: result.parsed, imageData, status: 'new' },
+          ...prev,
+        ]);
+        addToast('Scanned — set up Home Office distributor to auto-receive', 'error');
       }
     } catch {
       addToast('Failed to process barcode', 'error');
@@ -94,26 +102,8 @@ export default function Receive() {
   async function handleManualSubmit() {
     const trimmed = manualBarcode.trim();
     if (!trimmed) return;
-    try {
-      const result = await scanMutation.mutateAsync({ barcode: trimmed });
-      const item: ReceivedItem = {
-        id: nextId++,
-        parsed: result.parsed,
-        imageData: null,
-        status: result.existing ? 'duplicate' : result.parsed.status === 'error' ? 'error' : 'new',
-        error: result.parsed.status === 'error' ? result.parsed.errorMessage : undefined,
-      };
-      setReceivedItems((prev) => [item, ...prev]);
-      setManualBarcode('');
-
-      if (item.status === 'new') {
-        addToast(`Added: ${result.parsed.productLabel}`, 'success');
-      } else if (item.status === 'duplicate') {
-        addToast('Item already in system', 'error');
-      }
-    } catch {
-      addToast('Failed to process barcode', 'error');
-    }
+    setManualBarcode('');
+    await handleBarcode(trimmed, '');
   }
 
   async function handleBatchFiles(e: React.ChangeEvent<HTMLInputElement>) {
@@ -235,11 +225,11 @@ export default function Receive() {
         <>
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-base font-semibold text-gray-800">
-              Scanned Items ({receivedItems.length})
+              Received Items ({receivedItems.length})
             </h3>
             {newCount > 0 && (
               <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
-                {newCount} ready
+                {newCount} saved
               </span>
             )}
           </div>
@@ -290,26 +280,6 @@ export default function Receive() {
             ))}
           </div>
 
-          {/* Receive all to Home Office */}
-          {newCount > 0 && (
-            <div className="rounded-2xl bg-white p-4 shadow-sm">
-              <button
-                onClick={() => assignMutation.mutate()}
-                disabled={assignMutation.isPending || !homeOffice}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700 disabled:opacity-50 transition-colors"
-              >
-                <Building2 size={20} />
-                {assignMutation.isPending
-                  ? 'Receiving...'
-                  : `Receive ${newCount} Item${newCount !== 1 ? 's' : ''} to Home Office`}
-              </button>
-              {!homeOffice && (
-                <p className="mt-2 text-center text-sm text-red-600">
-                  Home Office distributor not found. Please add it in Distributors.
-                </p>
-              )}
-            </div>
-          )}
         </>
       )}
 
