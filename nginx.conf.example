@@ -1,6 +1,22 @@
+# /etc/nginx/sites-available/summa-inventory
+# ln -s /etc/nginx/sites-available/summa-inventory /etc/nginx/sites-enabled/
+# Then run: sudo certbot --nginx -d inventory.phillyshah.com
+
 server {
     listen 80;
     server_name inventory.phillyshah.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name inventory.phillyshah.com;
+
+    # SSL certs managed by certbot
+    ssl_certificate /etc/letsencrypt/live/inventory.phillyshah.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/inventory.phillyshah.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     location / {
         proxy_pass http://127.0.0.1:3045;

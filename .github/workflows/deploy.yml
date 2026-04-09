@@ -18,6 +18,7 @@ jobs:
             cd /var/www/summa-inventory
             git pull origin main
             npm install
+            npx prisma generate --schema=server/prisma/schema.prisma
             npx prisma migrate deploy --schema=server/prisma/schema.prisma
             npm run build
             pm2 restart summa-inventory || pm2 start ecosystem.config.js
