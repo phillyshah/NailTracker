@@ -39,8 +39,15 @@ async function main() {
 
   console.log('Admin user created/updated');
 
-  // Create sample distributors
+  // Create distributors — Home Office is the central receiving location (code 0)
   const distributors = [
+    {
+      name: 'Home Office',
+      region: 'HQ',
+      contact: 'Summa Orthopaedics',
+      email: '',
+      phone: '',
+    },
     {
       name: 'Mid-Atlantic Ortho Supply',
       region: 'Northeast',

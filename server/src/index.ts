@@ -15,6 +15,7 @@ import authRoutes from './routes/auth.js';
 import inventoryRoutes from './routes/inventory.js';
 import distributorRoutes from './routes/distributors.js';
 import reportRoutes from './routes/reports.js';
+import userRoutes from './routes/users.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3045', 10);
@@ -33,6 +34,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/distributors', distributorRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/users', userRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

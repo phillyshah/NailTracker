@@ -27,6 +27,7 @@ const assignSchema = z.object({
       udi: z.string(),
       rawBarcode: z.string(),
       productLabel: z.string(),
+      imageData: z.string().optional(),
     }),
   ).min(1, 'At least one item is required'),
   distributorId: z.string().nullable().optional(),

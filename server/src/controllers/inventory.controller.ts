@@ -114,7 +114,7 @@ export async function assign(req: Request, res: Response) {
           expDate: item.expDate ? new Date(item.expDate) : null,
           rawBarcode: item.rawBarcode,
           productLabel: item.productLabel,
-          imageData: imageData || null,
+          imageData: item.imageData || imageData || null,
           distributorId: distributorId || null,
           assignedAt: distributorId ? new Date() : null,
           assignedBy: req.user?.username || null,

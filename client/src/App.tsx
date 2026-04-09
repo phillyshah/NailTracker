@@ -8,6 +8,9 @@ import InventoryDetail from './pages/InventoryDetail';
 import Reports from './pages/Reports';
 import Distributors from './pages/Distributors';
 import DistributorDetail from './pages/DistributorDetail';
+import Users from './pages/Users';
+import BatchUpload from './pages/BatchUpload';
+import Receive from './pages/Receive';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -34,13 +37,16 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/scan" replace />} />
+        <Route index element={<Navigate to="/receive" replace />} />
+        <Route path="receive" element={<Receive />} />
         <Route path="scan" element={<Scan />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="inventory/:udi" element={<InventoryDetail />} />
         <Route path="reports" element={<Reports />} />
         <Route path="distributors" element={<Distributors />} />
         <Route path="distributors/:id" element={<DistributorDetail />} />
+        <Route path="users" element={<Users />} />
+        <Route path="batch" element={<BatchUpload />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
