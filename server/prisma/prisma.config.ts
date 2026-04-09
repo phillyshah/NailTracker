@@ -6,7 +6,8 @@ export default defineConfig({
   schema: path.join(__dirname, 'schema.prisma'),
   migrate: {
     async url() {
-      return process.env.DATABASE_URL!;
+      // Migrations need the direct connection (port 5432), not the pooler (6543)
+      return process.env.DIRECT_URL || process.env.DATABASE_URL!;
     },
   },
 });
