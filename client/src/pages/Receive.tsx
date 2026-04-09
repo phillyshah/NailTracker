@@ -7,11 +7,10 @@ import {
   Images,
   X,
 } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
 import { scanBarcode, assignItems } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { compressImage } from '../utils/compressImage';
-import { extractBarcodeText } from '../utils/ocrBarcode';
+import { detectBarcodeFromImage } from '../utils/barcodeDetector';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
@@ -125,7 +124,7 @@ export default function Receive() {
     for (const file of files) {
       try {
         const compressed = await compressImage(file);
-        const barcode = await detectBarcodeFromFile(file);
+        const barcode = await detectBarcodeFromImage(file);
         if (barcode) {
           await handleBarcode(barcode, compressed);
         } else {
@@ -159,7 +158,6 @@ export default function Receive() {
   return (
     <div className="mx-auto max-w-2xl">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-      <div id="barcode-scanner-hidden" className="hidden" />
 
       {/* Header */}
       <div className="mb-4 flex items-center gap-3">
@@ -332,19 +330,3 @@ export default function Receive() {
   );
 }
 
-async function detectBarcodeFromFile(file: File): Promise<string | null> {
-  // Step 1: Try barcode reader
-  const scanner = new Html5Qrcode('barcode-scanner-hidden');
-  try {
-    const result = await scanner.scanFile(file, false);
-    if (result) return result;
-  } catch {
-    // fall through to OCR
-  } finally {
-    try { await scanner.clear(); } catch { /* ignore */ }
-  }
-
-  // Step 2: Try OCR to read the text on the label
-  const ocrResult = await extractBarcodeText(file);
-  return ocrResult;
-}

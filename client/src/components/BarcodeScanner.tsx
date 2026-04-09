@@ -1,8 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { Camera, Upload, X, RotateCcw } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
 import { compressImage } from '../utils/compressImage';
-import { extractBarcodeText } from '../utils/ocrBarcode';
+import { detectBarcodeFromImage } from '../utils/barcodeDetector';
 
 interface BarcodeScannerProps {
   onResult: (barcode: string, imageDataUrl: string) => void;
@@ -16,8 +15,8 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const uploadInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -36,13 +35,13 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
 
   async function processImage(blob: Blob | File) {
     setMode('processing');
-    setStatusText('Scanning barcode...');
+    setStatusText('Detecting barcode...');
     try {
       const compressed = await compressImage(blob);
       setPreview(compressed);
 
-      // Step 1: Try barcode detection on the original high-res image
-      const barcode = await detectBarcode(blob);
+      // Use unified detection pipeline (native API → html5-qrcode → OCR)
+      const barcode = await detectBarcodeFromImage(blob);
       if (barcode) {
         onResult(barcode, compressed);
         setPreview(null);
@@ -51,22 +50,12 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
         return;
       }
 
-      // Step 2: Try OCR to read the text next to the barcode
-      setStatusText('Reading label text...');
-      const ocrResult = await extractBarcodeText(blob);
-      if (ocrResult) {
-        onResult(ocrResult, compressed);
-        setPreview(null);
-        setMode('idle');
-        setStatusText('');
-        return;
-      }
-
-      // Neither worked — show manual entry fallback
+      // All methods failed — show manual entry fallback
       setMode('idle');
       setStatusText('');
       onError?.('Could not read barcode or label text. You can enter it manually below.');
-    } catch {
+    } catch (err) {
+      console.error('[BarcodeScanner] Processing error:', err);
       setMode('idle');
       setStatusText('');
       onError?.('Failed to process image. Please try again.');
@@ -82,6 +71,9 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
 
   return (
     <div className="space-y-3">
+      {/* Hidden element for html5-qrcode */}
+      <div id="barcode-scanner-hidden" className="hidden" />
+
       {/* Preview image */}
       {preview && mode !== 'processing' && (
         <div className="relative overflow-hidden rounded-2xl">
@@ -161,25 +153,4 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
       )}
     </div>
   );
-}
-
-/**
- * Try to detect a barcode from an image blob using html5-qrcode.
- */
-async function detectBarcode(blob: Blob): Promise<string | null> {
-  const file = new File([blob], 'scan.jpg', { type: 'image/jpeg' });
-  const scanner = new Html5Qrcode('barcode-scanner-hidden');
-
-  try {
-    const result = await scanner.scanFile(file, false);
-    return result || null;
-  } catch {
-    return null;
-  } finally {
-    try {
-      await scanner.clear();
-    } catch {
-      // ignore
-    }
-  }
 }
