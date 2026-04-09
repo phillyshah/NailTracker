@@ -48,7 +48,7 @@ export function Layout() {
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-primary-700">Summa Inventory</h1>
-            <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-600">
+            <span className="rounded-full bg-primary-100 px-2.5 py-0.5 text-sm font-semibold text-primary-600">
               v{APP_VERSION}
             </span>
           </div>
@@ -88,7 +88,7 @@ export function Layout() {
       <header className="flex lg:hidden items-center justify-between border-b bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-bold text-primary-700">Summa Inventory</h1>
-          <span className="rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-600">
+          <span className="rounded-full bg-primary-100 px-2.5 py-0.5 text-sm font-bold text-primary-600">
             v{APP_VERSION}
           </span>
         </div>

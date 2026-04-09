@@ -18,15 +18,6 @@ export async function scanBarcode(params: { barcode: string; imageData?: string 
   return res.data!;
 }
 
-/** Legacy: parse multiple barcodes at once */
-export async function parseBarcodes(barcodes: string[]) {
-  const res = await api<ApiResponse<ParsedItemWithStatus[]>>('/inventory/parse', {
-    method: 'POST',
-    body: { barcodes },
-  });
-  return res.data!;
-}
-
 export async function assignItems(
   items: unknown[],
   distributorId: string | null,

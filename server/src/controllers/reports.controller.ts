@@ -9,7 +9,7 @@ export async function summary(_req: Request, res: Response) {
     const in90 = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
     const in180 = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000);
 
-    const baseWhere = { deletedAt: null };
+    const baseWhere = { deletedAt: null, usedAt: null };
 
     const [totalUnits, activeDistributors, expiring90, expiring180, expired, unassigned] =
       await Promise.all([
@@ -51,6 +51,7 @@ export async function expiring(req: Request, res: Response) {
     const items = await prisma.inventoryItem.findMany({
       where: {
         deletedAt: null,
+        usedAt: null,
         expDate: { lte: cutoff },
       },
       include: { distributor: { select: { name: true } } },
@@ -86,7 +87,7 @@ export async function distributorReport(req: Request, res: Response) {
     }
 
     const items = await prisma.inventoryItem.findMany({
-      where: { distributorId: id, deletedAt: null },
+      where: { distributorId: id, deletedAt: null, usedAt: null },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -98,7 +99,7 @@ export async function distributorReport(req: Request, res: Response) {
 
 export async function exportCsv(req: Request, res: Response) {
   try {
-    const where: Record<string, unknown> = { deletedAt: null };
+    const where: Record<string, unknown> = { deletedAt: null, usedAt: null };
 
     const distributorId = str(req.query.distributorId);
     if (distributorId) {
@@ -146,7 +147,7 @@ export async function distributorCounts(_req: Request, res: Response) {
       where: { active: true },
       include: {
         _count: {
-          select: { items: { where: { deletedAt: null } } },
+          select: { items: { where: { deletedAt: null, usedAt: null } } },
         },
       },
       orderBy: { name: 'asc' },
@@ -160,7 +161,7 @@ export async function distributorCounts(_req: Request, res: Response) {
 
     // Add unassigned count
     const unassigned = await prisma.inventoryItem.count({
-      where: { distributorId: null, deletedAt: null },
+      where: { distributorId: null, deletedAt: null, usedAt: null },
     });
 
     if (unassigned > 0) {

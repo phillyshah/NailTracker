@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ApiResponse, SummaryReport, ExpiringItem, DistributorCount } from '../types';
+import type { ApiResponse, SummaryReport, ExpiringItem } from '../types';
 
 export async function getSummary() {
   const res = await api<ApiResponse<SummaryReport>>('/reports/summary');
@@ -10,11 +10,6 @@ export async function getExpiring(days = 90) {
   const res = await api<ApiResponse<ExpiringItem[]>>('/reports/expiring', {
     params: { days },
   });
-  return res.data!;
-}
-
-export async function getDistributorCounts() {
-  const res = await api<ApiResponse<DistributorCount[]>>('/reports/distributor-counts');
   return res.data!;
 }
 

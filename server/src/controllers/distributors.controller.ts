@@ -6,7 +6,7 @@ export async function list(_req: Request, res: Response) {
   try {
     const distributors = await prisma.distributor.findMany({
       where: { active: true },
-      include: { _count: { select: { items: true } } },
+      include: { _count: { select: { items: { where: { deletedAt: null, usedAt: null } } } } },
       orderBy: { name: 'asc' },
     });
     return success(res, distributors);
@@ -20,7 +20,7 @@ export async function getOne(req: Request, res: Response) {
     const id = str(req.params.id);
     const distributor = await prisma.distributor.findUnique({
       where: { id },
-      include: { _count: { select: { items: true } } },
+      include: { _count: { select: { items: { where: { deletedAt: null, usedAt: null } } } } },
     });
     if (!distributor) {
       return error(res, 'Distributor not found', 404);
@@ -68,7 +68,7 @@ export async function deactivate(req: Request, res: Response) {
   try {
     const id = str(req.params.id);
     const itemCount = await prisma.inventoryItem.count({
-      where: { distributorId: id, deletedAt: null },
+      where: { distributorId: id, deletedAt: null, usedAt: null },
     });
 
     await prisma.distributor.update({
