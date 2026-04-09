@@ -74,6 +74,14 @@ export default function Inventory() {
       const next = new Set(prev);
       if (next.has(udi)) next.delete(udi);
       else next.add(udi);
+
+      // Auto-set reassign dropdown to current distributor if all selected share one
+      const selectedList = items.filter((i) => next.has(i.udi));
+      const distIds = new Set(selectedList.map((i) => i.distributorId || ''));
+      if (distIds.size === 1) {
+        setReassignDistId([...distIds][0]);
+      }
+
       return next;
     });
   }
@@ -168,6 +176,7 @@ export default function Inventory() {
           <span className="text-sm font-semibold text-primary-700">
             {selectedItems.size} selected
           </span>
+          <span className="text-xs text-primary-600 font-medium">Move to:</span>
           <select
             value={reassignDistId}
             onChange={(e) => setReassignDistId(e.target.value)}
