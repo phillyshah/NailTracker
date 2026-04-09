@@ -4,7 +4,6 @@ module.exports = {
       name: 'summa-inventory',
       script: 'server/dist/index.js',
       cwd: '/var/www/summa-inventory',
-      node_args: '--env-file=.env',
       env: {
         NODE_ENV: 'production',
         PORT: 3045,
