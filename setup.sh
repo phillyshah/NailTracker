@@ -5,6 +5,11 @@ echo "=== Summa Inventory — VPS Setup ==="
 
 cd /var/www/summa-inventory
 
+# Load .env into shell environment
+set -a
+source .env
+set +a
+
 echo "Installing dependencies..."
 npm install
 
