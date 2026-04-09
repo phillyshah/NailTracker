@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRightLeft, Trash2, CheckCircle2, Image } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Trash2, CheckCircle2, Image, X } from 'lucide-react';
 import { getItem, reassignItem, deleteItem, markAsUsed } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { ExpiryBadge } from '../components/ExpiryBadge';
@@ -277,6 +277,13 @@ export default function InventoryDetail() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
           onClick={() => setShowImage(false)}
         >
+          <button
+            onClick={() => setShowImage(false)}
+            className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur hover:bg-white/30 z-10"
+            aria-label="Close"
+          >
+            <X size={28} />
+          </button>
           <img
             src={item.imageData}
             alt="Barcode label"

@@ -1,17 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Package, Users, Clock, XCircle, Inbox, Download } from 'lucide-react';
-import { getSummary, getExpiring, getDistributorCounts, getExportUrl } from '../api/reports';
+import { getSummary, getExpiring, getExportUrl } from '../api/reports';
 import { listDistributors } from '../api/distributors';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { cn } from '../utils/cn';
 
-const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'];
-
 export default function Reports() {
   const { data: summary } = useQuery({ queryKey: ['summary'], queryFn: getSummary });
   const { data: expiring } = useQuery({ queryKey: ['expiring'], queryFn: () => getExpiring(180) });
-  const { data: distCounts } = useQuery({ queryKey: ['dist-counts'], queryFn: getDistributorCounts });
   const { data: distributors = [] } = useQuery({ queryKey: ['distributors'], queryFn: listDistributors });
 
   const metrics = [
@@ -67,32 +63,6 @@ export default function Reports() {
           ))}
         </div>
       </div>
-
-      {/* Chart: Units by Distributor */}
-      {distCounts && distCounts.length > 0 && (
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-lg font-bold text-gray-900">Units by Distributor</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={distCounts} layout="vertical" margin={{ left: 20, right: 20 }}>
-                <XAxis type="number" />
-                <YAxis
-                  type="category"
-                  dataKey="distributorName"
-                  width={150}
-                  tick={{ fontSize: 13 }}
-                />
-                <Tooltip />
-                <Bar dataKey="count" radius={[0, 6, 6, 0]}>
-                  {distCounts.map((_: unknown, idx: number) => (
-                    <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
 
       {/* Expiring items table */}
       {expiring && expiring.length > 0 && (
