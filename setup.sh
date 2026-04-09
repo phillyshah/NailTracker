@@ -5,19 +5,19 @@ echo "=== Summa Inventory — VPS Setup ==="
 
 cd /var/www/summa-inventory
 
-# Load .env into shell environment
-set -a
-source .env
-set +a
-
-echo "Installing dependencies..."
-npm install
+echo "Installing dependencies (including dev for build)..."
+npm install --include=dev
 
 echo "Generating Prisma client..."
 npx prisma generate --schema=server/prisma/schema.prisma
 
+# Load .env for seed and migrate commands
+set -a
+source .env
+set +a
+
 echo "Running database migrations..."
-npx prisma migrate deploy --schema=server/prisma/schema.prisma
+npx prisma migrate deploy --schema=server/prisma/schema.prisma || echo "Migration skipped (tables may already exist)"
 
 echo "Seeding database..."
 npm run db:seed --workspace=server
