@@ -79,7 +79,7 @@ export default function Inventory() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-4xl lg:max-w-7xl">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       <div className="mb-4 flex items-center justify-between">

@@ -45,3 +45,30 @@ button, a, select, input[type="checkbox"], input[type="radio"] {
 input, textarea, select {
   font-size: 16px; /* Prevents iOS zoom on focus */
 }
+
+/* Print styles for transfer reports */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12px;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
+  }
+
+  /* Reset min-heights for print */
+  button, a, select, input[type="checkbox"], input[type="radio"] {
+    min-height: auto;
+  }
+
+  @page {
+    margin: 0.75in;
+    size: letter;
+  }
+}

@@ -11,6 +11,7 @@ import DistributorDetail from './pages/DistributorDetail';
 import Users from './pages/Users';
 import BatchUpload from './pages/BatchUpload';
 import Receive from './pages/Receive';
+import Transfer from './pages/Transfer';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="distributors/:id" element={<DistributorDetail />} />
         <Route path="users" element={<Users />} />
         <Route path="batch" element={<BatchUpload />} />
+        <Route path="transfer" element={<Transfer />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -23,11 +23,11 @@ export default function Reports() {
   ];
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl lg:max-w-7xl space-y-6">
       <h2 className="text-xl font-bold text-gray-900">Reports</h2>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {metrics.map((m) => (
           <div key={m.label} className={cn('rounded-2xl p-4', m.color)}>
             <m.icon size={24} className="mb-2" />
@@ -40,7 +40,7 @@ export default function Reports() {
       {/* Export by distributor */}
       <div className="rounded-2xl bg-white p-5 shadow-sm">
         <h3 className="mb-4 text-lg font-bold text-gray-900">Export Inventory</h3>
-        <div className="space-y-2">
+        <div className="grid gap-2 lg:grid-cols-2">
           {/* Export all */}
           <a
             href={getExportUrl()}

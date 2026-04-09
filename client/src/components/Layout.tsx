@@ -11,6 +11,7 @@ import {
   X,
   Images,
   UserCog,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { APP_VERSION } from '../version';
@@ -24,6 +25,7 @@ const mainNavItems = [
 ];
 
 const moreNavItems = [
+  { to: '/transfer', label: 'Transfer', icon: ArrowRightLeft },
   { to: '/distributors', label: 'Distributors', icon: Users },
   { to: '/batch', label: 'Batch Upload', icon: Images },
   { to: '/users', label: 'User Management', icon: UserCog },
@@ -100,7 +102,7 @@ export function Layout() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto px-4 py-4 pb-24 lg:px-8 lg:py-6 lg:pb-6">
+      <main className="flex-1 overflow-y-auto px-4 py-4 pb-24 lg:px-10 lg:py-6 lg:pb-6">
         <Outlet />
       </main>
 
