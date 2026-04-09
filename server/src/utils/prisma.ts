@@ -11,7 +11,14 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+// Use DIRECT_URL (port 5432) to avoid double-pooling with PgBouncer.
+// Fall back to DATABASE_URL if DIRECT_URL is not set.
+const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
+
+const pool = new pg.Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false },
+});
 const adapter = new PrismaPg(pool);
 
 export const prisma = new PrismaClient({ adapter });
