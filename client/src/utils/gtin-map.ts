@@ -1,30 +1,25 @@
 /**
  * GTIN Product Map — Summa Orthopaedics Femoral Nail System
+ * Client-side copy — keep in sync with server/src/utils/gtin-map.ts
  *
- * Maps gtinShort (last 7 digits of GTIN, leading zeros stripped) to product descriptions.
- * Update this file with real GTIN values from the Summa catalog.
- *
- * To add a new product:
- *   1. Take the 14-digit GTIN from the barcode label
- *   2. Strip leading zeros, take the last 7 digits
- *   3. Add an entry: 'XXXXXXX': 'Product Description'
+ * REF code pattern:
+ *   SO-SPFN-{length}-{diameter}-{angle} = Short Proximal Femoral Nail
+ *   SO-LPFN-{length}-{diameter}-{angle}-{side} = Long Proximal Femoral Nail
+ *   SO-SPFL-N{length} = Lag Screw, Normal
+ *   SO-SPFL-A{length} = Lag Screw, Anti-Rotation
+ *   SO-SPFL-T{length} = Lag Screw, Telescopic
+ *   SO-IS-{length}    = Interlocking Screw
+ *   SO-EC-{size}      = End Cap
+ *   SO-SS             = Set Screw
  */
 
 export const gtinMap: Record<string, string> = {
-  // ── Short Femoral Nails ──────────────────────────────────────────
-  // Format: Short Nail {diameter}mm x {length}mm, {angle}°
-  // Lengths: 170, 180, 190, 200mm | Diameters: 10, 11, 12, 13mm | Angles: 125°, 130°
+  // ── Short Proximal Femoral Nails (SO-SPFN) ──────────────────────
+  '9459162': 'Short Femoral Nail 10mm x 200mm, 126°',   // REF: SO-SPFN-0200-10-26
+  '9459247': 'Short Femoral Nail 11mm x 200mm, 126°',   // REF: SO-SPFN-0200-11-26
 
-  // TODO: Replace placeholder GTINs with real values from catalog
-
-  // ── Long Femoral Nails — Left ────────────────────────────────────
-  // ── Long Femoral Nails — Right ───────────────────────────────────
-  // ── Lag Screws — Normal ──────────────────────────────────────────
-  // ── Lag Screws — Anti-Rotation ───────────────────────────────────
-  // ── Lag Screws — Telescopic ──────────────────────────────────────
-  // ── Interlocking Screws ──────────────────────────────────────────
-  // ── End Caps ─────────────────────────────────────────────────────
-  // ── Set Screw ────────────────────────────────────────────────────
+  // ── Lag Screws — Normal (SO-SPFL-N) ──────────────────────────────
+  '9461431': 'Lag Screw Normal 100mm',                   // REF: SO-SPFL-N100
 };
 
 export function getProductLabel(gtinShort: string): string {
