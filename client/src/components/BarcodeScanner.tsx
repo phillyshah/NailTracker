@@ -16,7 +16,8 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -25,38 +26,6 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
     }
     setMode('idle');
   }, []);
-
-  async function startCamera() {
-    setCameraError(null);
-    setMode('camera');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-    } catch {
-      setCameraError('Camera access denied. Please allow camera access or upload a photo instead.');
-      setMode('idle');
-    }
-  }
-
-  async function capturePhoto() {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d')!.drawImage(video, 0, 0);
-    const blob = await new Promise<Blob>((resolve) =>
-      canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.9),
-    );
-    stopCamera();
-    await processImage(blob);
-  }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -113,41 +82,8 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
 
   return (
     <div className="space-y-3">
-      {/* Camera view */}
-      {mode === 'camera' && (
-        <div className="relative overflow-hidden rounded-2xl bg-black">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full"
-            style={{ maxHeight: '60vh' }}
-          />
-          <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-4 bg-gradient-to-t from-black/60 p-4">
-            <button
-              onClick={stopCamera}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur"
-            >
-              <X size={24} />
-            </button>
-            <button
-              onClick={capturePhoto}
-              className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-white/30 backdrop-blur"
-            >
-              <div className="h-12 w-12 rounded-full bg-white" />
-            </button>
-            <div className="h-12 w-12" /> {/* spacer */}
-          </div>
-          {/* Scanning guide overlay */}
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="h-24 w-64 rounded-lg border-2 border-white/60" />
-          </div>
-        </div>
-      )}
-
       {/* Preview image */}
-      {preview && mode !== 'camera' && mode !== 'processing' && (
+      {preview && mode !== 'processing' && (
         <div className="relative overflow-hidden rounded-2xl">
           <img src={preview} alt="Captured" className="w-full rounded-2xl" />
           <button
@@ -170,25 +106,36 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
       {/* Action buttons */}
       {mode === 'idle' && !preview && (
         <div className="grid grid-cols-2 gap-3">
+          {/* Take Photo — opens native camera */}
           <button
-            onClick={startCamera}
+            onClick={() => cameraInputRef.current?.click()}
             className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-primary-300 bg-primary-50 px-4 py-8 text-primary-700 hover:bg-primary-100 transition-colors"
           >
             <Camera size={32} />
             <span className="text-base font-semibold">Take Photo</span>
           </button>
+          {/* Upload Photo — opens photo gallery */}
           <button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => uploadInputRef.current?.click()}
             className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-gray-700 hover:bg-gray-100 transition-colors"
           >
             <Upload size={32} />
             <span className="text-base font-semibold">Upload Photo</span>
           </button>
+          {/* Camera input — has capture attribute to open camera */}
           <input
-            ref={fileInputRef}
+            ref={cameraInputRef}
             type="file"
             accept="image/*"
             capture="environment"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          {/* Upload input — NO capture attribute, opens gallery/file picker */}
+          <input
+            ref={uploadInputRef}
+            type="file"
+            accept="image/*"
             onChange={handleFileSelect}
             className="hidden"
           />
@@ -218,23 +165,21 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
 
 /**
  * Try to detect a barcode from an image blob using html5-qrcode.
- * Returns the decoded string or null if not found.
  */
 async function detectBarcode(blob: Blob): Promise<string | null> {
   const file = new File([blob], 'scan.jpg', { type: 'image/jpeg' });
   const scanner = new Html5Qrcode('barcode-scanner-hidden');
 
   try {
-    const result = await scanner.scanFile(file, /* showImage */ false);
+    const result = await scanner.scanFile(file, false);
     return result || null;
   } catch {
-    // Barcode not detected
     return null;
   } finally {
     try {
       await scanner.clear();
     } catch {
-      // ignore cleanup errors
+      // ignore
     }
   }
 }

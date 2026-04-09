@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { LogIn } from 'lucide-react';
+import { LogIn, Bone } from 'lucide-react';
 import { APP_VERSION } from '../version';
 
 export default function Login() {
@@ -29,11 +29,15 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-primary-50/30 to-slate-100 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
+          {/* Logo icon */}
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-primary-800 shadow-lg shadow-primary-200">
+            <Bone size={40} className="text-white -rotate-45" />
+          </div>
           <h1 className="text-2xl font-bold text-primary-700">Summa Inventory</h1>
-          <p className="mt-2 text-base text-gray-500">Medical Device Tracking</p>
+          <p className="mt-1 text-base text-gray-500">Orthopaedic Device Tracking</p>
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-2xl bg-white p-6 shadow-md">
@@ -77,7 +81,9 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-400">ver {APP_VERSION}</p>
+        <p className="mt-6 text-center text-xs text-gray-400">
+          Summa Orthopaedics &middot; ver {APP_VERSION}
+        </p>
       </div>
     </div>
   );
