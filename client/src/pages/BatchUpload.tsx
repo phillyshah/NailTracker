@@ -10,11 +10,10 @@ import {
   Images,
   Trash2,
 } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
 import { scanBarcode, assignItems } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { compressImage } from '../utils/compressImage';
-import { extractBarcodeText } from '../utils/ocrBarcode';
+import { detectBarcodeFromImage } from '../utils/barcodeDetector';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -100,7 +99,7 @@ export default function BatchUpload() {
 
       try {
         const compressed = await compressImage(file);
-        const barcode = await detectBarcodeFromFile(file);
+        const barcode = await detectBarcodeFromImage(file);
 
         if (barcode) {
           // Got a barcode, scan it against the server
@@ -188,7 +187,6 @@ export default function BatchUpload() {
   return (
     <div className="mx-auto max-w-2xl">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-      <div id="barcode-scanner-hidden" className="hidden" />
 
       <h2 className="mb-4 text-xl font-bold text-gray-900">Batch Upload</h2>
 
@@ -415,19 +413,3 @@ function StatBadge({
   );
 }
 
-async function detectBarcodeFromFile(file: File): Promise<string | null> {
-  // Step 1: Try barcode reader
-  const scanner = new Html5Qrcode('barcode-scanner-hidden');
-  try {
-    const result = await scanner.scanFile(file, false);
-    if (result) return result;
-  } catch {
-    // fall through to OCR
-  } finally {
-    try { await scanner.clear(); } catch { /* ignore */ }
-  }
-
-  // Step 2: Try OCR to read the text on the label
-  const ocrResult = await extractBarcodeText(file);
-  return ocrResult;
-}
