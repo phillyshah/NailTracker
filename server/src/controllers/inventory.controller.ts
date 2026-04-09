@@ -3,6 +3,48 @@ import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 import { parseGS1, isParseError } from '../utils/parseGS1.js';
 
+/**
+ * POST /api/inventory/scan
+ * Scan a single barcode — parse it and check if it already exists in the DB.
+ */
+export async function scan(req: Request, res: Response) {
+  try {
+    const { barcode } = req.body as { barcode: string };
+    const parsed = parseGS1(barcode);
+
+    if (isParseError(parsed)) {
+      return success(res, {
+        parsed: { ...parsed, status: 'error' as const, errorMessage: parsed.error },
+        existing: null,
+      });
+    }
+
+    // Check if this UDI already exists
+    const existing = await prisma.inventoryItem.findUnique({
+      where: { udi: parsed.udi },
+      include: { distributor: { select: { id: true, name: true } } },
+    });
+
+    // Exclude soft-deleted or used items from "existing" match
+    const activeExisting = existing && !existing.deletedAt && !existing.usedAt ? existing : null;
+
+    return success(res, {
+      parsed: {
+        ...parsed,
+        expDate: parsed.expDate?.toISOString() ?? null,
+        status: activeExisting ? ('duplicate' as const) : ('new' as const),
+      },
+      existing: activeExisting,
+    });
+  } catch (err) {
+    return error(res, 'Scan failed', 500);
+  }
+}
+
+/**
+ * POST /api/inventory/parse
+ * Parse multiple barcodes and check for duplicates.
+ */
 export async function parse(req: Request, res: Response) {
   try {
     const { barcodes } = req.body as { barcodes: string[] };
@@ -14,7 +56,7 @@ export async function parse(req: Request, res: Response) {
       .map((r) => (r as { udi: string }).udi);
 
     const existing = await prisma.inventoryItem.findMany({
-      where: { udi: { in: udis }, deletedAt: null },
+      where: { udi: { in: udis }, deletedAt: null, usedAt: null },
       select: { udi: true },
     });
     const existingSet = new Set(existing.map((e) => e.udi));
@@ -37,9 +79,13 @@ export async function parse(req: Request, res: Response) {
   }
 }
 
+/**
+ * POST /api/inventory/assign
+ * Assign one or more parsed items to a distributor. Optionally stores image.
+ */
 export async function assign(req: Request, res: Response) {
   try {
-    const { items, distributorId } = req.body;
+    const { items, distributorId, imageData } = req.body;
 
     let distributor = null;
     if (distributorId) {
@@ -68,6 +114,7 @@ export async function assign(req: Request, res: Response) {
           expDate: item.expDate ? new Date(item.expDate) : null,
           rawBarcode: item.rawBarcode,
           productLabel: item.productLabel,
+          imageData: imageData || null,
           distributorId: distributorId || null,
           assignedAt: distributorId ? new Date() : null,
           assignedBy: req.user?.username || null,
@@ -101,7 +148,7 @@ export async function list(req: Request, res: Response) {
     const limit = Math.min(100, Math.max(1, parseInt(str(req.query.limit)) || 25));
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = { deletedAt: null };
+    const where: Record<string, unknown> = { deletedAt: null, usedAt: null };
 
     const distributorId = str(req.query.distributorId);
     if (distributorId) {
@@ -129,6 +176,8 @@ export async function list(req: Request, res: Response) {
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
+        // Don't return imageData in list view (too large)
+        omit: { imageData: true },
       }),
       prisma.inventoryItem.count({ where }),
     ]);
@@ -207,6 +256,49 @@ export async function reassign(req: Request, res: Response) {
     return success(res, { message: 'Item reassigned' });
   } catch (err) {
     return error(res, 'Reassignment failed', 500);
+  }
+}
+
+/**
+ * PATCH /api/inventory/:udi/use
+ * Mark an item as used (implanted).
+ */
+export async function markUsed(req: Request, res: Response) {
+  try {
+    const udi = str(req.params.udi);
+
+    const item = await prisma.inventoryItem.findUnique({
+      where: { udi },
+      include: { distributor: true },
+    });
+
+    if (!item || item.deletedAt) {
+      return error(res, 'Item not found', 404);
+    }
+
+    if (item.usedAt) {
+      return error(res, 'Item already marked as used', 400);
+    }
+
+    await prisma.$transaction([
+      prisma.inventoryItem.update({
+        where: { udi },
+        data: { usedAt: new Date() },
+      }),
+      prisma.assignmentHistory.create({
+        data: {
+          itemId: item.id,
+          fromDistributorId: item.distributorId,
+          fromDistributorName: item.distributor?.name || null,
+          changedBy: req.user?.username || null,
+          note: 'Marked as used (implanted)',
+        },
+      }),
+    ]);
+
+    return success(res, { message: 'Item marked as used' });
+  } catch (err) {
+    return error(res, 'Failed to mark item as used', 500);
   }
 }
 

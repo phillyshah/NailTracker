@@ -34,10 +34,12 @@ export interface InventoryItem {
   expDate: string | null;
   rawBarcode: string;
   productLabel: string | null;
+  imageData?: string | null;
   distributorId: string | null;
   distributor?: Distributor | null;
   assignedAt: string | null;
   assignedBy: string | null;
+  usedAt: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;

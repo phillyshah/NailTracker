@@ -1,7 +1,7 @@
 import { api } from './client';
 import type { ApiResponse, InventoryItem, ParsedItemWithStatus } from '../types';
 
-interface ParseResponse extends ApiResponse<ParsedItemWithStatus[]> {}
+interface ScanResponse extends ApiResponse<{ parsed: ParsedItemWithStatus; existing: InventoryItem | null }> {}
 
 interface AssignResponse extends ApiResponse<{ created: number; skipped: number }> {}
 
@@ -9,18 +9,32 @@ interface ListResponse extends ApiResponse<InventoryItem[]> {}
 
 interface ItemResponse extends ApiResponse<InventoryItem> {}
 
+/** Scan a single barcode — parses it and checks if it exists in the DB */
+export async function scanBarcode(params: { barcode: string; imageData?: string }) {
+  const res = await api<ScanResponse>('/inventory/scan', {
+    method: 'POST',
+    body: params,
+  });
+  return res.data!;
+}
+
+/** Legacy: parse multiple barcodes at once */
 export async function parseBarcodes(barcodes: string[]) {
-  const res = await api<ParseResponse>('/inventory/parse', {
+  const res = await api<ApiResponse<ParsedItemWithStatus[]>>('/inventory/parse', {
     method: 'POST',
     body: { barcodes },
   });
   return res.data!;
 }
 
-export async function assignItems(items: unknown[], distributorId: string | null) {
+export async function assignItems(
+  items: unknown[],
+  distributorId: string | null,
+  imageData?: string,
+) {
   const res = await api<AssignResponse>('/inventory/assign', {
     method: 'POST',
-    body: { items, distributorId },
+    body: { items, distributorId, imageData },
   });
   return res.data!;
 }
@@ -45,6 +59,12 @@ export async function reassignItem(udi: string, distributorId: string | null, no
   return api<ApiResponse<{ message: string }>>(`/inventory/${encodeURIComponent(udi)}/reassign`, {
     method: 'PATCH',
     body: { distributorId, note },
+  });
+}
+
+export async function markAsUsed(udi: string) {
+  return api<ApiResponse<{ message: string }>>(`/inventory/${encodeURIComponent(udi)}/use`, {
+    method: 'PATCH',
   });
 }
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { LogIn } from 'lucide-react';
+import { APP_VERSION } from '../version';
 
 export default function Login() {
   const { user, login } = useAuth();
@@ -75,6 +76,8 @@ export default function Login() {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        <p className="mt-6 text-center text-sm text-gray-400">ver {APP_VERSION}</p>
       </div>
     </div>
   );

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRightLeft, Trash2 } from 'lucide-react';
-import { getItem, reassignItem, deleteItem } from '../api/inventory';
+import { ArrowLeft, ArrowRightLeft, Trash2, CheckCircle2, Image } from 'lucide-react';
+import { getItem, reassignItem, deleteItem, markAsUsed } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
@@ -14,6 +14,7 @@ export default function InventoryDetail() {
   const queryClient = useQueryClient();
   const { toasts, addToast, removeToast } = useToast();
   const [showReassign, setShowReassign] = useState(false);
+  const [showImage, setShowImage] = useState(false);
   const [newDistId, setNewDistId] = useState('');
   const [note, setNote] = useState('');
 
@@ -36,6 +37,16 @@ export default function InventoryDetail() {
       addToast('Item reassigned', 'success');
       setShowReassign(false);
       queryClient.invalidateQueries({ queryKey: ['inventory-item', udi] });
+    },
+    onError: (err: Error) => addToast(err.message, 'error'),
+  });
+
+  const useMutation_ = useMutation({
+    mutationFn: () => markAsUsed(udi!),
+    onSuccess: () => {
+      addToast('Item marked as used', 'success');
+      queryClient.invalidateQueries({ queryKey: ['inventory-item', udi] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
@@ -76,6 +87,38 @@ export default function InventoryDetail() {
         <ArrowLeft size={20} /> Back to Inventory
       </button>
 
+      {/* Used badge */}
+      {item.usedAt && (
+        <div className="mb-4 rounded-2xl bg-amber-50 border-2 border-amber-300 px-4 py-3 text-center">
+          <p className="text-base font-semibold text-amber-800">
+            This item has been marked as used (implanted)
+          </p>
+          <p className="text-sm text-amber-600">
+            {new Date(item.usedAt).toLocaleDateString()}
+          </p>
+        </div>
+      )}
+
+      {/* Item photo */}
+      {item.imageData && (
+        <div className="mb-4">
+          <button
+            onClick={() => setShowImage(!showImage)}
+            className="flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700 mb-2"
+          >
+            <Image size={18} />
+            {showImage ? 'Hide Photo' : 'View Barcode Photo'}
+          </button>
+          {showImage && (
+            <img
+              src={item.imageData}
+              alt="Barcode label"
+              className="w-full rounded-2xl shadow-sm"
+            />
+          )}
+        </div>
+      )}
+
       {/* Item details card */}
       <div className="rounded-2xl bg-white p-5 shadow-sm mb-4">
         <h2 className="text-xl font-bold text-gray-900 mb-1">
@@ -99,36 +142,55 @@ export default function InventoryDetail() {
           />
           <DetailRow
             label="Assigned"
-            value={item.assignedAt ? new Date(item.assignedAt).toLocaleDateString() : '—'}
+            value={item.assignedAt ? new Date(item.assignedAt).toLocaleDateString() : '\u2014'}
           />
-          <DetailRow label="Assigned By" value={item.assignedBy || '—'} />
+          <DetailRow label="Assigned By" value={item.assignedBy || '\u2014'} />
           <DetailRow
             label="Added"
             value={new Date(item.createdAt).toLocaleDateString()}
           />
+          {item.usedAt && (
+            <DetailRow
+              label="Used"
+              value={new Date(item.usedAt).toLocaleDateString()}
+            />
+          )}
         </div>
 
-        <div className="mt-5 flex gap-3">
-          <button
-            onClick={() => {
-              setShowReassign(true);
-              setNewDistId(item.distributorId || '');
-            }}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700"
-          >
-            <ArrowRightLeft size={20} /> Reassign
-          </button>
-          <button
-            onClick={() => {
-              if (confirm('Delete this item? This action cannot be undone.')) {
-                deleteMutation.mutate();
-              }
-            }}
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-red-300 px-4 py-3 text-base font-semibold text-red-600 hover:bg-red-50"
-          >
-            <Trash2 size={20} />
-          </button>
-        </div>
+        {!item.usedAt && (
+          <div className="mt-5 flex gap-3">
+            <button
+              onClick={() => {
+                setShowReassign(true);
+                setNewDistId(item.distributorId || '');
+              }}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700"
+            >
+              <ArrowRightLeft size={20} /> Reassign
+            </button>
+            <button
+              onClick={() => {
+                if (confirm('Mark this item as used (implanted)?')) {
+                  useMutation_.mutate();
+                }
+              }}
+              disabled={useMutation_.isPending}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-3 text-base font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              <CheckCircle2 size={20} /> Mark Used
+            </button>
+            <button
+              onClick={() => {
+                if (confirm('Delete this item? This action cannot be undone.')) {
+                  deleteMutation.mutate();
+                }
+              }}
+              className="flex items-center justify-center gap-2 rounded-xl border-2 border-red-300 px-4 py-3 text-base font-semibold text-red-600 hover:bg-red-50"
+            >
+              <Trash2 size={20} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Assignment History */}
@@ -149,7 +211,7 @@ export default function InventoryDetail() {
                   </p>
                   <p className="text-base text-gray-900">
                     {h.fromDistributorName || 'Unassigned'}
-                    {' → '}
+                    {' \u2192 '}
                     {h.toDistributorName || 'Unassigned'}
                   </p>
                   {h.note && <p className="text-sm text-gray-500 italic">{h.note}</p>}
@@ -206,6 +268,21 @@ export default function InventoryDetail() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Full-screen image view */}
+      {showImage && item.imageData && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setShowImage(false)}
+        >
+          <img
+            src={item.imageData}
+            alt="Barcode label"
+            className="max-h-[80vh] max-w-full rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
     </div>

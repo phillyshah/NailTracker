@@ -37,10 +37,12 @@ model InventoryItem {
   expDate       DateTime?
   rawBarcode    String
   productLabel  String?
+  imageData     String?
   distributorId String?
   distributor   Distributor?        @relation(fields: [distributorId], references: [id])
   assignedAt    DateTime?
   assignedBy    String?
+  usedAt        DateTime?
   deletedAt     DateTime?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
@@ -50,6 +52,7 @@ model InventoryItem {
   @@index([expDate])
   @@index([deletedAt])
   @@index([gtinShort])
+  @@index([usedAt])
 }
 
 model AssignmentHistory {
