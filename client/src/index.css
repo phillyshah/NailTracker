@@ -51,7 +51,7 @@ input, textarea, select {
   body {
     background: white !important;
     color: black !important;
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .print\:hidden {
@@ -62,13 +62,24 @@ input, textarea, select {
     display: block !important;
   }
 
+  /* Hide all app chrome: headers, nav bars, toasts */
+  header, nav, footer {
+    display: none !important;
+  }
+
   /* Reset min-heights for print */
   button, a, select, input[type="checkbox"], input[type="radio"] {
     min-height: auto;
   }
 
+  /* Force single page, no extra content */
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
   @page {
-    margin: 0.75in;
+    margin: 0.5in;
     size: letter;
   }
 }

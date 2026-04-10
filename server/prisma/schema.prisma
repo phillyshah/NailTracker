@@ -69,3 +69,20 @@ model AssignmentHistory {
 
   @@index([itemId])
 }
+
+model Transfer {
+  id                  String         @id @default(cuid())
+  transferId          String         @unique
+  fromDistributorId   String?
+  fromDistributorName String
+  toDistributorId     String?
+  toDistributorName   String
+  note                String?
+  itemCount           Int
+  items               Json
+  transferredBy       String?
+  createdAt           DateTime       @default(now())
+
+  @@index([transferId])
+  @@index([createdAt])
+}
