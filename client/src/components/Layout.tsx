@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router';
+import { useState, useEffect } from 'react';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router';
 import {
   Building2,
   ScanLine,
@@ -34,7 +34,13 @@ const moreNavItems = [
 export function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showMore, setShowMore] = useState(false);
+
+  // Close More menu on any route change
+  useEffect(() => {
+    setShowMore(false);
+  }, [location.pathname]);
 
   async function handleLogout() {
     await logout();

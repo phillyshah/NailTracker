@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { Package, Users, Clock, XCircle, Inbox, Download, Search, ArrowRightLeft } from 'lucide-react';
+import { Package, Users, Clock, XCircle, Inbox, Download, Search, ArrowRightLeft, ChevronRight } from 'lucide-react';
 import { getSummary, getExpiring, getExportUrl } from '../api/reports';
 import { listDistributors } from '../api/distributors';
 import { listTransfers, type TransferRecord } from '../api/transfers';
@@ -65,10 +65,10 @@ export default function Reports() {
             <Download size={20} className="text-primary-600" />
           </a>
           {distributors.map((d) => (
-            <a
+            <button
               key={d.id}
-              href={getExportUrl({ distributorId: d.id })}
-              className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
+              onClick={() => navigate(`/distributors/${d.id}`)}
+              className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors text-left"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span className="truncate">{d.name}</span>
@@ -76,8 +76,8 @@ export default function Reports() {
                   {d._count?.items ?? 0}
                 </span>
               </div>
-              <Download size={20} className="text-primary-600 shrink-0" />
-            </a>
+              <ChevronRight size={20} className="text-gray-400 shrink-0" />
+            </button>
           ))}
         </div>
       </div>
