@@ -16,6 +16,7 @@ import { compressImage } from '../utils/compressImage';
 import { detectBarcodeFromImage } from '../utils/barcodeDetector';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
+import { HelpBanner } from '../components/HelpBanner';
 import { useToast } from '../hooks/useToast';
 
 interface BatchItem {
@@ -189,6 +190,10 @@ export default function BatchUpload() {
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       <h2 className="mb-4 text-xl font-bold text-gray-900">Batch Upload</h2>
+
+      <HelpBanner storageKey="batch">
+        Upload multiple barcode photos at once to add items in bulk. Select photos from your gallery, then assign them to a distributor.
+      </HelpBanner>
 
       {/* Upload area */}
       <div className="rounded-2xl bg-white p-4 shadow-sm mb-4">

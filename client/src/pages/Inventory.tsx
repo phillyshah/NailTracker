@@ -9,6 +9,7 @@ import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import { cn } from '../utils/cn';
+import { HelpBanner } from '../components/HelpBanner';
 import type { InventoryItem } from '../types';
 
 export default function Inventory() {
@@ -109,6 +110,10 @@ export default function Inventory() {
           </a>
         </div>
       </div>
+
+      <HelpBanner storageKey="inventory">
+        Browse all active inventory. Use the search bar to find items by UDI, lot, or product name. Tap the filter icon to narrow by distributor or expiry date. Tap any item for full details.
+      </HelpBanner>
 
       {/* Search bar */}
       <div className="mb-3 flex gap-2">

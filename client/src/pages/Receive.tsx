@@ -12,6 +12,7 @@ import { listDistributors } from '../api/distributors';
 import { compressImage } from '../utils/compressImage';
 import { detectBarcodeFromImage } from '../utils/barcodeDetector';
 import { BarcodeScanner } from '../components/BarcodeScanner';
+import { HelpBanner } from '../components/HelpBanner';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -159,6 +160,10 @@ export default function Receive() {
           <p className="text-sm text-gray-500">Scan items into Home Office</p>
         </div>
       </div>
+
+      <HelpBanner storageKey="receive">
+        Scan or photograph barcode labels to add new items to Home Office inventory. Items are saved automatically when scanned.
+      </HelpBanner>
 
       {/* Quick scan area — always visible for rapid receiving */}
       {scanning && (

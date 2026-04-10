@@ -14,6 +14,7 @@ import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import { APP_VERSION } from '../version';
 import { cn } from '../utils/cn';
+import { HelpBanner } from '../components/HelpBanner';
 import type { InventoryItem } from '../types';
 
 export default function Transfer() {
@@ -126,6 +127,10 @@ export default function Transfer() {
       {/* Regular page content — hidden when printing */}
       <div className="print:hidden">
         <h2 className="mb-4 text-xl font-bold text-gray-900">Transfer Inventory</h2>
+
+        <HelpBanner storageKey="transfer">
+          Move multiple items between distributors in one batch. Select a source distributor, choose the items to move, then pick a destination.
+        </HelpBanner>
 
         {/* STEP 1: Select source, items, destination */}
         {step === 'select' && (
@@ -423,7 +428,11 @@ export default function Transfer() {
             </table>
 
             <p className="text-xs text-gray-600">
-              Total: <strong>{savedTransfer.itemCount}</strong> items &middot; Summa Orthopaedics Inventory v{APP_VERSION}
+              Total: <strong>{savedTransfer.itemCount}</strong> items
+            </p>
+
+            <p className="fixed bottom-4 left-0 right-0 text-center text-[10px] text-gray-400">
+              Summa Orthopaedics Inventory System v{APP_VERSION}
             </p>
           </div>
         </div>
