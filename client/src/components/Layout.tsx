@@ -19,7 +19,7 @@ import { cn } from '../utils/cn';
 
 const mainNavItems = [
   { to: '/receive', label: 'Receive', icon: Building2 },
-  { to: '/scan', label: 'Scan', icon: ScanLine },
+  { to: '/scan', label: 'Lookup', icon: ScanLine },
   { to: '/inventory', label: 'Inventory', icon: Package },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
 ];

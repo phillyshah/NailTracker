@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router';
 import { Package, Users, Clock, XCircle, Inbox, Download, Search, ArrowRightLeft } from 'lucide-react';
 import { getSummary, getExpiring, getExportUrl } from '../api/reports';
 import { listDistributors } from '../api/distributors';
 import { listTransfers, type TransferRecord } from '../api/transfers';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { cn } from '../utils/cn';
+import { HelpBanner } from '../components/HelpBanner';
 
 export default function Reports() {
+  const navigate = useNavigate();
   const { data: summary } = useQuery({ queryKey: ['summary'], queryFn: getSummary });
   const { data: expiring } = useQuery({ queryKey: ['expiring'], queryFn: () => getExpiring(180) });
   const { data: distributors = [] } = useQuery({ queryKey: ['distributors'], queryFn: listDistributors });
@@ -34,6 +37,10 @@ export default function Reports() {
   return (
     <div className="mx-auto max-w-4xl lg:max-w-7xl space-y-6">
       <h2 className="text-xl font-bold text-gray-900">Reports</h2>
+
+      <HelpBanner storageKey="reports">
+        View inventory metrics, export CSV reports by distributor, and search transfer history by ID. Tap a transfer ID to see full details.
+      </HelpBanner>
 
       {/* Metric cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -99,7 +106,7 @@ export default function Reports() {
               {transfers.map((t: TransferRecord) => (
                 <div key={t.id} className="rounded-xl border border-gray-200 p-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold font-mono text-primary-700">{t.transferId}</span>
+                    <button onClick={() => navigate(`/transfer/${t.transferId}`)} className="text-sm font-bold font-mono text-primary-700 underline">{t.transferId}</button>
                     <span className="text-xs text-gray-500">{new Date(t.createdAt).toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-700">
@@ -127,7 +134,7 @@ export default function Reports() {
                 <tbody>
                   {transfers.map((t: TransferRecord) => (
                     <tr key={t.id} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-2 font-mono font-semibold text-primary-700">{t.transferId}</td>
+                      <td className="px-3 py-2 font-mono font-semibold text-primary-700"><button onClick={() => navigate(`/transfer/${t.transferId}`)} className="underline hover:text-primary-900">{t.transferId}</button></td>
                       <td className="px-3 py-2">{new Date(t.createdAt).toLocaleDateString()}</td>
                       <td className="px-3 py-2">{t.fromDistributorName}</td>
                       <td className="px-3 py-2">{t.toDistributorName}</td>

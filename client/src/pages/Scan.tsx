@@ -12,6 +12,7 @@ import { scanBarcode, assignItems, reassignItem, markAsUsed } from '../api/inven
 import { listDistributors } from '../api/distributors';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { BarcodeScanner } from '../components/BarcodeScanner';
+import { HelpBanner } from '../components/HelpBanner';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import type { InventoryItem, ParsedItemWithStatus } from '../types';
@@ -134,7 +135,11 @@ export default function Scan() {
       {/* Hidden div for html5-qrcode */}
       <div id="barcode-scanner-hidden" className="hidden" />
 
-      <h2 className="mb-4 text-xl font-bold text-gray-900">Scan Item</h2>
+      <h2 className="mb-4 text-xl font-bold text-gray-900">Lookup Item</h2>
+
+      <HelpBanner storageKey="lookup">
+        Scan or search for an item to check its status. If the item is already in the system, you can transfer it to another distributor or mark it as used.
+      </HelpBanner>
 
       {/* No result yet — show scanner */}
       {!result && (
