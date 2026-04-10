@@ -10,7 +10,7 @@ import {
 import { scanBarcode, assignItems } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { compressImage } from '../utils/compressImage';
-import { detectBarcodeFromImage } from '../utils/barcodeDetector';
+import { detectBarcodesFromImage } from '../utils/barcodeDetector';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { HelpBanner } from '../components/HelpBanner';
 import { ExpiryBadge } from '../components/ExpiryBadge';
@@ -115,9 +115,11 @@ export default function Receive() {
     for (const file of files) {
       try {
         const compressed = await compressImage(file);
-        const barcode = await detectBarcodeFromImage(file);
-        if (barcode) {
-          await handleBarcode(barcode, compressed);
+        const barcodes = await detectBarcodesFromImage(file);
+        if (barcodes.length > 0) {
+          for (const barcode of barcodes) {
+            await handleBarcode(barcode, compressed);
+          }
         } else {
           setReceivedItems((prev) => [
             {

@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { Camera, Upload, X, RotateCcw } from 'lucide-react';
 import { compressImage } from '../utils/compressImage';
-import { detectBarcodeFromImage } from '../utils/barcodeDetector';
+import { detectBarcodesFromImage } from '../utils/barcodeDetector';
 
 interface BarcodeScannerProps {
   onResult: (barcode: string, imageDataUrl: string) => void;
@@ -40,10 +40,12 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
       const compressed = await compressImage(blob);
       setPreview(compressed);
 
-      // Use unified detection pipeline (native API → html5-qrcode → OCR)
-      const barcode = await detectBarcodeFromImage(blob);
-      if (barcode) {
-        onResult(barcode, compressed);
+      // Detect up to 4 barcodes from a single image
+      const barcodes = await detectBarcodesFromImage(blob);
+      if (barcodes.length > 0) {
+        for (const barcode of barcodes) {
+          onResult(barcode, compressed);
+        }
         setPreview(null);
         setMode('idle');
         setStatusText('');

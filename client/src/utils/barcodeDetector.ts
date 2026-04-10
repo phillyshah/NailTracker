@@ -21,81 +21,83 @@ declare class BarcodeDetectorAPI {
 }
 
 /**
- * Unified barcode detection pipeline.
- * Tries 3 methods in order of reliability:
- *   1. Native BarcodeDetector API (best for mobile)
- *   2. html5-qrcode scanFile (zxing-js fallback)
- *   3. Tesseract.js OCR (last resort)
+ * Detect ALL barcodes from an image (up to 4).
+ * Tries native API first (can find multiple), then falls back to
+ * html5-qrcode and OCR for single results.
  *
- * @param blob - The image to scan
- * @param hiddenElementId - DOM element ID for html5-qrcode (must exist in page)
- * @returns The detected barcode string, or null if all methods fail
+ * @returns Array of detected barcode strings (may be empty)
+ */
+export async function detectBarcodesFromImage(
+  blob: Blob,
+  hiddenElementId = 'barcode-scanner-hidden',
+): Promise<string[]> {
+  // Step 1: Try native BarcodeDetector API — can find multiple barcodes
+  const native = await detectAllWithNativeAPI(blob);
+  if (native.length > 0) {
+    console.log(`[BarcodeDetector] Native API detected ${native.length} barcode(s):`, native);
+    return native;
+  }
+
+  // Step 2: Try html5-qrcode (zxing-js) — returns single barcode
+  const zxing = await detectWithHtml5Qrcode(blob, hiddenElementId);
+  if (zxing) {
+    console.log('[BarcodeDetector] html5-qrcode detected:', zxing);
+    return [zxing];
+  }
+
+  // Step 3: Try OCR as last resort — returns single barcode
+  const ocr = await detectWithOCR(blob);
+  if (ocr) {
+    console.log('[BarcodeDetector] OCR detected:', ocr);
+    return [ocr];
+  }
+
+  console.warn('[BarcodeDetector] All detection methods failed');
+  return [];
+}
+
+/**
+ * Legacy single-barcode API — returns first detected barcode or null.
  */
 export async function detectBarcodeFromImage(
   blob: Blob,
   hiddenElementId = 'barcode-scanner-hidden',
 ): Promise<string | null> {
-  // Step 1: Try native BarcodeDetector API
-  const native = await detectWithNativeAPI(blob);
-  if (native) {
-    console.log('[BarcodeDetector] Native API detected:', native);
-    return native;
-  }
-
-  // Step 2: Try html5-qrcode (zxing-js)
-  const zxing = await detectWithHtml5Qrcode(blob, hiddenElementId);
-  if (zxing) {
-    console.log('[BarcodeDetector] html5-qrcode detected:', zxing);
-    return zxing;
-  }
-
-  // Step 3: Try OCR as last resort
-  const ocr = await detectWithOCR(blob);
-  if (ocr) {
-    console.log('[BarcodeDetector] OCR detected:', ocr);
-    return ocr;
-  }
-
-  console.warn('[BarcodeDetector] All detection methods failed');
-  return null;
+  const results = await detectBarcodesFromImage(blob, hiddenElementId);
+  return results[0] || null;
 }
 
 /**
- * Step 1: Native BarcodeDetector API.
- * Most reliable on modern mobile browsers.
+ * Native BarcodeDetector API — returns ALL detected barcodes (up to 4).
  */
-async function detectWithNativeAPI(blob: Blob): Promise<string | null> {
+async function detectAllWithNativeAPI(blob: Blob): Promise<string[]> {
   try {
     const BarcodeDetector = (window as any).BarcodeDetector as typeof BarcodeDetectorAPI | undefined;
     if (!BarcodeDetector) {
       console.log('[BarcodeDetector] Native API not available in this browser');
-      return null;
+      return [];
     }
 
     const bitmap = await createImageBitmap(blob);
     try {
       const detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'data_matrix'] });
       const results = await detector.detect(bitmap);
-      if (results.length > 0) {
-        return results[0].rawValue;
-      }
-      console.warn('[BarcodeDetector] Native API found no barcodes');
-      return null;
+      // Deduplicate and limit to 4
+      const unique = [...new Set(results.map((r) => r.rawValue))].slice(0, 4);
+      return unique;
     } finally {
       bitmap.close();
     }
   } catch (err) {
     console.warn('[BarcodeDetector] Native API error:', err);
-    return null;
+    return [];
   }
 }
 
 /**
- * Step 2: html5-qrcode (zxing-js wrapper).
- * Fallback for browsers without native BarcodeDetector.
+ * html5-qrcode (zxing-js wrapper) — single barcode fallback.
  */
 async function detectWithHtml5Qrcode(blob: Blob, elementId: string): Promise<string | null> {
-  // Ensure the hidden element exists
   let el = document.getElementById(elementId);
   if (!el) {
     el = document.createElement('div');
@@ -123,8 +125,7 @@ async function detectWithHtml5Qrcode(blob: Blob, elementId: string): Promise<str
 }
 
 /**
- * Step 3: OCR via Tesseract.js.
- * Reads human-readable text near the barcode and parses GS1 format.
+ * OCR via Tesseract.js — single barcode fallback.
  */
 async function detectWithOCR(blob: Blob): Promise<string | null> {
   try {

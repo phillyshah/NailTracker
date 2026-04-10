@@ -36,7 +36,7 @@ export default function Login() {
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-primary-800 shadow-lg shadow-primary-200">
             <Warehouse size={40} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-primary-700">Summa Inventory</h1>
+          <h1 className="text-2xl font-bold text-primary-700">Nail Tracker</h1>
           <p className="mt-1 text-base text-gray-500">Inventory Management System</p>
         </div>
 
@@ -92,7 +92,7 @@ export default function Login() {
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-500">
-          Summa Orthopaedics &middot; v{APP_VERSION}
+          Nail Tracker &middot; v{APP_VERSION}
         </p>
       </div>
     </div>
