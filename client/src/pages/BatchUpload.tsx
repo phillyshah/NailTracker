@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Upload,
+  FileSpreadsheet,
   X,
   CheckCircle2,
   AlertTriangle,
@@ -13,7 +14,7 @@ import {
 import { scanBarcode, assignItems } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { compressImage } from '../utils/compressImage';
-import { detectBarcodeFromImage } from '../utils/barcodeDetector';
+import { detectBarcodesFromImage } from '../utils/barcodeDetector';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
 import { HelpBanner } from '../components/HelpBanner';
@@ -37,6 +38,7 @@ export default function BatchUpload() {
   const [distributorId, setDistributorId] = useState('');
   const [processing, setProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const { toasts, addToast, removeToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -69,6 +71,80 @@ export default function BatchUpload() {
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
+  async function handleCsvUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setProcessing(true);
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+      // Skip header row if it looks like one
+      const startIdx = lines[0]?.match(/^(barcode|gtin|udi|code)/i) ? 1 : 0;
+      const barcodes: string[] = [];
+      for (let i = startIdx; i < lines.length; i++) {
+        // Take the first non-empty column from each CSV row
+        const cols = lines[i].split(',').map((c) => c.trim().replace(/^["']|["']$/g, ''));
+        const barcode = cols[0];
+        if (barcode && barcode.length > 5) barcodes.push(barcode);
+      }
+
+      if (barcodes.length === 0) {
+        addToast('No barcodes found in file', 'error');
+        setProcessing(false);
+        return;
+      }
+
+      // Create placeholder items
+      const placeholders: BatchItem[] = barcodes.map((b) => ({
+        id: nextId++,
+        imageData: '',
+        barcode: b,
+        parsed: null,
+        existing: null,
+        status: 'processing' as const,
+        selected: true,
+      }));
+      setItems((prev) => [...prev, ...placeholders]);
+
+      // Process each barcode against the server
+      for (const ph of placeholders) {
+        try {
+          const result = await scanBarcode({ barcode: ph.barcode! });
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === ph.id
+                ? {
+                    ...item,
+                    parsed: result.parsed,
+                    existing: result.existing,
+                    status: result.existing ? 'duplicate' : result.parsed.status === 'error' ? 'error' : 'new',
+                    error: result.parsed.status === 'error' ? result.parsed.errorMessage : undefined,
+                    selected: !result.existing && result.parsed.status !== 'error',
+                  }
+                : item,
+            ),
+          );
+        } catch {
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === ph.id
+                ? { ...item, status: 'error', error: 'Server error', selected: false }
+                : item,
+            ),
+          );
+        }
+      }
+
+      addToast(`Processed ${barcodes.length} barcodes from file`, 'success');
+    } catch {
+      addToast('Failed to read file', 'error');
+    }
+
+    setProcessing(false);
+  }
+
   async function handleFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -93,26 +169,27 @@ export default function BatchUpload() {
 
     setItems((prev) => [...prev, ...newItems]);
 
-    // Process each file
+    // Process each file — each image may contain up to 4 barcodes
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const itemId = newItems[i].id;
 
       try {
         const compressed = await compressImage(file);
-        const barcode = await detectBarcodeFromImage(file);
+        const barcodes = await detectBarcodesFromImage(file);
 
-        if (barcode) {
-          // Got a barcode, scan it against the server
+        if (barcodes.length > 0) {
+          // Update the original placeholder with the first barcode
+          const firstBarcode = barcodes[0];
           try {
-            const result = await scanBarcode({ barcode, imageData: compressed });
+            const result = await scanBarcode({ barcode: firstBarcode, imageData: compressed });
             setItems((prev) =>
               prev.map((item) =>
                 item.id === itemId
                   ? {
                       ...item,
                       imageData: compressed,
-                      barcode,
+                      barcode: firstBarcode,
                       parsed: result.parsed,
                       existing: result.existing,
                       status: result.existing ? 'duplicate' : result.parsed.status === 'error' ? 'error' : 'new',
@@ -126,10 +203,36 @@ export default function BatchUpload() {
             setItems((prev) =>
               prev.map((item) =>
                 item.id === itemId
-                  ? { ...item, imageData: compressed, barcode, status: 'error', error: 'Server error', selected: false }
+                  ? { ...item, imageData: compressed, barcode: firstBarcode, status: 'error', error: 'Server error', selected: false }
                   : item,
               ),
             );
+          }
+
+          // Additional barcodes from the same image — add as new items
+          for (let j = 1; j < barcodes.length; j++) {
+            const extraId = nextId++;
+            try {
+              const result = await scanBarcode({ barcode: barcodes[j], imageData: compressed });
+              setItems((prev) => [
+                ...prev,
+                {
+                  id: extraId,
+                  imageData: compressed,
+                  barcode: barcodes[j],
+                  parsed: result.parsed,
+                  existing: result.existing,
+                  status: result.existing ? 'duplicate' : result.parsed.status === 'error' ? 'error' : 'new',
+                  error: result.parsed.status === 'error' ? result.parsed.errorMessage : undefined,
+                  selected: !result.existing && result.parsed.status !== 'error',
+                },
+              ]);
+            } catch {
+              setItems((prev) => [
+                ...prev,
+                { id: extraId, imageData: compressed, barcode: barcodes[j], parsed: null, existing: null, status: 'error', error: 'Server error', selected: false },
+              ]);
+            }
           }
         } else {
           // No barcode detected
@@ -192,13 +295,13 @@ export default function BatchUpload() {
       <h2 className="mb-4 text-xl font-bold text-gray-900">Batch Upload</h2>
 
       <HelpBanner storageKey="batch">
-        Upload multiple barcode photos at once to add items in bulk. Select photos from your gallery, then assign them to a distributor.
+        Upload barcode photos (each photo can contain up to 4 barcodes) or import a CSV/Excel file with barcode data.
       </HelpBanner>
 
       {/* Upload area */}
       <div className="rounded-2xl bg-white p-4 shadow-sm mb-4">
         <p className="mb-3 text-base text-gray-600">
-          Select multiple barcode label photos to process at once
+          Upload photos or import a spreadsheet with barcode data
         </p>
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -228,6 +331,23 @@ export default function BatchUpload() {
           accept="image/*"
           multiple
           onChange={handleFilesSelected}
+          className="hidden"
+        />
+
+        {/* CSV/Excel upload */}
+        <button
+          onClick={() => csvInputRef.current?.click()}
+          disabled={processing}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+        >
+          <FileSpreadsheet size={20} />
+          Import CSV / Excel File
+        </button>
+        <input
+          ref={csvInputRef}
+          type="file"
+          accept=".csv,.xlsx,.xls,.txt"
+          onChange={handleCsvUpload}
           className="hidden"
         />
       </div>

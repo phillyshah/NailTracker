@@ -378,7 +378,7 @@ export default function Transfer() {
           <div className="max-w-[700px] mx-auto">
             <div className="mb-3 flex items-center justify-between border-b border-gray-800 pb-2">
               <div>
-                <p className="text-base font-bold">Summa Orthopaedics</p>
+                <p className="text-base font-bold">Nail Tracker</p>
                 <p className="text-xs text-gray-600">Inventory Transfer Report</p>
               </div>
               <div className="text-right text-xs text-gray-600">
@@ -432,7 +432,7 @@ export default function Transfer() {
             </p>
 
             <p className="fixed bottom-4 left-0 right-0 text-center text-[10px] text-gray-400">
-              Summa Orthopaedics Inventory System v{APP_VERSION}
+              Nail Tracker v{APP_VERSION}
             </p>
           </div>
         </div>
