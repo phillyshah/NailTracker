@@ -8,7 +8,10 @@ export async function login(req: Request, res: Response) {
   try {
     const { username, password } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { username } });
+    // Case-insensitive username lookup
+    const user = await prisma.user.findFirst({
+      where: { username: { equals: username, mode: 'insensitive' } },
+    });
     if (!user) {
       return error(res, 'Invalid username or password', 401);
     }

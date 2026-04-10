@@ -1,8 +1,9 @@
 import { useParams, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Download, Share2 } from 'lucide-react';
 import { getDistributor } from '../api/distributors';
 import { listInventory } from '../api/inventory';
+import { getExportUrl } from '../api/reports';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 
 export default function DistributorDetail() {
@@ -23,6 +24,26 @@ export default function DistributorDetail() {
 
   const items = inventoryData?.data ?? [];
 
+  async function handleShare() {
+    if (!distributor) return;
+    const url = getExportUrl({ distributorId: id! });
+    const fullUrl = window.location.origin + url;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${distributor.name} Inventory`,
+          text: `Inventory report for ${distributor.name} (${items.length} items)`,
+          url: fullUrl,
+        });
+      } catch {
+        // User cancelled share
+      }
+    } else {
+      await navigator.clipboard.writeText(fullUrl);
+      alert('Export link copied to clipboard');
+    }
+  }
+
   if (!distributor) {
     return (
       <div className="flex justify-center py-12">
@@ -32,12 +53,12 @@ export default function DistributorDetail() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-4xl">
       <button
-        onClick={() => navigate('/distributors')}
+        onClick={() => navigate(-1)}
         className="mb-4 flex items-center gap-2 text-base text-primary-600 hover:text-primary-700"
       >
-        <ArrowLeft size={20} /> Back to Distributors
+        <ArrowLeft size={20} /> Back
       </button>
 
       {/* Distributor info */}
@@ -69,6 +90,24 @@ export default function DistributorDetail() {
             </div>
           )}
         </div>
+
+        {/* Export / Share buttons */}
+        <div className="mt-4 flex gap-3">
+          <a
+            href={getExportUrl({ distributorId: id! })}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700 transition-colors"
+          >
+            <Download size={20} />
+            Download CSV
+          </a>
+          <button
+            onClick={handleShare}
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Share2 size={20} />
+            Share
+          </button>
+        </div>
       </div>
 
       {/* Assigned items */}
@@ -77,26 +116,57 @@ export default function DistributorDetail() {
           Assigned Items ({items.length})
         </h3>
         {items.length === 0 ? (
-          <p className="text-sm text-gray-500">No items assigned</p>
+          <p className="text-sm text-gray-500">No items assigned to this distributor</p>
         ) : (
-          <div className="space-y-2">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => navigate(`/inventory/${encodeURIComponent(item.udi)}`)}
-                className="cursor-pointer rounded-xl border border-gray-200 p-3 hover:bg-gray-50 transition-colors"
-              >
-                <p className="text-base font-semibold text-gray-900">
-                  {item.productLabel || 'Unknown Product'}
-                </p>
-                <p className="text-sm text-gray-600 font-mono">{item.udi}</p>
-                <div className="mt-1 flex items-center justify-between">
-                  <span className="text-sm text-gray-500">LOT: {item.lot}</span>
-                  <ExpiryBadge expDate={item.expDate} />
+          <>
+            {/* Mobile cards */}
+            <div className="space-y-2 lg:hidden">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => navigate(`/inventory/${encodeURIComponent(item.udi)}`)}
+                  className="cursor-pointer rounded-xl border border-gray-200 p-3 hover:bg-gray-50 transition-colors"
+                >
+                  <p className="text-base font-semibold text-gray-900">
+                    {item.productLabel || 'Unknown Product'}
+                  </p>
+                  <p className="text-sm text-gray-600 font-mono">{item.udi}</p>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-sm text-gray-500">LOT: {item.lot}</span>
+                    <ExpiryBadge expDate={item.expDate} />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b text-gray-500">
+                    <th className="px-3 py-2">Product</th>
+                    <th className="px-3 py-2">UDI</th>
+                    <th className="px-3 py-2">LOT</th>
+                    <th className="px-3 py-2">Expiry</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr
+                      key={item.id}
+                      onClick={() => navigate(`/inventory/${encodeURIComponent(item.udi)}`)}
+                      className="border-b hover:bg-gray-50 cursor-pointer"
+                    >
+                      <td className="px-3 py-2 font-medium">{item.productLabel || 'Unknown'}</td>
+                      <td className="px-3 py-2 font-mono">{item.udi}</td>
+                      <td className="px-3 py-2">{item.lot}</td>
+                      <td className="px-3 py-2"><ExpiryBadge expDate={item.expDate} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>
