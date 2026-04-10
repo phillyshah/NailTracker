@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Package, Users, Clock, XCircle, Inbox, Download } from 'lucide-react';
+import { Package, Users, Clock, XCircle, Inbox, Download, Search, ArrowRightLeft } from 'lucide-react';
 import { getSummary, getExpiring, getExportUrl } from '../api/reports';
 import { listDistributors } from '../api/distributors';
+import { listTransfers, type TransferRecord } from '../api/transfers';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { cn } from '../utils/cn';
 
@@ -9,6 +11,17 @@ export default function Reports() {
   const { data: summary } = useQuery({ queryKey: ['summary'], queryFn: getSummary });
   const { data: expiring } = useQuery({ queryKey: ['expiring'], queryFn: () => getExpiring(180) });
   const { data: distributors = [] } = useQuery({ queryKey: ['distributors'], queryFn: listDistributors });
+
+  const [transferSearch, setTransferSearch] = useState('');
+  const [transferPage, setTransferPage] = useState(1);
+
+  const { data: transferData } = useQuery({
+    queryKey: ['transfers', transferSearch, transferPage],
+    queryFn: () => listTransfers({ page: transferPage, limit: 10, search: transferSearch || undefined }),
+  });
+
+  const transfers = transferData?.data ?? [];
+  const transferMeta = transferData?.meta;
 
   const metrics = [
     { label: 'Total Units', value: summary?.totalUnits ?? '\u2014', icon: Package, color: 'bg-blue-50 text-blue-700' },
@@ -37,7 +50,6 @@ export default function Reports() {
       <div className="rounded-2xl bg-white p-5 shadow-sm">
         <h3 className="mb-4 text-lg font-bold text-gray-900">Export Inventory</h3>
         <div className="grid gap-2 lg:grid-cols-2">
-          {/* Export all */}
           <a
             href={getExportUrl()}
             className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
@@ -45,7 +57,6 @@ export default function Reports() {
             <span>All Inventory</span>
             <Download size={20} className="text-primary-600" />
           </a>
-          {/* Export by each distributor */}
           {distributors.map((d) => (
             <a
               key={d.id}
@@ -62,6 +73,95 @@ export default function Reports() {
             </a>
           ))}
         </div>
+      </div>
+
+      {/* Transfer History */}
+      <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <h3 className="mb-4 text-lg font-bold text-gray-900">Transfer History</h3>
+        <div className="mb-4 flex gap-2">
+          <div className="relative flex-1">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={transferSearch}
+              onChange={(e) => { setTransferSearch(e.target.value); setTransferPage(1); }}
+              placeholder="Search by transfer ID or distributor..."
+              className="w-full rounded-xl border border-gray-300 py-2.5 pl-10 pr-4 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {transfers.length === 0 ? (
+          <p className="text-sm text-gray-500 py-4 text-center">No transfers found</p>
+        ) : (
+          <>
+            <div className="space-y-2 lg:hidden">
+              {transfers.map((t: TransferRecord) => (
+                <div key={t.id} className="rounded-xl border border-gray-200 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-bold font-mono text-primary-700">{t.transferId}</span>
+                    <span className="text-xs text-gray-500">{new Date(t.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <span>{t.fromDistributorName}</span>
+                    <ArrowRightLeft size={14} className="text-gray-400" />
+                    <span>{t.toDistributorName}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{t.itemCount} item{t.itemCount !== 1 ? 's' : ''}{t.note ? ` — ${t.note}` : ''}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b text-gray-500">
+                    <th className="px-3 py-2">Transfer ID</th>
+                    <th className="px-3 py-2">Date</th>
+                    <th className="px-3 py-2">From</th>
+                    <th className="px-3 py-2">To</th>
+                    <th className="px-3 py-2">Items</th>
+                    <th className="px-3 py-2">Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transfers.map((t: TransferRecord) => (
+                    <tr key={t.id} className="border-b hover:bg-gray-50">
+                      <td className="px-3 py-2 font-mono font-semibold text-primary-700">{t.transferId}</td>
+                      <td className="px-3 py-2">{new Date(t.createdAt).toLocaleDateString()}</td>
+                      <td className="px-3 py-2">{t.fromDistributorName}</td>
+                      <td className="px-3 py-2">{t.toDistributorName}</td>
+                      <td className="px-3 py-2 font-semibold">{t.itemCount}</td>
+                      <td className="px-3 py-2 text-gray-500 truncate max-w-[200px]">{t.note || '\u2014'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {transferMeta && transferMeta.total! > 10 && (
+              <div className="mt-3 flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setTransferPage((p) => Math.max(1, p - 1))}
+                  disabled={transferPage <= 1}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-50 hover:bg-gray-100"
+                >
+                  Prev
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {transferMeta.page} of {Math.ceil(transferMeta.total! / transferMeta.limit!)}
+                </span>
+                <button
+                  onClick={() => setTransferPage((p) => p + 1)}
+                  disabled={transferPage >= Math.ceil(transferMeta.total! / transferMeta.limit!)}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-50 hover:bg-gray-100"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Expiring items table */}
