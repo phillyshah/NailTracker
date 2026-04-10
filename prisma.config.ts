@@ -19,12 +19,12 @@ if (fs.existsSync(envPath)) {
   }
 }
 
+const dbUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
+
 export default defineConfig({
   earlyAccess: true,
   schema: path.join(__dirname, 'server/prisma/schema.prisma'),
   migrate: {
-    async url() {
-      return process.env.DIRECT_URL || process.env.DATABASE_URL!;
-    },
+    url: dbUrl!,
   },
 });
