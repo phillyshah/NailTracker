@@ -289,7 +289,7 @@ export default function BatchUpload() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-2xl lg:max-w-4xl">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       <h2 className="mb-4 text-xl font-bold text-gray-900">Batch Upload</h2>
@@ -354,7 +354,7 @@ export default function BatchUpload() {
 
       {/* Stats bar */}
       {items.length > 0 && (
-        <div className="mb-4 flex gap-2 overflow-x-auto">
+        <div className="mb-4 flex flex-wrap gap-2">
           <StatBadge label="Total" count={stats.total} color="gray" />
           <StatBadge label="New" count={stats.new} color="green" />
           <StatBadge label="Duplicate" count={stats.duplicate} color="amber" />

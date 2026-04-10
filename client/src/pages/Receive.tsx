@@ -149,7 +149,7 @@ export default function Receive() {
   const newCount = receivedItems.filter((i) => i.status === 'new').length;
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-2xl lg:max-w-4xl">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Header */}
