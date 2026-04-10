@@ -1,0 +1,17 @@
+{
+  "name": "Nail Tracker",
+  "short_name": "NailTracker",
+  "description": "Inventory management for orthopaedic implants",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1e40af",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
