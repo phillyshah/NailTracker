@@ -37,6 +37,7 @@ export interface InventoryItem {
   imageData?: string | null;
   distributorId: string | null;
   distributor?: Distributor | null;
+  bankId?: string | null;
   assignedAt: string | null;
   assignedBy: string | null;
   usedAt: string | null;

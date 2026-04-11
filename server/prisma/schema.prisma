@@ -26,6 +26,7 @@ model Distributor {
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
   items     InventoryItem[]
+  banks     Bank[]
 }
 
 model InventoryItem {
@@ -42,6 +43,8 @@ model InventoryItem {
   distributor   Distributor?        @relation(fields: [distributorId], references: [id])
   assignedAt    DateTime?
   assignedBy    String?
+  bankId        String?
+  bank          Bank?               @relation(fields: [bankId], references: [id])
   usedAt        DateTime?
   deletedAt     DateTime?
   createdAt     DateTime            @default(now())
@@ -53,6 +56,7 @@ model InventoryItem {
   @@index([deletedAt])
   @@index([gtinShort])
   @@index([usedAt])
+  @@index([bankId])
 }
 
 model AssignmentHistory {
@@ -85,4 +89,18 @@ model Transfer {
 
   @@index([transferId])
   @@index([createdAt])
+}
+
+model Bank {
+  id            String          @id @default(cuid())
+  name          String          @unique
+  description   String?
+  distributorId String?
+  distributor   Distributor?    @relation(fields: [distributorId], references: [id])
+  createdBy     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  items         InventoryItem[]
+
+  @@index([distributorId])
 }
