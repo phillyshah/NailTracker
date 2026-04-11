@@ -6,13 +6,14 @@ interface Props {
 }
 
 export function ExpiryBadge({ expDate, className }: Props) {
-  if (!expDate) {
-    return <span className={cn('text-sm text-gray-400', className)}>No date</span>;
-  }
+  if (!expDate) return null;
 
   const exp = new Date(expDate);
   const now = new Date();
   const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+  // Only show badge if expired or expiring within 180 days
+  if (diffDays > 180) return null;
 
   let label: string;
   let style: string;
@@ -22,13 +23,10 @@ export function ExpiryBadge({ expDate, className }: Props) {
     style = 'bg-red-100 text-red-700 border-red-200';
   } else if (diffDays <= 90) {
     label = `${diffDays}d left`;
-    style = 'bg-amber-100 text-amber-700 border-amber-200';
-  } else if (diffDays <= 180) {
+    style = 'bg-red-100 text-red-700 border-red-200';
+  } else {
     label = `${diffDays}d left`;
     style = 'bg-yellow-100 text-yellow-700 border-yellow-200';
-  } else {
-    label = exp.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    style = 'bg-green-100 text-green-700 border-green-200';
   }
 
   return (

@@ -12,6 +12,7 @@ import {
   Images,
   UserCog,
   ArrowRightLeft,
+  Boxes,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { APP_VERSION } from '../version';
@@ -25,6 +26,7 @@ const mainNavItems = [
 ];
 
 const moreNavItems = [
+  { to: '/banks', label: 'Banks', icon: Boxes },
   { to: '/transfer', label: 'Transfer', icon: ArrowRightLeft },
   { to: '/distributors', label: 'Distributors', icon: Users },
   { to: '/batch', label: 'Batch Upload', icon: Images },
