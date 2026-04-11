@@ -117,7 +117,7 @@ export function parseGS1(rawBarcode: string): ParseResult {
     expDate = new Date(year, mm - 1, day);
   }
 
-  const productLabel = getProductLabel(gtinShort);
+  const productLabel = getProductLabel(gtinShort, trimmed);
 
   return {
     gtin,
