@@ -108,8 +108,18 @@ export async function addItems(req: Request, res: Response) {
     const bank = await prisma.bank.findUnique({ where: { id } });
     if (!bank) return error(res, 'Bank not found', 404);
 
+    // Only allow items at the same distributor as the bank
+    const where: Record<string, unknown> = {
+      udi: { in: udis },
+      deletedAt: null,
+      usedAt: null,
+    };
+    if (bank.distributorId) {
+      where.distributorId = bank.distributorId;
+    }
+
     const result = await prisma.inventoryItem.updateMany({
-      where: { udi: { in: udis }, deletedAt: null, usedAt: null },
+      where,
       data: { bankId: id },
     });
 

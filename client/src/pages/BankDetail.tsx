@@ -28,11 +28,11 @@ export default function BankDetail() {
 
   const { data: distributors = [] } = useQuery({ queryKey: ['distributors'], queryFn: listDistributors });
 
-  // Items NOT in any bank (available to add)
+  // Items at the same distributor, not in any bank (available to add)
   const { data: availableData } = useQuery({
-    queryKey: ['inventory', { limit: 200 }],
-    queryFn: () => listInventory({ limit: 200 }),
-    enabled: showAddItems,
+    queryKey: ['inventory', { distributorId: bank?.distributorId, limit: 200 }],
+    queryFn: () => listInventory({ distributorId: bank?.distributorId || undefined, limit: 200 }),
+    enabled: showAddItems && !!bank,
   });
   const availableItems = (availableData?.data ?? []).filter((i) => !i.bankId);
 
