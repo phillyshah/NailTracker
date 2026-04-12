@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { scanBarcode, assignItems } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
+import { listBanks, addItemsToBank } from '../api/banks';
 import { compressImage } from '../utils/compressImage';
 import { detectBarcodesFromImage } from '../utils/barcodeDetector';
 import { BarcodeScanner } from '../components/BarcodeScanner';
@@ -32,6 +33,8 @@ export default function Receive() {
   const [scanning, setScanning] = useState(true);
   const [showManual, setShowManual] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
+  const [showBankAssign, setShowBankAssign] = useState(false);
+  const [selectedBankId, setSelectedBankId] = useState('');
   const { toasts, addToast, removeToast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,6 +46,16 @@ export default function Receive() {
 
   const homeOffice = distributors.find(
     (d) => d.name === 'Home Office' || d.name === 'Home Office (HQ)',
+  );
+
+  const { data: banks = [] } = useQuery({
+    queryKey: ['banks'],
+    queryFn: listBanks,
+  });
+
+  // Banks at Home Office (for assignment)
+  const homeOfficeBanks = banks.filter(
+    (b) => b.distributorId === homeOffice?.id || !b.distributorId,
   );
 
   const scanMutation = useMutation({
@@ -286,6 +299,60 @@ export default function Receive() {
               </div>
             ))}
           </div>
+
+          {/* Bank assignment option */}
+          {newCount > 0 && homeOfficeBanks.length > 0 && !showBankAssign && (
+            <button
+              onClick={() => setShowBankAssign(true)}
+              className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-primary-300 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700 hover:bg-primary-100"
+            >
+              Assign received items to a bank?
+            </button>
+          )}
+
+          {showBankAssign && (
+            <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Assign to Bank</h4>
+              <select
+                value={selectedBankId}
+                onChange={(e) => setSelectedBankId(e.target.value)}
+                className="mb-3 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base bg-white focus:border-primary-500 focus:outline-none"
+              >
+                <option value="">Select a bank...</option>
+                {homeOfficeBanks.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name} ({b._count?.items ?? 0} items)</option>
+                ))}
+              </select>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    if (!selectedBankId) return;
+                    const udis = receivedItems.filter((i) => i.status === 'new' && i.parsed).map((i) => i.parsed.udi);
+                    if (udis.length === 0) return;
+                    try {
+                      const result = await addItemsToBank(selectedBankId, udis);
+                      addToast(`${result.updated} items added to bank`, 'success');
+                      setShowBankAssign(false);
+                      setSelectedBankId('');
+                      queryClient.invalidateQueries({ queryKey: ['banks'] });
+                    } catch {
+                      addToast('Failed to assign to bank', 'error');
+                    }
+                  }}
+                  disabled={!selectedBankId}
+                  className="flex-1 rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                >
+                  Assign {newCount} Item{newCount !== 1 ? 's' : ''}
+                </button>
+                <button
+                  onClick={() => { setShowBankAssign(false); setSelectedBankId(''); }}
+                  className="rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium hover:bg-gray-100"
+                >
+                  Skip
+                </button>
+              </div>
+            </div>
+          )}
 
         </>
       )}
