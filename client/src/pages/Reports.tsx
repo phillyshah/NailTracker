@@ -252,7 +252,7 @@ export default function Reports() {
           </h3>
           <div className="space-y-2 lg:hidden">
             {sortedExpiring.map((item) => (
-              <div key={item.udi} className="rounded-xl border border-gray-200 p-3">
+              <div key={item.id} className="rounded-xl border border-gray-200 p-3">
                 <p className="text-base font-semibold text-gray-900">
                   {item.productLabel || 'Unknown'}
                 </p>
@@ -278,7 +278,7 @@ export default function Reports() {
               </thead>
               <tbody>
                 {sortedExpiring.map((item) => (
-                  <tr key={item.udi} className="border-b hover:bg-gray-50">
+                  <tr key={item.id} className="border-b hover:bg-gray-50">
                     <td className="px-3 py-2 font-medium">{item.productLabel || 'Unknown'}</td>
                     <td className="px-3 py-2 font-mono">{item.itemNumber || '—'}</td>
                     <td className="px-3 py-2">{item.lot}</td>

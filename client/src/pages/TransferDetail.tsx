@@ -7,6 +7,7 @@ import { useSortable } from '../hooks/useSortable';
 import { APP_VERSION } from '../version';
 
 interface TransferItem {
+  id?: string;
   udi: string;
   itemNumber?: string | null;
   productLabel?: string | null;

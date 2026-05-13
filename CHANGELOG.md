@@ -1,5 +1,21 @@
 # Changelog
 
+## v3.11 — 2026-05-13
+- **Multiple physical units can now share a GTIN + Lot** — the schema previously enforced "one row per UDI," which incorrectly rejected legitimate same-lot units (you'd see "X already in system" when scanning the 2nd, 3rd, ... unit of a manufacturing lot). Each scan now becomes its own inventory row.
+  - Schema: dropped the `@unique` constraint on `InventoryItem.udi`, replaced with a non-unique index for lookups.
+  - **Migration SQL (must run in Supabase SQL Editor before deploying):**
+    ```sql
+    ALTER TABLE "InventoryItem" DROP CONSTRAINT IF EXISTS "InventoryItem_udi_key";
+    DROP INDEX IF EXISTS "InventoryItem_udi_key";
+    CREATE INDEX IF NOT EXISTS "InventoryItem_udi_idx" ON "InventoryItem"("udi");
+    ```
+- Scan / parse / batch-upload no longer mark items as "duplicate" based on UDI — they always create new units.
+- Receive flow no longer blocks on duplicate-UDI scans.
+- Inventory item URLs are now keyed by stable item `id` (not UDI). All edit / reassign / mark-used / delete routes now look items up by `id`.
+- Removed the "duplicate scan → merge prompt" logic from the Edit dialog (no longer applicable now that UDI isn't unique).
+- Bank add-items / remove-items endpoints now accept `itemIds` (not `udis`).
+- Transfer records now also store each item's `id` alongside the UDI label.
+
 ## v3.10 — 2026-05-13
 - New **Stock by Item Number** report (Reports → Stock by Item Number) — matrix view with one row per item number and one column per location (Home Office + each active distributor) plus a Total column
 - Stock matrix is sortable on every column, searchable by item number or description, and every count is a drill-in link to the matching inventory

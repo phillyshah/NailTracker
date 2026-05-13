@@ -54,10 +54,10 @@ router.post('/assign', validate(assignSchema), ctrl.assign);
 router.post('/backfill-expiry', ctrl.backfillExpiry);
 router.post('/backfill-labels', ctrl.backfillLabels);
 router.get('/', ctrl.list);
-router.get('/:udi', ctrl.getOne);
-router.patch('/:udi/reassign', validate(reassignSchema), ctrl.reassign);
-router.patch('/:udi/edit', validate(editSchema), ctrl.edit);
-router.patch('/:udi/use', ctrl.markUsed);
-router.delete('/:udi', ctrl.remove);
+router.get('/:id', ctrl.getOne);
+router.patch('/:id/reassign', validate(reassignSchema), ctrl.reassign);
+router.patch('/:id/edit', validate(editSchema), ctrl.edit);
+router.patch('/:id/use', ctrl.markUsed);
+router.delete('/:id', ctrl.remove);
 
 export default router;

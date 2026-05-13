@@ -60,6 +60,7 @@ export async function expiring(req: Request, res: Response) {
     });
 
     const enriched = items.map((item) => ({
+      id: item.id,
       udi: item.udi,
       itemNumber: getItemNumber(item.gtinShort, item.rawBarcode),
       productLabel: item.productLabel,

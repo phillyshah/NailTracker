@@ -137,7 +137,7 @@ export default function DistributorDetail() {
               {sortedItems.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => navigate(`/inventory/${encodeURIComponent(item.udi)}`)}
+                  onClick={() => navigate(`/inventory/${encodeURIComponent(item.id)}`)}
                   className="cursor-pointer rounded-xl border border-gray-200 p-3 hover:bg-gray-50 transition-colors"
                 >
                   <p className="text-base font-semibold text-gray-900">
@@ -167,7 +167,7 @@ export default function DistributorDetail() {
                   {sortedItems.map((item) => (
                     <tr
                       key={item.id}
-                      onClick={() => navigate(`/inventory/${encodeURIComponent(item.udi)}`)}
+                      onClick={() => navigate(`/inventory/${encodeURIComponent(item.id)}`)}
                       className="border-b hover:bg-gray-50 cursor-pointer"
                     >
                       <td className="px-3 py-2 font-medium">{item.productLabel || 'Unknown'}</td>

@@ -16,7 +16,7 @@ export default function BankDetail() {
   const queryClient = useQueryClient();
   const { toasts, addToast, removeToast } = useToast();
   const [showAddItems, setShowAddItems] = useState(false);
-  const [selectedUdis, setSelectedUdis] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferDistId, setTransferDistId] = useState('');
 
@@ -37,18 +37,18 @@ export default function BankDetail() {
   const availableItems = (availableData?.data ?? []).filter((i) => !i.bankId);
 
   const addMutation = useMutation({
-    mutationFn: () => addItemsToBank(id!, [...selectedUdis]),
+    mutationFn: () => addItemsToBank(id!, [...selectedIds]),
     onSuccess: (data) => {
       addToast(`${data.updated} items added to bank`, 'success');
       setShowAddItems(false);
-      setSelectedUdis(new Set());
+      setSelectedIds(new Set());
       queryClient.invalidateQueries({ queryKey: ['bank', id] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
   const removeMutation = useMutation({
-    mutationFn: (udi: string) => removeItemsFromBank(id!, [udi]),
+    mutationFn: (itemId: string) => removeItemsFromBank(id!, [itemId]),
     onSuccess: () => {
       addToast('Item removed from bank', 'success');
       queryClient.invalidateQueries({ queryKey: ['bank', id] });
@@ -141,7 +141,7 @@ export default function BankDetail() {
                   </div>
                 </div>
                 <button
-                  onClick={() => removeMutation.mutate(item.udi)}
+                  onClick={() => removeMutation.mutate(item.id)}
                   className="shrink-0 rounded-lg p-2 text-gray-300 hover:text-red-500 hover:bg-red-50"
                   title="Remove from bank"
                 >
@@ -158,7 +158,7 @@ export default function BankDetail() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => setShowAddItems(false)}>
           <div className="w-full sm:max-w-lg max-h-[80vh] rounded-t-3xl sm:rounded-2xl bg-white p-5 shadow-xl overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900 mb-3">Add Items to {bank.name}</h3>
-            <p className="text-sm text-gray-500 mb-3">Select items to add ({selectedUdis.size} selected)</p>
+            <p className="text-sm text-gray-500 mb-3">Select items to add ({selectedIds.size} selected)</p>
 
             <div className="flex-1 overflow-y-auto space-y-2 mb-3">
               {availableItems.length === 0 ? (
@@ -168,16 +168,16 @@ export default function BankDetail() {
                   <div
                     key={item.id}
                     onClick={() => {
-                      setSelectedUdis((prev) => {
+                      setSelectedIds((prev) => {
                         const next = new Set(prev);
-                        if (next.has(item.udi)) next.delete(item.udi);
-                        else next.add(item.udi);
+                        if (next.has(item.id)) next.delete(item.id);
+                        else next.add(item.id);
                         return next;
                       });
                     }}
                     className={cn(
                       'rounded-xl border-2 p-3 cursor-pointer transition-colors',
-                      selectedUdis.has(item.udi) ? 'border-primary-400 bg-primary-50' : 'border-gray-200',
+                      selectedIds.has(item.id) ? 'border-primary-400 bg-primary-50' : 'border-gray-200',
                     )}
                   >
                     <p className="text-sm font-semibold text-gray-900">{item.productLabel || 'Unknown'}</p>
@@ -191,10 +191,10 @@ export default function BankDetail() {
               <button onClick={() => setShowAddItems(false)} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100">Cancel</button>
               <button
                 onClick={() => addMutation.mutate()}
-                disabled={selectedUdis.size === 0 || addMutation.isPending}
+                disabled={selectedIds.size === 0 || addMutation.isPending}
                 className="flex-1 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
               >
-                {addMutation.isPending ? 'Adding...' : `Add ${selectedUdis.size} Items`}
+                {addMutation.isPending ? 'Adding...' : `Add ${selectedIds.size} Items`}
               </button>
             </div>
           </div>

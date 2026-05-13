@@ -11,7 +11,9 @@ import {
 
 /**
  * POST /api/inventory/scan
- * Scan a single barcode — parse it and check if it already exists in the DB.
+ * Parse a single barcode. Each physical unit is its own inventory row,
+ * so we never block on "this UDI already exists" — multiple units can
+ * legitimately share GTIN + Lot.
  */
 export async function scan(req: Request, res: Response) {
   try {
@@ -25,22 +27,13 @@ export async function scan(req: Request, res: Response) {
       });
     }
 
-    // Check if this UDI already exists
-    const existing = await prisma.inventoryItem.findUnique({
-      where: { udi: parsed.udi },
-      include: { distributor: { select: { id: true, name: true } } },
-    });
-
-    // Exclude soft-deleted or used items from "existing" match
-    const activeExisting = existing && !existing.deletedAt && !existing.usedAt ? existing : null;
-
     return success(res, {
       parsed: {
         ...parsed,
         expDate: parsed.expDate?.toISOString() ?? null,
-        status: activeExisting ? ('duplicate' as const) : ('new' as const),
+        status: 'new' as const,
       },
-      existing: activeExisting,
+      existing: null,
     });
   } catch (err) {
     return error(res, 'Scan failed', 500);
@@ -49,33 +42,22 @@ export async function scan(req: Request, res: Response) {
 
 /**
  * POST /api/inventory/parse
- * Parse multiple barcodes and check for duplicates.
+ * Parse multiple barcodes. Same per-unit semantics as scan() —
+ * matching UDIs are not duplicates.
  */
 export async function parse(req: Request, res: Response) {
   try {
     const { barcodes } = req.body as { barcodes: string[] };
     const results = barcodes.map((b: string) => parseGS1(b));
 
-    // Check for duplicates in DB
-    const udis = results
-      .filter((r) => !isParseError(r))
-      .map((r) => (r as { udi: string }).udi);
-
-    const existing = await prisma.inventoryItem.findMany({
-      where: { udi: { in: udis }, deletedAt: null, usedAt: null },
-      select: { udi: true },
-    });
-    const existingSet = new Set(existing.map((e: { udi: string }) => e.udi));
-
     const enriched = results.map((r) => {
       if (isParseError(r)) {
         return { ...r, status: 'error' as const };
       }
-      const isDuplicate = existingSet.has(r.udi);
       return {
         ...r,
         expDate: r.expDate?.toISOString() ?? null,
-        status: isDuplicate ? ('duplicate' as const) : ('new' as const),
+        status: 'new' as const,
       };
     });
 
@@ -102,53 +84,8 @@ export async function assign(req: Request, res: Response) {
     }
 
     let created = 0;
-    let skipped = 0;
 
     for (const item of items) {
-      const existing = await prisma.inventoryItem.findUnique({ where: { udi: item.udi } });
-
-      if (existing && !existing.deletedAt && !existing.usedAt) {
-        // Active item already exists — skip
-        skipped++;
-        continue;
-      }
-
-      if (existing && (existing.deletedAt || existing.usedAt)) {
-        // Previously deleted or used — restore with updated data
-        await prisma.inventoryItem.update({
-          where: { udi: item.udi },
-          data: {
-            gtin: item.gtin,
-            gtinShort: item.gtinShort,
-            lot: item.lot,
-            expDate: item.expDate ? new Date(item.expDate) : null,
-            rawBarcode: item.rawBarcode,
-            productLabel: item.productLabel,
-            imageData: item.imageData || imageData || null,
-            distributorId: distributorId || null,
-            assignedAt: distributorId ? new Date() : null,
-            assignedBy: req.user?.username || null,
-            deletedAt: null,
-            usedAt: null,
-          },
-        });
-
-        if (distributorId) {
-          await prisma.assignmentHistory.create({
-            data: {
-              itemId: existing.id,
-              toDistributorId: distributorId,
-              toDistributorName: distributor?.name || null,
-              changedBy: req.user?.username || null,
-              note: 'Re-added to inventory',
-            },
-          });
-        }
-
-        created++;
-        continue;
-      }
-
       const newItem = await prisma.inventoryItem.create({
         data: {
           udi: item.udi,
@@ -180,7 +117,7 @@ export async function assign(req: Request, res: Response) {
       created++;
     }
 
-    return success(res, { created, skipped });
+    return success(res, { created, skipped: 0 });
   } catch (err) {
     return error(res, 'Assignment failed', 500);
   }
@@ -269,9 +206,9 @@ export async function list(req: Request, res: Response) {
 
 export async function getOne(req: Request, res: Response) {
   try {
-    const udi = str(req.params.udi);
+    const id = str(req.params.id);
     const item = await prisma.inventoryItem.findUnique({
-      where: { udi },
+      where: { id },
       include: {
         distributor: true,
         history: { orderBy: { changedAt: 'desc' } },
@@ -314,10 +251,10 @@ export async function reassign(req: Request, res: Response) {
       note?: string;
       skipTransferRecord?: boolean;
     };
-    const udi = str(req.params.udi);
+    const id = str(req.params.id);
 
     const item = await prisma.inventoryItem.findUnique({
-      where: { udi },
+      where: { id },
       include: { distributor: true },
     });
 
@@ -337,8 +274,6 @@ export async function reassign(req: Request, res: Response) {
     const newDistId = distributorId || null;
     const distributorChanged = oldDistId !== newDistId;
 
-    // Generate a Transfer id up front so we can include it inline in the
-    // $transaction call (avoiding TS issues with array-typed ops).
     let transferId: string | null = null;
     if (distributorChanged && !skipTransferRecord) {
       transferId = await nextTransferId();
@@ -346,7 +281,7 @@ export async function reassign(req: Request, res: Response) {
 
     await prisma.$transaction([
       prisma.inventoryItem.update({
-        where: { udi },
+        where: { id },
         data: {
           distributorId: newDistId,
           assignedAt: newDistId ? new Date() : null,
@@ -377,6 +312,7 @@ export async function reassign(req: Request, res: Response) {
                 itemCount: 1,
                 items: [
                   {
+                    id: item.id,
                     udi: item.udi,
                     itemNumber: getItemNumber(item.gtinShort, item.rawBarcode),
                     productLabel: item.productLabel,
@@ -399,28 +335,26 @@ export async function reassign(req: Request, res: Response) {
 }
 
 /**
- * PATCH /api/inventory/:udi/edit
- * Edit item fields (GTIN, item number, lot, expiry, product label).
- * Recomputes derived fields (gtinShort, udi, productLabel) and writes
- * a row to AssignmentHistory describing exactly what changed.
+ * PATCH /api/inventory/:id/edit
+ * Edit item fields. Recomputes derived fields (gtinShort, udi, productLabel)
+ * and writes a row to AssignmentHistory describing exactly what changed.
  *
- * If an item number (REF) is provided that matches the Summa catalog,
- * the canonical GTIN/gtinShort for that REF wins (REF is master).
+ * UDI is no longer unique (multiple physical units can share GTIN+Lot),
+ * so editing never has a "conflict" — it just updates the row.
  */
 export async function edit(req: Request, res: Response) {
   try {
-    const udi = str(req.params.udi);
-    const { gtin, lot, expDate, itemNumber, productLabel, mergeIfConflict } = req.body as {
+    const id = str(req.params.id);
+    const { gtin, lot, expDate, itemNumber, productLabel } = req.body as {
       gtin?: string;
       lot?: string;
       expDate?: string | null;
       itemNumber?: string;
       productLabel?: string;
-      mergeIfConflict?: boolean;
     };
 
     const item = await prisma.inventoryItem.findUnique({
-      where: { udi },
+      where: { id },
       include: { distributor: true },
     });
     if (!item || item.deletedAt) {
@@ -433,7 +367,6 @@ export async function edit(req: Request, res: Response) {
     let newExpDate: Date | null = item.expDate;
     let newProductLabel = item.productLabel;
 
-    // If REF is provided AND matches a known catalog entry, REF is master.
     if (typeof itemNumber === 'string' && itemNumber.trim()) {
       const ref = itemNumber.trim().toUpperCase();
       const canonicalShort = refToGtinShort[ref];
@@ -441,8 +374,6 @@ export async function edit(req: Request, res: Response) {
         newGtinShort = canonicalShort;
         newGtin = gtinShortToFullGtin(canonicalShort);
       }
-      // If REF isn't in the catalog, we ignore it for GTIN purposes;
-      // it can still surface via getItemNumber from rawBarcode.
     }
 
     if (typeof gtin === 'string' && gtin.trim()) {
@@ -462,10 +393,6 @@ export async function edit(req: Request, res: Response) {
       newExpDate = expDate ? new Date(expDate) : null;
     }
 
-    // Decide productLabel:
-    //   - explicit override wins
-    //   - otherwise auto-derive only if gtinShort actually changed
-    //   - otherwise keep the existing label
     if (typeof productLabel === 'string' && productLabel.trim()) {
       newProductLabel = productLabel.trim();
     } else if (newGtinShort !== item.gtinShort) {
@@ -473,53 +400,6 @@ export async function edit(req: Request, res: Response) {
     }
 
     const newUdi = `${newGtinShort}-${newLot}`;
-
-    if (newUdi !== item.udi) {
-      const conflict = await prisma.inventoryItem.findUnique({
-        where: { udi: newUdi },
-        include: { distributor: true },
-      });
-      if (conflict && conflict.id !== item.id && !conflict.deletedAt && !conflict.usedAt) {
-        if (mergeIfConflict) {
-          // Soft-delete the current (duplicate) item and log on both records.
-          await prisma.$transaction([
-            prisma.inventoryItem.update({
-              where: { id: item.id },
-              data: { deletedAt: new Date() },
-            }),
-            prisma.assignmentHistory.create({
-              data: {
-                itemId: item.id,
-                fromDistributorId: item.distributorId,
-                fromDistributorName: item.distributor?.name || null,
-                toDistributorId: item.distributorId,
-                toDistributorName: item.distributor?.name || null,
-                changedBy: req.user?.username || null,
-                note: `Merged into ${conflict.udi} (duplicate scan deleted)`,
-              },
-            }),
-            prisma.assignmentHistory.create({
-              data: {
-                itemId: conflict.id,
-                fromDistributorId: conflict.distributorId,
-                fromDistributorName: conflict.distributor?.name || null,
-                toDistributorId: conflict.distributorId,
-                toDistributorName: conflict.distributor?.name || null,
-                changedBy: req.user?.username || null,
-                note: `Duplicate scan merged from ${item.udi}`,
-              },
-            }),
-          ]);
-          return success(res, { udi: conflict.udi, merged: true, message: 'Duplicate merged' });
-        }
-        return error(
-          res,
-          `Another active item already exists with UDI ${newUdi}`,
-          409,
-          { conflictUdi: newUdi },
-        );
-      }
-    }
 
     const changes: string[] = [];
     if (item.gtin !== newGtin) changes.push(`GTIN: ${item.gtin} → ${newGtin}`);
@@ -534,7 +414,7 @@ export async function edit(req: Request, res: Response) {
     }
 
     if (changes.length === 0) {
-      return success(res, { udi: item.udi, message: 'No changes' });
+      return success(res, { id: item.id, udi: item.udi, message: 'No changes' });
     }
 
     await prisma.$transaction([
@@ -562,22 +442,22 @@ export async function edit(req: Request, res: Response) {
       }),
     ]);
 
-    return success(res, { udi: newUdi, message: 'Item updated' });
+    return success(res, { id: item.id, udi: newUdi, message: 'Item updated' });
   } catch (err) {
     return error(res, 'Edit failed', 500);
   }
 }
 
 /**
- * PATCH /api/inventory/:udi/use
+ * PATCH /api/inventory/:id/use
  * Mark an item as used (implanted).
  */
 export async function markUsed(req: Request, res: Response) {
   try {
-    const udi = str(req.params.udi);
+    const id = str(req.params.id);
 
     const item = await prisma.inventoryItem.findUnique({
-      where: { udi },
+      where: { id },
       include: { distributor: true },
     });
 
@@ -591,7 +471,7 @@ export async function markUsed(req: Request, res: Response) {
 
     await prisma.$transaction([
       prisma.inventoryItem.update({
-        where: { udi },
+        where: { id },
         data: { usedAt: new Date() },
       }),
       prisma.assignmentHistory.create({
@@ -672,9 +552,9 @@ export async function backfillLabels(_req: Request, res: Response) {
 
 export async function remove(req: Request, res: Response) {
   try {
-    const udi = str(req.params.udi);
+    const id = str(req.params.id);
     const item = await prisma.inventoryItem.findUnique({
-      where: { udi },
+      where: { id },
     });
 
     if (!item || item.deletedAt) {
@@ -682,7 +562,7 @@ export async function remove(req: Request, res: Response) {
     }
 
     await prisma.inventoryItem.update({
-      where: { udi },
+      where: { id },
       data: { deletedAt: new Date() },
     });
 

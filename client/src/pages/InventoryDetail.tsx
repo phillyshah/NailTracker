@@ -9,7 +9,7 @@ import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 
 export default function InventoryDetail() {
-  const { udi } = useParams<{ udi: string }>();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toasts, addToast, removeToast } = useToast();
@@ -38,35 +38,35 @@ export default function InventoryDetail() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['inventory-item', udi],
-    queryFn: () => getItem(udi!),
-    enabled: !!udi,
+    queryKey: ['inventory-item', id],
+    queryFn: () => getItem(id!),
+    enabled: !!id,
   });
 
   const item = data?.data;
 
   const reassignMutation = useMutation({
-    mutationFn: () => reassignItem(udi!, newDistId || null, note || undefined),
+    mutationFn: () => reassignItem(id!, newDistId || null, note || undefined),
     onSuccess: () => {
       addToast('Item reassigned', 'success');
       setShowReassign(false);
-      queryClient.invalidateQueries({ queryKey: ['inventory-item', udi] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-item', id] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
   const useMutation_ = useMutation({
-    mutationFn: () => markAsUsed(udi!),
+    mutationFn: () => markAsUsed(id!),
     onSuccess: () => {
       addToast('Item marked as used', 'success');
-      queryClient.invalidateQueries({ queryKey: ['inventory-item', udi] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-item', id] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteItem(udi!),
+    mutationFn: () => deleteItem(id!),
     onSuccess: () => {
       addToast('Item deleted', 'success');
       navigate('/inventory');
@@ -74,7 +74,7 @@ export default function InventoryDetail() {
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
-  const buildEditPayload = (extra?: Partial<EditItemPayload>): EditItemPayload => {
+  const buildEditPayload = (): EditItemPayload => {
     const original = {
       gtin: item?.gtin ?? '',
       lot: item?.lot ?? '',
@@ -88,43 +88,18 @@ export default function InventoryDetail() {
     if ((editForm.expDate ?? null) !== original.expDate) payload.expDate = editForm.expDate;
     if ((editForm.itemNumber ?? '') !== original.itemNumber) payload.itemNumber = editForm.itemNumber;
     if ((editForm.productLabel ?? '') !== original.productLabel) payload.productLabel = editForm.productLabel;
-    return { ...payload, ...(extra ?? {}) };
-  };
-
-  const handleEditSuccess = (res: { data?: { udi: string; merged?: boolean } }) => {
-    const newUdi = res?.data?.udi;
-    const merged = res?.data?.merged;
-    addToast(merged ? 'Duplicate merged — showing the original' : 'Item updated', 'success');
-    setShowEdit(false);
-    setEditForm({});
-    queryClient.invalidateQueries({ queryKey: ['inventory'] });
-    if (newUdi && newUdi !== udi) {
-      navigate(`/inventory/${encodeURIComponent(newUdi)}`, { replace: true });
-    } else {
-      queryClient.invalidateQueries({ queryKey: ['inventory-item', udi] });
-    }
+    return payload;
   };
 
   const editMutation = useMutation({
-    mutationFn: () => editItem(udi!, buildEditPayload()),
-    onSuccess: handleEditSuccess,
-    onError: (err: Error & { conflictUdi?: string; status?: number }) => {
-      if (err.status === 409 && err.conflictUdi) {
-        const ok = confirm(
-          `Another item already exists with UDI ${err.conflictUdi}. ` +
-            `This is likely a duplicate scan of the same product/lot.\n\n` +
-            `Delete this entry and keep the existing one?`,
-        );
-        if (ok) mergeMutation.mutate(err.conflictUdi);
-        return;
-      }
-      addToast(err.message, 'error');
+    mutationFn: () => editItem(id!, buildEditPayload()),
+    onSuccess: () => {
+      addToast('Item updated', 'success');
+      setShowEdit(false);
+      setEditForm({});
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-item', id] });
     },
-  });
-
-  const mergeMutation = useMutation({
-    mutationFn: (_conflictUdi: string) => editItem(udi!, buildEditPayload({ mergeIfConflict: true })),
-    onSuccess: handleEditSuccess,
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 

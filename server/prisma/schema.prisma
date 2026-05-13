@@ -31,7 +31,7 @@ model Distributor {
 
 model InventoryItem {
   id            String              @id @default(cuid())
-  udi           String              @unique
+  udi           String
   gtin          String
   gtinShort     String
   lot           String
@@ -51,6 +51,7 @@ model InventoryItem {
   updatedAt     DateTime            @updatedAt
   history       AssignmentHistory[]
 
+  @@index([udi])
   @@index([distributorId])
   @@index([expDate])
   @@index([deletedAt])
