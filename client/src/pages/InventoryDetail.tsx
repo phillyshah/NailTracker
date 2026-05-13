@@ -127,6 +127,7 @@ export default function InventoryDetail() {
         <p className="text-sm text-gray-500 font-mono mb-4">{item.udi}</p>
 
         <div className="grid gap-3 sm:grid-cols-2">
+          <DetailRow label="Item Number (REF)" value={item.itemNumber || '—'} />
           <DetailRow label="GTIN" value={item.gtin} />
           <DetailRow label="GTIN Short" value={item.gtinShort} />
           <DetailRow label="Lot Number" value={item.lot} />

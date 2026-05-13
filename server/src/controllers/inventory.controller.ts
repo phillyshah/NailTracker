@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 import { parseGS1, isParseError } from '../utils/parseGS1.js';
-import { getProductLabel } from '../utils/gtin-map.js';
+import { getProductLabel, getItemNumber } from '../utils/gtin-map.js';
 
 /**
  * POST /api/inventory/scan
@@ -221,7 +221,12 @@ export async function list(req: Request, res: Response) {
       prisma.inventoryItem.count({ where }),
     ]);
 
-    return success(res, items, { page, limit, total });
+    const enriched = items.map((it: { gtinShort: string; rawBarcode: string }) => ({
+      ...it,
+      itemNumber: getItemNumber(it.gtinShort, it.rawBarcode),
+    }));
+
+    return success(res, enriched, { page, limit, total });
   } catch (err) {
     return error(res, 'Failed to fetch inventory', 500);
   }
@@ -242,7 +247,7 @@ export async function getOne(req: Request, res: Response) {
       return error(res, 'Item not found', 404);
     }
 
-    return success(res, item);
+    return success(res, { ...item, itemNumber: getItemNumber(item.gtinShort, item.rawBarcode) });
   } catch (err) {
     return error(res, 'Failed to fetch item', 500);
   }
