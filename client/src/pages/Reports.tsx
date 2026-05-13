@@ -185,7 +185,7 @@ export default function Reports() {
                 </p>
                 <p className="text-sm text-gray-500 font-mono">{item.udi}</p>
                 <div className="mt-2 flex items-center justify-between">
-                  <ExpiryBadge expDate={item.expDate} />
+                  <ExpiryBadge expDate={item.expDate} showDate />
                   <span className="text-sm text-gray-500">{item.distributorName}</span>
                 </div>
               </div>
@@ -209,7 +209,7 @@ export default function Reports() {
                     <td className="px-3 py-2 font-medium">{item.productLabel || 'Unknown'}</td>
                     <td className="px-3 py-2 font-mono">{item.udi}</td>
                     <td className="px-3 py-2">{item.lot}</td>
-                    <td className="px-3 py-2"><ExpiryBadge expDate={item.expDate} /></td>
+                    <td className="px-3 py-2"><ExpiryBadge expDate={item.expDate} showDate /></td>
                     <td className="px-3 py-2">{item.distributorName}</td>
                     <td className="px-3 py-2 font-semibold">{item.daysUntilExpiry}</td>
                   </tr>

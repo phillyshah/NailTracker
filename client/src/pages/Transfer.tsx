@@ -230,7 +230,7 @@ export default function Transfer() {
                               <p className="text-xs font-mono text-gray-500 truncate">{item.udi}</p>
                               <div className="mt-1 flex items-center gap-2">
                                 <span className="text-xs text-gray-400">LOT: {item.lot}</span>
-                                <ExpiryBadge expDate={item.expDate} />
+                                <ExpiryBadge expDate={item.expDate} showDate />
                               </div>
                             </div>
                           </div>
@@ -272,7 +272,7 @@ export default function Transfer() {
                               <td className="px-4 py-3 font-medium">{item.productLabel || 'Unknown'}</td>
                               <td className="px-4 py-3 font-mono">{item.udi}</td>
                               <td className="px-4 py-3">{item.lot}</td>
-                              <td className="px-4 py-3"><ExpiryBadge expDate={item.expDate} /></td>
+                              <td className="px-4 py-3"><ExpiryBadge expDate={item.expDate} showDate /></td>
                             </tr>
                           ))}
                         </tbody>

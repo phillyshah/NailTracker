@@ -133,7 +133,7 @@ export default function DistributorDetail() {
                   <p className="text-sm text-gray-600 font-mono">{item.udi}</p>
                   <div className="mt-1 flex items-center justify-between">
                     <span className="text-sm text-gray-500">LOT: {item.lot}</span>
-                    <ExpiryBadge expDate={item.expDate} />
+                    <ExpiryBadge expDate={item.expDate} showDate />
                   </div>
                 </div>
               ))}
@@ -160,7 +160,7 @@ export default function DistributorDetail() {
                       <td className="px-3 py-2 font-medium">{item.productLabel || 'Unknown'}</td>
                       <td className="px-3 py-2 font-mono">{item.udi}</td>
                       <td className="px-3 py-2">{item.lot}</td>
-                      <td className="px-3 py-2"><ExpiryBadge expDate={item.expDate} /></td>
+                      <td className="px-3 py-2"><ExpiryBadge expDate={item.expDate} showDate /></td>
                     </tr>
                   ))}
                 </tbody>
