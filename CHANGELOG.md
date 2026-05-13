@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.7 — 2026-05-13
+- Single-item reassignments now create a Transfer record (visible in Reports → Transfer History)
+- Each individual reassign gets its own TRF-YYYYMMDD-NNNN ID
+- Batch Transfer flow unchanged — it still creates one combined Transfer for the whole batch
+
 ## v3.6 — 2026-05-13
 - Edit now detects duplicate scans — if your fix matches an existing item, you're prompted to delete the duplicate and keep the original
 - Merge is recorded in both items' history (the deleted one says "Merged into X", the kept one says "Duplicate merged from Y")

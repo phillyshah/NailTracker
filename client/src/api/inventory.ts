@@ -46,11 +46,19 @@ export async function getItem(udi: string) {
   return api<ItemResponse>(`/inventory/${encodeURIComponent(udi)}`);
 }
 
-export async function reassignItem(udi: string, distributorId: string | null, note?: string) {
-  return api<ApiResponse<{ message: string }>>(`/inventory/${encodeURIComponent(udi)}/reassign`, {
-    method: 'PATCH',
-    body: { distributorId, note },
-  });
+export async function reassignItem(
+  udi: string,
+  distributorId: string | null,
+  note?: string,
+  options: { skipTransferRecord?: boolean } = {},
+) {
+  return api<ApiResponse<{ message: string; transferId?: string | null }>>(
+    `/inventory/${encodeURIComponent(udi)}/reassign`,
+    {
+      method: 'PATCH',
+      body: { distributorId, note, skipTransferRecord: options.skipTransferRecord },
+    },
+  );
 }
 
 export interface EditItemPayload {

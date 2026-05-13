@@ -47,9 +47,12 @@ export default function Transfer() {
       const fromDist = distributors.find((d) => d.id === fromDistId);
       const toDist = distributors.find((d) => d.id === toDistId);
 
-      // Reassign each item
+      // Reassign each item — suppress per-item Transfer record since we
+      // create one combined Transfer record for the whole batch below.
       for (const item of selected) {
-        await reassignItem(item.udi, toDistId || null, note || 'Transfer');
+        await reassignItem(item.udi, toDistId || null, note || 'Transfer', {
+          skipTransferRecord: true,
+        });
       }
 
       // Save transfer record to DB
