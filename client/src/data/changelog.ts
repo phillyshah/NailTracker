@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.12',
+    date: '2026-05-13',
+    changes: [
+      'Fixed Transfer History detail pages showing blank when clicked',
+      'Added error messaging to diagnose transfer lookup failures',
+    ],
+  },
+  {
     version: '3.11',
     date: '2026-05-13',
     changes: [

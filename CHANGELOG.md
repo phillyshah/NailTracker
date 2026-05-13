@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.12 — 2026-05-13
+- Fixed Transfer History detail pages showing blank when clicked
+- Added error messaging to help diagnose API failures
+- Improved handling of malformed or missing transfer data
+
 ## v3.11 — 2026-05-13
 - **Multiple physical units can now share a GTIN + Lot** — the schema previously enforced "one row per UDI," which incorrectly rejected legitimate same-lot units (you'd see "X already in system" when scanning the 2nd, 3rd, ... unit of a manufacturing lot). Each scan now becomes its own inventory row.
   - Schema: dropped the `@unique` constraint on `InventoryItem.udi`, replaced with a non-unique index for lookups.
