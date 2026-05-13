@@ -237,6 +237,13 @@ function parseLabeledFields(text: string): string | null {
       break;
     }
   }
+  // Fallback: YYYY-MM-DD anywhere in text (hourglass date on labels)
+  if (!exp) {
+    const isoMatch = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      exp = isoMatch[1].slice(2) + isoMatch[2] + isoMatch[3];
+    }
+  }
 
   if (gtin && lot) {
     let result = `(01)${gtin}(10)${lot}`;

@@ -59,7 +59,7 @@ export async function parse(req: Request, res: Response) {
       where: { udi: { in: udis }, deletedAt: null, usedAt: null },
       select: { udi: true },
     });
-    const existingSet = new Set(existing.map((e) => e.udi));
+    const existingSet = new Set(existing.map((e: { udi: string }) => e.udi));
 
     const enriched = results.map((r) => {
       if (isParseError(r)) {
@@ -337,6 +337,35 @@ export async function markUsed(req: Request, res: Response) {
     return success(res, { message: 'Item marked as used' });
   } catch (err) {
     return error(res, 'Failed to mark item as used', 500);
+  }
+}
+
+/**
+ * POST /api/inventory/backfill-expiry
+ * Re-parse rawBarcodes on items with missing expDate and fill them in.
+ */
+export async function backfillExpiry(_req: Request, res: Response) {
+  try {
+    const items = await prisma.inventoryItem.findMany({
+      where: { expDate: null, deletedAt: null },
+      select: { id: true, rawBarcode: true },
+    });
+
+    let updated = 0;
+    for (const item of items) {
+      const parsed = parseGS1(item.rawBarcode);
+      if (!isParseError(parsed) && parsed.expDate) {
+        await prisma.inventoryItem.update({
+          where: { id: item.id },
+          data: { expDate: parsed.expDate },
+        });
+        updated++;
+      }
+    }
+
+    return success(res, { total: items.length, updated });
+  } catch (err) {
+    return error(res, 'Backfill failed', 500);
   }
 }
 
