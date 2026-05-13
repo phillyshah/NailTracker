@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 import { parseGS1, isParseError } from '../utils/parseGS1.js';
+import { getProductLabel } from '../utils/gtin-map.js';
 
 /**
  * POST /api/inventory/scan
@@ -366,6 +367,36 @@ export async function backfillExpiry(_req: Request, res: Response) {
     return success(res, { total: items.length, updated });
   } catch (err) {
     return error(res, 'Backfill failed', 500);
+  }
+}
+
+/**
+ * POST /api/inventory/backfill-labels
+ * Re-resolve productLabel for all items using the current GTIN map.
+ * Fixes items showing "Unknown" or outdated labels after map updates.
+ */
+export async function backfillLabels(_req: Request, res: Response) {
+  try {
+    const items = await prisma.inventoryItem.findMany({
+      where: { deletedAt: null },
+      select: { id: true, gtinShort: true, rawBarcode: true, productLabel: true },
+    });
+
+    let updated = 0;
+    for (const item of items) {
+      const newLabel = getProductLabel(item.gtinShort, item.rawBarcode);
+      if (newLabel !== item.productLabel) {
+        await prisma.inventoryItem.update({
+          where: { id: item.id },
+          data: { productLabel: newLabel },
+        });
+        updated++;
+      }
+    }
+
+    return success(res, { total: items.length, updated });
+  } catch (err) {
+    return error(res, 'Label backfill failed', 500);
   }
 }
 

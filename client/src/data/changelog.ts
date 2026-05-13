@@ -6,6 +6,17 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.2',
+    date: '2026-05-13',
+    changes: [
+      'Complete product database — all 105 Summa Orthopedics items now recognized',
+      'Fixed wrong angle on existing nails (was 126°, now correct 125°)',
+      'Fixed Set Screw label (was incorrectly "Short Proximal Femoral System")',
+      'Added Long Nails, Interlocking Screws, Cap Screws, and all Lag Screw sizes',
+      'Items previously showing "Unknown" will now display correct product names',
+    ],
+  },
+  {
     version: '3.1',
     date: '2026-05-13',
     changes: [
