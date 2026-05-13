@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.5 — 2026-05-13
+- ESC key now closes the full-screen barcode image (and the Edit / Reassign modals)
+
 ## v3.4 — 2026-05-13
 - New "Edit" button on inventory detail page — correct GTIN, Item Number (REF), Lot, Expiry, or Product Label
 - Entering a known Item Number auto-resolves the canonical GTIN + product label
