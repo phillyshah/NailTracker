@@ -10,6 +10,8 @@ router.get('/summary', ctrl.summary);
 router.get('/expiring', ctrl.expiring);
 router.get('/distributor-counts', ctrl.distributorCounts);
 router.get('/distributor/:id', ctrl.distributorReport);
+router.get('/stock-by-item', ctrl.stockByItem);
+router.get('/stock-by-item/export', ctrl.exportStockByItem);
 router.get('/export', ctrl.exportExcel);
 
 export default router;

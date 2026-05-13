@@ -239,8 +239,9 @@ export async function list(req: Request, res: Response) {
       createdAt: { createdAt: sortDir },
       assignedAt: { assignedAt: sortDir },
       gtinShort: { gtinShort: sortDir },
+      itemNumber: { gtinShort: sortDir },
     };
-    const orderBy = sortMap[sortBy] || { createdAt: 'desc' };
+    const orderBy = sortMap[sortBy] || { gtinShort: 'asc' };
 
     const [items, total] = await Promise.all([
       prisma.inventoryItem.findMany({

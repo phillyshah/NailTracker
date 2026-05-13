@@ -20,7 +20,7 @@
 ## Deployment
 - Development branch: `claude/summa-inventory-app-g9HJi`
 - Always develop on the feature branch, then create a PR and merge to `main`
-- VPS deploy command: `cd /var/www/summa-inventory && git pull origin main && npm run build && pm2 restart summa-inventory`
+- VPS deploy command: `cd /var/www/summa-inventory && git pull origin main && npm install && npm run build && pm2 restart summa-inventory`
 - Migrations must be run as raw SQL in the Supabase SQL Editor (Prisma CLI doesn't work on VPS)
 
 ## App Info

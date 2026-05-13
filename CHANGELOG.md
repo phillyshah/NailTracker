@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.10 — 2026-05-13
+- New **Stock by Item Number** report (Reports → Stock by Item Number) — matrix view with one row per item number and one column per location (Home Office + each active distributor) plus a Total column
+- Stock matrix is sortable on every column, searchable by item number or description, and every count is a drill-in link to the matching inventory
+- Stock matrix has its own Excel export (frozen header + frozen first two columns)
+- Fixed Excel export coming back empty when filters were active — the export URL was sending literal `undefined` strings for unset filters
+- Excel export now respects the Unassigned / Expired / Expiring-soon filters from the Reports cards
+- Inventory page now defaults to sorting by Item Number; column order is Item Number → Description → Lot → Expiry → Distributor, and every column header is sortable
+
 ## v3.9 — 2026-05-13
 - Exports are now Excel (.xlsx) instead of CSV — with bold header row, frozen top row, and expired dates highlighted in red
 - All major lists/tables (Inventory, Distributor Detail, Reports → Transfer History, Reports → Expiring, Transfer Detail) have sortable column headers — tap to sort, tap again to reverse

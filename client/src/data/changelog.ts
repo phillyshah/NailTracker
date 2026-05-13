@@ -6,6 +6,17 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.10',
+    date: '2026-05-13',
+    changes: [
+      'New Stock by Item Number report — see how many of each item you have at Home Office and at every distributor in one matrix, with a Total column',
+      'Stock matrix is sortable, searchable, and every count is clickable to drill into the matching inventory',
+      'Stock matrix has its own Excel download',
+      'Fixed Excel exports coming back empty — filters were being sent incorrectly',
+      'Inventory page now defaults to sorting by Item Number, and every column header is sortable (Item Number → Description → Lot → Expiry → Distributor)',
+    ],
+  },
+  {
     version: '3.9',
     date: '2026-05-13',
     changes: [

@@ -6,6 +6,7 @@ import Scan from './pages/Scan';
 import Inventory from './pages/Inventory';
 import InventoryDetail from './pages/InventoryDetail';
 import Reports from './pages/Reports';
+import StockByItem from './pages/StockByItem';
 import Distributors from './pages/Distributors';
 import DistributorDetail from './pages/DistributorDetail';
 import Users from './pages/Users';
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="inventory" element={<Inventory />} />
         <Route path="inventory/:udi" element={<InventoryDetail />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="reports/stock-by-item" element={<StockByItem />} />
         <Route path="distributors" element={<Distributors />} />
         <Route path="distributors/:id" element={<DistributorDetail />} />
         <Route path="users" element={<Users />} />

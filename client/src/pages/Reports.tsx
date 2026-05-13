@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { Package, Users, Clock, XCircle, Inbox, Download, Search, ArrowRightLeft, ChevronRight } from 'lucide-react';
+import { Package, Users, Clock, XCircle, Inbox, Download, Search, ArrowRightLeft, ChevronRight, LayoutGrid } from 'lucide-react';
 import { getSummary, getExpiring, getExportUrl } from '../api/reports';
 import { listDistributors } from '../api/distributors';
 import { listTransfers, type TransferRecord } from '../api/transfers';
@@ -106,6 +106,25 @@ export default function Reports() {
           </button>
         ))}
       </div>
+
+      {/* Stock by Item Number drilldown */}
+      <button
+        onClick={() => navigate('/reports/stock-by-item')}
+        className="w-full rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow text-left focus:outline-none focus:ring-2 focus:ring-primary-400"
+      >
+        <div className="flex items-center gap-4">
+          <div className="rounded-xl bg-primary-50 p-3 text-primary-700">
+            <LayoutGrid size={28} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-bold text-gray-900">Stock by Item Number</h3>
+            <p className="text-sm text-gray-600">
+              Count of each item across Home Office and every distributor — sortable, drillable, exportable.
+            </p>
+          </div>
+          <ChevronRight size={24} className="text-gray-400 shrink-0" />
+        </div>
+      </button>
 
       {/* Export by distributor */}
       <div className="rounded-2xl bg-white p-5 shadow-sm">
