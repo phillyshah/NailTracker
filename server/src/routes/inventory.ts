@@ -37,6 +37,7 @@ const assignSchema = z.object({
 const reassignSchema = z.object({
   distributorId: z.string().nullable().optional(),
   note: z.string().optional(),
+  skipTransferRecord: z.boolean().optional(),
 });
 
 const editSchema = z.object({

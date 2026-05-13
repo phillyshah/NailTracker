@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.7',
+    date: '2026-05-13',
+    changes: [
+      'Reassigning an item from the detail page now also creates a Transfer record — visible in Reports → Transfer History',
+    ],
+  },
+  {
     version: '3.6',
     date: '2026-05-13',
     changes: [
