@@ -34,6 +34,7 @@ export interface InventoryItem {
   expDate: string | null;
   rawBarcode: string;
   productLabel: string | null;
+  itemNumber?: string | null;
   imageData?: string | null;
   distributorId: string | null;
   distributor?: Distributor | null;

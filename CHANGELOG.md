@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.3 — 2026-05-13
+- Inventory detail page now shows the official Item Number (REF code)
+- Item Number is master: if a REF code is found on the label, it overrides the GTIN for categorization
+- Self-healing for OCR'd items where GTIN was misread but REF was correctly captured
+- New `extractItemNumber` and `getItemNumber` helpers + reverse REF→GTIN lookup
+
 ## v3.2 — 2026-05-13
 - Complete GTIN product map from Summa Orthopedics spreadsheet (105 products)
 - Fixed wrong angle values on existing nail entries (126° → 125°)

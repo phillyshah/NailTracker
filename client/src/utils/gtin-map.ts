@@ -150,6 +150,165 @@ export const gtinMap: Record<string, string> = {
   '9462605': 'Set Screw',
 };
 
+/**
+ * gtinShort -> official item number (REF code) from Summa Orthopedics catalog.
+ */
+export const gtinToRef: Record<string, string> = {
+  // Proximal Femur Nail
+  '9459148': 'SO-SPFN-0180-10-25',
+  '9459162': 'SO-SPFN-0200-10-25',
+  '9459186': 'SO-SPFN-0180-10-30',
+  '9459209': 'SO-SPFN-0200-10-30',
+  '9459223': 'SO-SPFN-0180-11-25',
+  '9459247': 'SO-SPFN-0200-11-25',
+  '9459261': 'SO-SPFN-0180-11-30',
+  '9459285': 'SO-SPFN-0200-11-30',
+  '9459308': 'SO-SPFN-0180-12-25',
+  '9459322': 'SO-SPFN-0200-12-25',
+  '9459346': 'SO-SPFN-0180-12-30',
+  '9459360': 'SO-SPFN-0200-12-30',
+  '9459452': 'SO-SPFN-0300-10R-25',
+  '9459469': 'SO-SPFN-0320-10R-25',
+  '9459476': 'SO-SPFN-0340-10R-25',
+  '9459483': 'SO-SPFN-0360-10R-25',
+  '9459490': 'SO-SPFN-0380-10R-25',
+  '9459506': 'SO-SPFN-0300-10R-30',
+  '9459513': 'SO-SPFN-0320-10R-30',
+  '9459520': 'SO-SPFN-0340-10R-30',
+  '9459537': 'SO-SPFN-0360-10R-30',
+  '9459544': 'SO-SPFN-0380-10R-30',
+  '9459551': 'SO-SPFN-0300-11R-25',
+  '9459568': 'SO-SPFN-0320-11R-25',
+  '9459575': 'SO-SPFN-0340-11R-25',
+  '9459582': 'SO-SPFN-0360-11R-25',
+  '9459599': 'SO-SPFN-0380-11R-25',
+  '9459605': 'SO-SPFN-0300-11R-30',
+  '9459612': 'SO-SPFN-0320-11R-30',
+  '9459629': 'SO-SPFN-0340-11R-30',
+  '9459636': 'SO-SPFN-0360-11R-30',
+  '9459643': 'SO-SPFN-0380-11R-30',
+  '9459858': 'SO-SPFN-0300-10L-25',
+  '9459865': 'SO-SPFN-0320-10L-25',
+  '9459872': 'SO-SPFN-0340-10L-25',
+  '9459889': 'SO-SPFN-0360-10L-25',
+  '9459896': 'SO-SPFN-0380-10L-25',
+  '9459902': 'SO-SPFN-0300-10L-30',
+  '9459919': 'SO-SPFN-0320-10L-30',
+  '9459926': 'SO-SPFN-0340-10L-30',
+  '9459933': 'SO-SPFN-0360-10L-30',
+  '9459940': 'SO-SPFN-0380-10L-30',
+  '9459957': 'SO-SPFN-0300-11L-25',
+  '9459964': 'SO-SPFN-0320-11L-25',
+  '9459971': 'SO-SPFN-0340-11L-25',
+  '9459988': 'SO-SPFN-0360-11L-25',
+  '9459995': 'SO-SPFN-0380-11L-25',
+  '9460007': 'SO-SPFN-0300-11L-30',
+  '9460014': 'SO-SPFN-0320-11L-30',
+  '9460021': 'SO-SPFN-0340-11L-30',
+  '9460038': 'SO-SPFN-0360-11L-30',
+  '9460045': 'SO-SPFN-0380-11L-30',
+  '9460298': 'SO-SPFN-0400-10R-25',
+  '9460304': 'SO-SPFN-0420-10R-25',
+  '9460366': 'SO-SPFN-0400-10R-30',
+  '9460373': 'SO-SPFN-0420-10R-30',
+  '9460434': 'SO-SPFN-0400-11R-25',
+  '9460441': 'SO-SPFN-0420-11R-25',
+  '9460502': 'SO-SPFN-0400-11R-30',
+  '9460519': 'SO-SPFN-0420-11R-30',
+  '9460854': 'SO-SPFN-0400-10L-25',
+  '9460861': 'SO-SPFN-0420-10L-25',
+  '9460922': 'SO-SPFN-0400-10L-30',
+  '9460939': 'SO-SPFN-0420-10L-30',
+  '9460991': 'SO-SPFN-0400-11L-25',
+  '9461004': 'SO-SPFN-0420-11L-25',
+  '9461066': 'SO-SPFN-0400-11L-30',
+  '9461073': 'SO-SPFN-0420-11L-30',
+  // Lag Screw (Normal)
+  '9461370': 'SO-SPFL-N070',
+  '9461387': 'SO-SPFL-N075',
+  '9461394': 'SO-SPFL-N080',
+  '9461400': 'SO-SPFL-N085',
+  '9461417': 'SO-SPFL-N090',
+  '9461424': 'SO-SPFL-N095',
+  '9461431': 'SO-SPFL-N100',
+  '9461448': 'SO-SPFL-N105',
+  '9461455': 'SO-SPFL-N110',
+  '9461462': 'SO-SPFL-N115',
+  '9461479': 'SO-SPFL-N120',
+  // Interlocking Screw
+  '9461608': 'SO-S50I-SO-026-T',
+  '9461622': 'SO-S50I-SO-028-T',
+  '9461646': 'SO-S50I-SO-030-T',
+  '9461660': 'SO-S50I-SO-032-T',
+  '9461684': 'SO-S50I-SO-034-T',
+  '9461707': 'SO-S50I-SO-036-T',
+  '9461721': 'SO-S50I-SO-038-T',
+  '9461745': 'SO-S50I-SO-040-T',
+  '9461769': 'SO-S50I-SO-042-T',
+  '9461783': 'SO-S50I-SO-044-T',
+  '9461806': 'SO-S50I-SO-046-T',
+  '9461820': 'SO-S50I-SO-048-T',
+  '9461844': 'SO-S50I-SO-050-T',
+  '9461899': 'SO-S50I-SO-055-T',
+  '9461943': 'SO-S50I-SO-060-T',
+  '9461998': 'SO-S50I-SO-065-T',
+  '9462049': 'SO-S50I-SO-070-T',
+  '9462094': 'SO-S50I-SO-075-T',
+  '9462148': 'SO-S50I-SO-080-T',
+  '9462193': 'SO-S50I-SO-085-T',
+  '9462247': 'SO-S50I-SO-090-T',
+  // Cap Screw
+  '9462551': 'SO-SPFC-000',
+  '9462568': 'SO-SPFC-005',
+  '9462575': 'SO-SPFC-010',
+  '9462582': 'SO-SPFC-015',
+  // Set Screw
+  '9462605': 'SO-SPFS-000',
+};
+
+/** Reverse lookup: REF code -> gtinShort. Built once at module load. */
+const refToGtinShort: Record<string, string> = Object.fromEntries(
+  Object.entries(gtinToRef).map(([gs, ref]) => [ref.toUpperCase(), gs]),
+);
+
+/**
+ * Extract a Summa item number (REF code) from raw barcode/label text.
+ * Returns the full REF code if found, else null.
+ */
+export function extractItemNumber(text: string): string | null {
+  if (!text) return null;
+  // Match a Summa REF code anywhere in the text.
+  // Patterns: SO-SPFN-..., SO-SPFL-..., SO-S50I-SO-..., SO-SPFC-..., SO-SPFS-..., SO-LPFN-..., SO-IS-..., SO-EC-..., SO-SS
+  const patterns = [
+    /\bSO-SPFN-\d{3,4}-\d{1,2}[LR]?-\d{2}\b/i,
+    /\bSO-SPFL-[NAT]\d{2,3}\b/i,
+    /\bSO-S50I-SO-\d{2,3}-T\b/i,
+    /\bSO-SPFC-\d{3}\b/i,
+    /\bSO-SPFS-\d{3}\b/i,
+    /\bSO-LPFN-\d{3,4}-\d{1,2}-\d{2}-[LR]\b/i,
+    /\bSO-IS-\d{2,3}\b/i,
+    /\bSO-EC-\d{1,2}\b/i,
+    /\bSO-SS\b/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) return m[0].toUpperCase();
+  }
+  return null;
+}
+
+/**
+ * Get the official item number (REF code) for an inventory item.
+ * Prefers REF extracted from rawBarcode (master), falls back to gtinShort lookup.
+ */
+export function getItemNumber(gtinShort: string, rawBarcode?: string): string | null {
+  if (rawBarcode) {
+    const extracted = extractItemNumber(rawBarcode);
+    if (extracted) return extracted;
+  }
+  return gtinToRef[gtinShort] || null;
+}
+
 const refCategories: [RegExp, string][] = [
   [/SO-SPFN/i, 'Proximal Femur Nail'],
   [/SO-LPFN/i, 'Long Nail'],
@@ -254,15 +413,33 @@ function parseRefCode(text: string): string | null {
 }
 
 export function getProductLabel(gtinShort: string, rawBarcode?: string): string {
+  // 1. If the raw barcode/label contains an explicit REF code, it is the master.
+  //    Look up the canonical product via the REF's known gtinShort.
+  if (rawBarcode) {
+    const ref = extractItemNumber(rawBarcode);
+    if (ref) {
+      const canonicalGtinShort = refToGtinShort[ref];
+      if (canonicalGtinShort && gtinMap[canonicalGtinShort]) {
+        return gtinMap[canonicalGtinShort];
+      }
+      // REF found but not in our catalog — parse dimensions from it
+      const fromRef = parseRefCode(ref);
+      if (fromRef) return fromRef;
+    }
+  }
+
+  // 2. Fall back to direct gtinShort lookup.
   if (gtinMap[gtinShort]) {
     return gtinMap[gtinShort];
   }
 
+  // 3. Try parseRefCode on the full rawBarcode.
   if (rawBarcode) {
     const fromRef = parseRefCode(rawBarcode);
     if (fromRef) return fromRef;
   }
 
+  // 4. Category / keyword fallback.
   if (rawBarcode) {
     for (const [pattern, category] of refCategories) {
       if (pattern.test(rawBarcode)) return category;

@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.3',
+    date: '2026-05-13',
+    changes: [
+      'Inventory detail page now shows the Item Number (REF code) for every item',
+      'Item Number is now the master — if the REF on a label disagrees with the GTIN, the REF wins',
+      'Self-healing for items where the GTIN was misread but the REF was captured correctly',
+    ],
+  },
+  {
     version: '3.2',
     date: '2026-05-13',
     changes: [
