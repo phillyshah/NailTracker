@@ -46,7 +46,7 @@ export default function App() {
         <Route path="receive" element={<Receive />} />
         <Route path="scan" element={<Scan />} />
         <Route path="inventory" element={<Inventory />} />
-        <Route path="inventory/:udi" element={<InventoryDetail />} />
+        <Route path="inventory/:id" element={<InventoryDetail />} />
         <Route path="reports" element={<Reports />} />
         <Route path="reports/stock-by-item" element={<StockByItem />} />
         <Route path="distributors" element={<Distributors />} />

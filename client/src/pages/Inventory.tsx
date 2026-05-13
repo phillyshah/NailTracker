@@ -54,7 +54,7 @@ export default function Inventory() {
 
   const reassignMutation = useMutation({
     mutationFn: () =>
-      reassignItem(reassigning!.udi, reassignDistId || null, reassignNote || undefined),
+      reassignItem(reassigning!.id, reassignDistId || null, reassignNote || undefined),
     onSuccess: () => {
       addToast('Item reassigned', 'success');
       setReassigning(null);
@@ -67,8 +67,8 @@ export default function Inventory() {
 
   const bulkReassignMutation = useMutation({
     mutationFn: async () => {
-      for (const udi of selectedItems) {
-        await reassignItem(udi, reassignDistId || null, 'Bulk reassignment');
+      for (const id of selectedItems) {
+        await reassignItem(id, reassignDistId || null, 'Bulk reassignment');
       }
     },
     onSuccess: () => {
@@ -116,14 +116,14 @@ export default function Inventory() {
     setSearchParams(next, { replace: true });
   }
 
-  function toggleSelect(udi: string) {
+  function toggleSelect(id: string) {
     setSelectedItems((prev) => {
       const next = new Set(prev);
-      if (next.has(udi)) next.delete(udi);
-      else next.add(udi);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
 
       // Auto-set reassign dropdown to current distributor if all selected share one
-      const selectedList = items.filter((i) => next.has(i.udi));
+      const selectedList = items.filter((i) => next.has(i.id));
       const distIds = new Set(selectedList.map((i) => i.distributorId || ''));
       if (distIds.size === 1) {
         setReassignDistId([...distIds][0]);
@@ -290,19 +290,19 @@ export default function Inventory() {
                 key={item.id}
                 className={cn(
                   'rounded-2xl bg-white p-4 shadow-sm border-2 transition-colors',
-                  selectedItems.has(item.udi) ? 'border-primary-400' : 'border-transparent',
+                  selectedItems.has(item.id) ? 'border-primary-400' : 'border-transparent',
                 )}
               >
                 <div className="flex items-start gap-3">
                   <input
                     type="checkbox"
-                    checked={selectedItems.has(item.udi)}
-                    onChange={() => toggleSelect(item.udi)}
+                    checked={selectedItems.has(item.id)}
+                    onChange={() => toggleSelect(item.id)}
                     className="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
                   <div
                     className="flex-1 min-w-0 cursor-pointer"
-                    onClick={() => navigate(`/inventory/${encodeURIComponent(item.udi)}`)}
+                    onClick={() => navigate(`/inventory/${encodeURIComponent(item.id)}`)}
                   >
                     <p className="text-base font-semibold text-gray-900">
                       {item.productLabel || 'Unknown Product'}
@@ -339,7 +339,7 @@ export default function Inventory() {
                       type="checkbox"
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedItems(new Set(items.map((i) => i.udi)));
+                          setSelectedItems(new Set(items.map((i) => i.id)));
                         } else {
                           setSelectedItems(new Set());
                         }
@@ -395,13 +395,13 @@ export default function Inventory() {
                   <tr
                     key={item.id}
                     className="border-b hover:bg-gray-50 cursor-pointer"
-                    onClick={() => navigate(`/inventory/${encodeURIComponent(item.udi)}`)}
+                    onClick={() => navigate(`/inventory/${encodeURIComponent(item.id)}`)}
                   >
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        checked={selectedItems.has(item.udi)}
-                        onChange={() => toggleSelect(item.udi)}
+                        checked={selectedItems.has(item.id)}
+                        onChange={() => toggleSelect(item.id)}
                         className="h-4 w-4 rounded border-gray-300"
                       />
                     </td>

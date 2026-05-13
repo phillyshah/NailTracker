@@ -52,18 +52,18 @@ export async function listInventory(filters: InventoryFilters = {}) {
   return api<ListResponse>('/inventory', { params });
 }
 
-export async function getItem(udi: string) {
-  return api<ItemResponse>(`/inventory/${encodeURIComponent(udi)}`);
+export async function getItem(id: string) {
+  return api<ItemResponse>(`/inventory/${encodeURIComponent(id)}`);
 }
 
 export async function reassignItem(
-  udi: string,
+  id: string,
   distributorId: string | null,
   note?: string,
   options: { skipTransferRecord?: boolean } = {},
 ) {
   return api<ApiResponse<{ message: string; transferId?: string | null }>>(
-    `/inventory/${encodeURIComponent(udi)}/reassign`,
+    `/inventory/${encodeURIComponent(id)}/reassign`,
     {
       method: 'PATCH',
       body: { distributorId, note, skipTransferRecord: options.skipTransferRecord },
@@ -77,24 +77,23 @@ export interface EditItemPayload {
   expDate?: string | null;
   itemNumber?: string;
   productLabel?: string;
-  mergeIfConflict?: boolean;
 }
 
-export async function editItem(udi: string, payload: EditItemPayload) {
-  return api<ApiResponse<{ udi: string; message: string; merged?: boolean }>>(
-    `/inventory/${encodeURIComponent(udi)}/edit`,
+export async function editItem(id: string, payload: EditItemPayload) {
+  return api<ApiResponse<{ id: string; udi: string; message: string }>>(
+    `/inventory/${encodeURIComponent(id)}/edit`,
     { method: 'PATCH', body: payload },
   );
 }
 
-export async function markAsUsed(udi: string) {
-  return api<ApiResponse<{ message: string }>>(`/inventory/${encodeURIComponent(udi)}/use`, {
+export async function markAsUsed(id: string) {
+  return api<ApiResponse<{ message: string }>>(`/inventory/${encodeURIComponent(id)}/use`, {
     method: 'PATCH',
   });
 }
 
-export async function deleteItem(udi: string) {
-  return api<ApiResponse<{ message: string }>>(`/inventory/${encodeURIComponent(udi)}`, {
+export async function deleteItem(id: string) {
+  return api<ApiResponse<{ message: string }>>(`/inventory/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
 }

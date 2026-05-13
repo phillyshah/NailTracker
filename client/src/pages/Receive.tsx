@@ -72,16 +72,6 @@ export default function Receive() {
         return;
       }
 
-      if (result.existing) {
-        setReceivedItems((prev) => [
-          { id: nextId++, parsed: result.parsed, imageData, status: 'duplicate' },
-          ...prev,
-        ]);
-        addToast('Item already in system', 'error');
-        setScanning(true);
-        return;
-      }
-
       // Auto-receive new items directly to Home Office
       if (homeOffice) {
         try {

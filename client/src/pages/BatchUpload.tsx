@@ -119,9 +119,9 @@ export default function BatchUpload() {
                     ...item,
                     parsed: result.parsed,
                     existing: result.existing,
-                    status: result.existing ? 'duplicate' : result.parsed.status === 'error' ? 'error' : 'new',
+                    status: result.parsed.status === 'error' ? 'error' : 'new',
                     error: result.parsed.status === 'error' ? result.parsed.errorMessage : undefined,
-                    selected: !result.existing && result.parsed.status !== 'error',
+                    selected: result.parsed.status !== 'error',
                   }
                 : item,
             ),
@@ -192,9 +192,9 @@ export default function BatchUpload() {
                       barcode: firstBarcode,
                       parsed: result.parsed,
                       existing: result.existing,
-                      status: result.existing ? 'duplicate' : result.parsed.status === 'error' ? 'error' : 'new',
+                      status: result.parsed.status === 'error' ? 'error' : 'new',
                       error: result.parsed.status === 'error' ? result.parsed.errorMessage : undefined,
-                      selected: !result.existing && result.parsed.status !== 'error',
+                      selected: result.parsed.status !== 'error',
                     }
                   : item,
               ),

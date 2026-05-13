@@ -106,18 +106,18 @@ export async function remove(req: Request, res: Response) {
   }
 }
 
-/** POST /api/banks/:id/add — add items to a bank by UDI */
+/** POST /api/banks/:id/add — add items to a bank by item id */
 export async function addItems(req: Request, res: Response) {
   try {
     const id = str(req.params.id);
-    const { udis } = req.body as { udis: string[] };
+    const { itemIds } = req.body as { itemIds: string[] };
 
     const bank = await prisma.bank.findUnique({ where: { id } });
     if (!bank) return error(res, 'Bank not found', 404);
 
     // Only allow items at the same distributor as the bank
     const where: Record<string, unknown> = {
-      udi: { in: udis },
+      id: { in: itemIds },
       deletedAt: null,
       usedAt: null,
     };
@@ -140,10 +140,10 @@ export async function addItems(req: Request, res: Response) {
 export async function removeItems(req: Request, res: Response) {
   try {
     const id = str(req.params.id);
-    const { udis } = req.body as { udis: string[] };
+    const { itemIds } = req.body as { itemIds: string[] };
 
     const result = await prisma.inventoryItem.updateMany({
-      where: { udi: { in: udis }, bankId: id },
+      where: { id: { in: itemIds }, bankId: id },
       data: { bankId: null },
     });
 

@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.11',
+    date: '2026-05-13',
+    changes: [
+      'Fixed: scanning multiple physical units that share the same lot number no longer flags them as duplicates — each scan is its own inventory unit',
+      'Batch upload now ingests every row, even when many barcodes share the same GTIN + Lot',
+      'Inventory detail / edit / reassign now use a stable internal item ID so items with the same UDI are individually addressable',
+    ],
+  },
+  {
     version: '3.10',
     date: '2026-05-13',
     changes: [

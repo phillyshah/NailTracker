@@ -25,7 +25,7 @@ export default function Transfer() {
   const [fromDistId, setFromDistId] = useState('');
   const [toDistId, setToDistId] = useState('');
   const [note, setNote] = useState('');
-  const [selectedUdis, setSelectedUdis] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [savedTransfer, setSavedTransfer] = useState<TransferRecord | null>(null);
 
   const { data: distributors = [] } = useQuery({
@@ -43,19 +43,16 @@ export default function Transfer() {
 
   const transferMutation = useMutation({
     mutationFn: async () => {
-      const selected = items.filter((i) => selectedUdis.has(i.udi));
+      const selected = items.filter((i) => selectedIds.has(i.id));
       const fromDist = distributors.find((d) => d.id === fromDistId);
       const toDist = distributors.find((d) => d.id === toDistId);
 
-      // Reassign each item — suppress per-item Transfer record since we
-      // create one combined Transfer record for the whole batch below.
       for (const item of selected) {
-        await reassignItem(item.udi, toDistId || null, note || 'Transfer', {
+        await reassignItem(item.id, toDistId || null, note || 'Transfer', {
           skipTransferRecord: true,
         });
       }
 
-      // Save transfer record to DB
       const transfer = await createTransfer({
         fromDistributorId: fromDistId || null,
         fromDistributorName: fromDist?.name || 'Unassigned',
@@ -63,6 +60,7 @@ export default function Transfer() {
         toDistributorName: toDist?.name || 'Unassigned',
         note: note || '',
         items: selected.map((i) => ({
+          id: i.id,
           udi: i.udi,
           itemNumber: i.itemNumber || null,
           productLabel: i.productLabel,
@@ -83,21 +81,21 @@ export default function Transfer() {
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
-  function toggleItem(udi: string) {
-    setSelectedUdis((prev) => {
+  function toggleItem(id: string) {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(udi)) next.delete(udi);
-      else next.add(udi);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
 
   function selectAll() {
-    setSelectedUdis(new Set(items.map((i) => i.udi)));
+    setSelectedIds(new Set(items.map((i) => i.id)));
   }
 
   function selectNone() {
-    setSelectedUdis(new Set());
+    setSelectedIds(new Set());
   }
 
   function resetAll() {
@@ -105,7 +103,7 @@ export default function Transfer() {
     setFromDistId('');
     setToDistId('');
     setNote('');
-    setSelectedUdis(new Set());
+    setSelectedIds(new Set());
     setSavedTransfer(null);
   }
 
@@ -122,7 +120,7 @@ export default function Transfer() {
 
   const fromDist = distributors.find((d) => d.id === fromDistId);
   const toDist = distributors.find((d) => d.id === toDistId);
-  const selectedItems = items.filter((i) => selectedUdis.has(i.udi));
+  const selectedItems = items.filter((i) => selectedIds.has(i.id));
 
   return (
     <div className="mx-auto max-w-4xl lg:max-w-7xl">
@@ -147,7 +145,7 @@ export default function Transfer() {
                     value={fromDistId}
                     onChange={(e) => {
                       setFromDistId(e.target.value);
-                      setSelectedUdis(new Set());
+                      setSelectedIds(new Set());
                     }}
                     className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base bg-white focus:border-primary-500 focus:outline-none"
                   >
@@ -216,18 +214,18 @@ export default function Transfer() {
                       {items.map((item) => (
                         <div
                           key={item.id}
-                          onClick={() => toggleItem(item.udi)}
+                          onClick={() => toggleItem(item.id)}
                           className={cn(
                             'rounded-xl bg-white p-3 shadow-sm border-2 cursor-pointer transition-colors',
-                            selectedUdis.has(item.udi) ? 'border-primary-400 bg-primary-50' : 'border-transparent',
+                            selectedIds.has(item.id) ? 'border-primary-400 bg-primary-50' : 'border-transparent',
                           )}
                         >
                           <div className="flex items-center gap-3">
                             <div className={cn(
                               'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2',
-                              selectedUdis.has(item.udi) ? 'border-primary-600 bg-primary-600' : 'border-gray-300',
+                              selectedIds.has(item.id) ? 'border-primary-600 bg-primary-600' : 'border-gray-300',
                             )}>
-                              {selectedUdis.has(item.udi) && <Check size={14} className="text-white" />}
+                              {selectedIds.has(item.id) && <Check size={14} className="text-white" />}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-gray-900 truncate">{item.productLabel || 'Unknown'}</p>
@@ -249,7 +247,7 @@ export default function Transfer() {
                             <th className="px-4 py-3 w-10">
                               <input
                                 type="checkbox"
-                                checked={selectedUdis.size === items.length && items.length > 0}
+                                checked={selectedIds.size === items.length && items.length > 0}
                                 onChange={(e) => e.target.checked ? selectAll() : selectNone()}
                                 className="h-4 w-4 rounded border-gray-300"
                               />
@@ -264,14 +262,14 @@ export default function Transfer() {
                           {items.map((item) => (
                             <tr
                               key={item.id}
-                              onClick={() => toggleItem(item.udi)}
+                              onClick={() => toggleItem(item.id)}
                               className={cn(
                                 'border-b cursor-pointer transition-colors',
-                                selectedUdis.has(item.udi) ? 'bg-primary-50' : 'hover:bg-gray-50',
+                                selectedIds.has(item.id) ? 'bg-primary-50' : 'hover:bg-gray-50',
                               )}
                             >
                               <td className="px-4 py-3">
-                                <input type="checkbox" checked={selectedUdis.has(item.udi)} readOnly className="h-4 w-4 rounded border-gray-300 text-primary-600" />
+                                <input type="checkbox" checked={selectedIds.has(item.id)} readOnly className="h-4 w-4 rounded border-gray-300 text-primary-600" />
                               </td>
                               <td className="px-4 py-3 font-medium">{item.productLabel || 'Unknown'}</td>
                               <td className="px-4 py-3 font-mono">{item.itemNumber || '—'}</td>
@@ -287,14 +285,14 @@ export default function Transfer() {
               </>
             )}
 
-            {selectedUdis.size > 0 && toDistId && (
+            {selectedIds.size > 0 && toDistId && (
               <div className="sticky bottom-20 lg:bottom-4 z-30">
                 <button
                   onClick={() => setStep('confirm')}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-4 text-base font-semibold text-white shadow-lg hover:bg-primary-700 transition-colors"
                 >
                   <ArrowRightLeft size={20} />
-                  Review Transfer ({selectedUdis.size} items)
+                  Review Transfer ({selectedIds.size} items)
                   <ChevronRight size={20} />
                 </button>
               </div>

@@ -38,13 +38,13 @@ export async function deleteBank(id: string) {
   return api<ApiResponse<{ message: string }>>(`/banks/${id}`, { method: 'DELETE' });
 }
 
-export async function addItemsToBank(bankId: string, udis: string[]) {
-  const res = await api<ApiResponse<{ updated: number }>>(`/banks/${bankId}/add`, { method: 'POST', body: { udis } });
+export async function addItemsToBank(bankId: string, itemIds: string[]) {
+  const res = await api<ApiResponse<{ updated: number }>>(`/banks/${bankId}/add`, { method: 'POST', body: { itemIds } });
   return res.data!;
 }
 
-export async function removeItemsFromBank(bankId: string, udis: string[]) {
-  const res = await api<ApiResponse<{ updated: number }>>(`/banks/${bankId}/remove`, { method: 'POST', body: { udis } });
+export async function removeItemsFromBank(bankId: string, itemIds: string[]) {
+  const res = await api<ApiResponse<{ updated: number }>>(`/banks/${bankId}/remove`, { method: 'POST', body: { itemIds } });
   return res.data!;
 }
 
