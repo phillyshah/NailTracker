@@ -59,10 +59,11 @@ export interface EditItemPayload {
   expDate?: string | null;
   itemNumber?: string;
   productLabel?: string;
+  mergeIfConflict?: boolean;
 }
 
 export async function editItem(udi: string, payload: EditItemPayload) {
-  return api<ApiResponse<{ udi: string; message: string }>>(
+  return api<ApiResponse<{ udi: string; message: string; merged?: boolean }>>(
     `/inventory/${encodeURIComponent(udi)}/edit`,
     { method: 'PATCH', body: payload },
   );
