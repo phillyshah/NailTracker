@@ -137,7 +137,7 @@ export default function BankDetail() {
                   <p className="text-xs font-mono text-gray-500 truncate">{item.udi}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="text-xs text-gray-400">LOT: {item.lot}</span>
-                    <ExpiryBadge expDate={item.expDate} />
+                    <ExpiryBadge expDate={item.expDate} showDate />
                   </div>
                 </div>
                 <button

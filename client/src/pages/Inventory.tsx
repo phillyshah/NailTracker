@@ -247,7 +247,7 @@ export default function Inventory() {
                     </p>
                     <p className="text-sm text-gray-600 font-mono truncate">{item.udi}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <ExpiryBadge expDate={item.expDate} />
+                      <ExpiryBadge expDate={item.expDate} showDate />
                       <span className="text-sm text-gray-500">
                         {item.distributor?.name || 'Unassigned'}
                       </span>
@@ -311,7 +311,7 @@ export default function Inventory() {
                     <td className="px-4 py-3 font-medium">{item.productLabel || 'Unknown'}</td>
                     <td className="px-4 py-3 font-mono text-sm">{item.udi}</td>
                     <td className="px-4 py-3 text-sm">{item.lot}</td>
-                    <td className="px-4 py-3"><ExpiryBadge expDate={item.expDate} /></td>
+                    <td className="px-4 py-3"><ExpiryBadge expDate={item.expDate} showDate /></td>
                     <td className="px-4 py-3 text-sm">{item.distributor?.name || 'Unassigned'}</td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <button

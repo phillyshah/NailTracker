@@ -133,7 +133,7 @@ export default function InventoryDetail() {
           <div>
             <span className="text-sm text-gray-500">Expiry</span>
             <div className="mt-0.5">
-              <ExpiryBadge expDate={item.expDate} />
+              <ExpiryBadge expDate={item.expDate} showDate />
             </div>
           </div>
           <DetailRow
