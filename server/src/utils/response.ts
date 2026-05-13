@@ -10,8 +10,8 @@ export function success<T>(res: Response, data: T, meta?: ApiMeta, status = 200)
   return res.status(status).json({ success: true, data, meta });
 }
 
-export function error(res: Response, message: string, status = 400) {
-  return res.status(status).json({ success: false, error: message });
+export function error(res: Response, message: string, status = 400, extra?: Record<string, unknown>) {
+  return res.status(status).json({ success: false, error: message, ...(extra ?? {}) });
 }
 
 /** Safely extract a string from Express 5 param/query */

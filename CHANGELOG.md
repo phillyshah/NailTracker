@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.6 — 2026-05-13
+- Edit now detects duplicate scans — if your fix matches an existing item, you're prompted to delete the duplicate and keep the original
+- Merge is recorded in both items' history (the deleted one says "Merged into X", the kept one says "Duplicate merged from Y")
+
 ## v3.5 — 2026-05-13
 - ESC key now closes the full-screen barcode image (and the Edit / Reassign modals)
 

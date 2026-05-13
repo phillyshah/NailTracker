@@ -320,12 +320,13 @@ export async function reassign(req: Request, res: Response) {
 export async function edit(req: Request, res: Response) {
   try {
     const udi = str(req.params.udi);
-    const { gtin, lot, expDate, itemNumber, productLabel } = req.body as {
+    const { gtin, lot, expDate, itemNumber, productLabel, mergeIfConflict } = req.body as {
       gtin?: string;
       lot?: string;
       expDate?: string | null;
       itemNumber?: string;
       productLabel?: string;
+      mergeIfConflict?: boolean;
     };
 
     const item = await prisma.inventoryItem.findUnique({
@@ -384,9 +385,49 @@ export async function edit(req: Request, res: Response) {
     const newUdi = `${newGtinShort}-${newLot}`;
 
     if (newUdi !== item.udi) {
-      const conflict = await prisma.inventoryItem.findUnique({ where: { udi: newUdi } });
+      const conflict = await prisma.inventoryItem.findUnique({
+        where: { udi: newUdi },
+        include: { distributor: true },
+      });
       if (conflict && conflict.id !== item.id && !conflict.deletedAt && !conflict.usedAt) {
-        return error(res, `Another active item already exists with UDI ${newUdi}`, 409);
+        if (mergeIfConflict) {
+          // Soft-delete the current (duplicate) item and log on both records.
+          await prisma.$transaction([
+            prisma.inventoryItem.update({
+              where: { id: item.id },
+              data: { deletedAt: new Date() },
+            }),
+            prisma.assignmentHistory.create({
+              data: {
+                itemId: item.id,
+                fromDistributorId: item.distributorId,
+                fromDistributorName: item.distributor?.name || null,
+                toDistributorId: item.distributorId,
+                toDistributorName: item.distributor?.name || null,
+                changedBy: req.user?.username || null,
+                note: `Merged into ${conflict.udi} (duplicate scan deleted)`,
+              },
+            }),
+            prisma.assignmentHistory.create({
+              data: {
+                itemId: conflict.id,
+                fromDistributorId: conflict.distributorId,
+                fromDistributorName: conflict.distributor?.name || null,
+                toDistributorId: conflict.distributorId,
+                toDistributorName: conflict.distributor?.name || null,
+                changedBy: req.user?.username || null,
+                note: `Duplicate scan merged from ${item.udi}`,
+              },
+            }),
+          ]);
+          return success(res, { udi: conflict.udi, merged: true, message: 'Duplicate merged' });
+        }
+        return error(
+          res,
+          `Another active item already exists with UDI ${newUdi}`,
+          409,
+          { conflictUdi: newUdi },
+        );
       }
     }
 

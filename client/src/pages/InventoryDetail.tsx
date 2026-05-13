@@ -74,36 +74,57 @@ export default function InventoryDetail() {
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
+  const buildEditPayload = (extra?: Partial<EditItemPayload>): EditItemPayload => {
+    const original = {
+      gtin: item?.gtin ?? '',
+      lot: item?.lot ?? '',
+      expDate: item?.expDate ? item.expDate.slice(0, 10) : null,
+      itemNumber: item?.itemNumber || '',
+      productLabel: item?.productLabel || '',
+    };
+    const payload: EditItemPayload = {};
+    if ((editForm.gtin ?? '') !== original.gtin) payload.gtin = editForm.gtin;
+    if ((editForm.lot ?? '') !== original.lot) payload.lot = editForm.lot;
+    if ((editForm.expDate ?? null) !== original.expDate) payload.expDate = editForm.expDate;
+    if ((editForm.itemNumber ?? '') !== original.itemNumber) payload.itemNumber = editForm.itemNumber;
+    if ((editForm.productLabel ?? '') !== original.productLabel) payload.productLabel = editForm.productLabel;
+    return { ...payload, ...(extra ?? {}) };
+  };
+
+  const handleEditSuccess = (res: { data?: { udi: string; merged?: boolean } }) => {
+    const newUdi = res?.data?.udi;
+    const merged = res?.data?.merged;
+    addToast(merged ? 'Duplicate merged — showing the original' : 'Item updated', 'success');
+    setShowEdit(false);
+    setEditForm({});
+    queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    if (newUdi && newUdi !== udi) {
+      navigate(`/inventory/${encodeURIComponent(newUdi)}`, { replace: true });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['inventory-item', udi] });
+    }
+  };
+
   const editMutation = useMutation({
-    mutationFn: () => {
-      // Send only fields that actually changed from the current item.
-      const original = {
-        gtin: item?.gtin ?? '',
-        lot: item?.lot ?? '',
-        expDate: item?.expDate ? item.expDate.slice(0, 10) : null,
-        itemNumber: item?.itemNumber || '',
-        productLabel: item?.productLabel || '',
-      };
-      const payload: EditItemPayload = {};
-      if ((editForm.gtin ?? '') !== original.gtin) payload.gtin = editForm.gtin;
-      if ((editForm.lot ?? '') !== original.lot) payload.lot = editForm.lot;
-      if ((editForm.expDate ?? null) !== original.expDate) payload.expDate = editForm.expDate;
-      if ((editForm.itemNumber ?? '') !== original.itemNumber) payload.itemNumber = editForm.itemNumber;
-      if ((editForm.productLabel ?? '') !== original.productLabel) payload.productLabel = editForm.productLabel;
-      return editItem(udi!, payload);
-    },
-    onSuccess: (res) => {
-      addToast('Item updated', 'success');
-      setShowEdit(false);
-      setEditForm({});
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      const newUdi = res?.data?.udi;
-      if (newUdi && newUdi !== udi) {
-        navigate(`/inventory/${encodeURIComponent(newUdi)}`, { replace: true });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ['inventory-item', udi] });
+    mutationFn: () => editItem(udi!, buildEditPayload()),
+    onSuccess: handleEditSuccess,
+    onError: (err: Error & { conflictUdi?: string; status?: number }) => {
+      if (err.status === 409 && err.conflictUdi) {
+        const ok = confirm(
+          `Another item already exists with UDI ${err.conflictUdi}. ` +
+            `This is likely a duplicate scan of the same product/lot.\n\n` +
+            `Delete this entry and keep the existing one?`,
+        );
+        if (ok) mergeMutation.mutate(err.conflictUdi);
+        return;
       }
+      addToast(err.message, 'error');
     },
+  });
+
+  const mergeMutation = useMutation({
+    mutationFn: (_conflictUdi: string) => editItem(udi!, buildEditPayload({ mergeIfConflict: true })),
+    onSuccess: handleEditSuccess,
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 

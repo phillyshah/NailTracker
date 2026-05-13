@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.6',
+    date: '2026-05-13',
+    changes: [
+      'When editing an item creates a duplicate of an existing one, you’re now prompted to merge — delete the duplicate and keep the original',
+      'Merges are tracked in both items’ history',
+    ],
+  },
+  {
     version: '3.5',
     date: '2026-05-13',
     changes: [
