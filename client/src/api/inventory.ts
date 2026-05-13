@@ -53,6 +53,21 @@ export async function reassignItem(udi: string, distributorId: string | null, no
   });
 }
 
+export interface EditItemPayload {
+  gtin?: string;
+  lot?: string;
+  expDate?: string | null;
+  itemNumber?: string;
+  productLabel?: string;
+}
+
+export async function editItem(udi: string, payload: EditItemPayload) {
+  return api<ApiResponse<{ udi: string; message: string }>>(
+    `/inventory/${encodeURIComponent(udi)}/edit`,
+    { method: 'PATCH', body: payload },
+  );
+}
+
 export async function markAsUsed(udi: string) {
   return api<ApiResponse<{ message: string }>>(`/inventory/${encodeURIComponent(udi)}/use`, {
     method: 'PATCH',

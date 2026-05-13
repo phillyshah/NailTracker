@@ -267,9 +267,19 @@ export const gtinToRef: Record<string, string> = {
 };
 
 /** Reverse lookup: REF code -> gtinShort. Built once at module load. */
-const refToGtinShort: Record<string, string> = Object.fromEntries(
+/** Reverse lookup: REF code (uppercase) -> gtinShort. */
+export const refToGtinShort: Record<string, string> = Object.fromEntries(
   Object.entries(gtinToRef).map(([gs, ref]) => [ref.toUpperCase(), gs]),
 );
+
+/**
+ * Build the full 14-digit GTIN for a given gtinShort, using the Summa
+ * Orthopedics company prefix (`08800089`). All catalog items live under
+ * this prefix, so the GTIN is `08800089` + last 6 of gtinShort.
+ */
+export function gtinShortToFullGtin(gtinShort: string): string {
+  return '08800089' + gtinShort.slice(-6);
+}
 
 /**
  * Extract a Summa item number (REF code) from raw barcode/label text.

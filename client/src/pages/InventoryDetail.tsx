@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRightLeft, Trash2, CheckCircle2, Image, X } from 'lucide-react';
-import { getItem, reassignItem, deleteItem, markAsUsed } from '../api/inventory';
+import { ArrowLeft, ArrowRightLeft, Trash2, CheckCircle2, Image, X, Pencil } from 'lucide-react';
+import { getItem, reassignItem, deleteItem, markAsUsed, editItem, type EditItemPayload } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
@@ -15,8 +15,10 @@ export default function InventoryDetail() {
   const { toasts, addToast, removeToast } = useToast();
   const [showReassign, setShowReassign] = useState(false);
   const [showImage, setShowImage] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [newDistId, setNewDistId] = useState('');
   const [note, setNote] = useState('');
+  const [editForm, setEditForm] = useState<EditItemPayload>({});
 
   const { data: distributors = [] } = useQuery({
     queryKey: ['distributors'],
@@ -56,6 +58,39 @@ export default function InventoryDetail() {
     onSuccess: () => {
       addToast('Item deleted', 'success');
       navigate('/inventory');
+    },
+    onError: (err: Error) => addToast(err.message, 'error'),
+  });
+
+  const editMutation = useMutation({
+    mutationFn: () => {
+      // Send only fields that actually changed from the current item.
+      const original = {
+        gtin: item?.gtin ?? '',
+        lot: item?.lot ?? '',
+        expDate: item?.expDate ? item.expDate.slice(0, 10) : null,
+        itemNumber: item?.itemNumber || '',
+        productLabel: item?.productLabel || '',
+      };
+      const payload: EditItemPayload = {};
+      if ((editForm.gtin ?? '') !== original.gtin) payload.gtin = editForm.gtin;
+      if ((editForm.lot ?? '') !== original.lot) payload.lot = editForm.lot;
+      if ((editForm.expDate ?? null) !== original.expDate) payload.expDate = editForm.expDate;
+      if ((editForm.itemNumber ?? '') !== original.itemNumber) payload.itemNumber = editForm.itemNumber;
+      if ((editForm.productLabel ?? '') !== original.productLabel) payload.productLabel = editForm.productLabel;
+      return editItem(udi!, payload);
+    },
+    onSuccess: (res) => {
+      addToast('Item updated', 'success');
+      setShowEdit(false);
+      setEditForm({});
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      const newUdi = res?.data?.udi;
+      if (newUdi && newUdi !== udi) {
+        navigate(`/inventory/${encodeURIComponent(newUdi)}`, { replace: true });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['inventory-item', udi] });
+      }
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
@@ -159,7 +194,22 @@ export default function InventoryDetail() {
         </div>
 
         {!item.usedAt && (
-          <div className="mt-5 flex gap-3">
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              onClick={() => {
+                setEditForm({
+                  gtin: item.gtin,
+                  lot: item.lot,
+                  expDate: item.expDate ? item.expDate.slice(0, 10) : null,
+                  itemNumber: item.itemNumber || '',
+                  productLabel: item.productLabel || '',
+                });
+                setShowEdit(true);
+              }}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-primary-300 bg-white px-4 py-3 text-base font-semibold text-primary-700 hover:bg-primary-50"
+            >
+              <Pencil size={20} /> Edit
+            </button>
             <button
               onClick={() => {
                 setShowReassign(true);
@@ -224,6 +274,88 @@ export default function InventoryDetail() {
           <p className="text-sm text-gray-500">No assignment history</p>
         )}
       </div>
+
+      {/* Edit panel */}
+      {showEdit && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40">
+          <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Edit Item</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Correct any field below. Entering a known Item Number (REF) will auto-fix the GTIN and product label.
+            </p>
+            <label className="block mb-3">
+              <span className="text-sm font-medium text-gray-700">Item Number (REF)</span>
+              <input
+                type="text"
+                value={editForm.itemNumber ?? ''}
+                onChange={(e) => setEditForm({ ...editForm, itemNumber: e.target.value })}
+                placeholder="e.g. SO-S50I-SO-034-T"
+                className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base font-mono focus:border-primary-500 focus:outline-none"
+              />
+            </label>
+            <label className="block mb-3">
+              <span className="text-sm font-medium text-gray-700">GTIN (14 digits)</span>
+              <input
+                type="text"
+                value={editForm.gtin ?? ''}
+                onChange={(e) => setEditForm({ ...editForm, gtin: e.target.value })}
+                placeholder="08800089461684"
+                maxLength={14}
+                className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base font-mono focus:border-primary-500 focus:outline-none"
+              />
+            </label>
+            <label className="block mb-3">
+              <span className="text-sm font-medium text-gray-700">Lot Number</span>
+              <input
+                type="text"
+                value={editForm.lot ?? ''}
+                onChange={(e) => setEditForm({ ...editForm, lot: e.target.value })}
+                className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base font-mono focus:border-primary-500 focus:outline-none"
+              />
+            </label>
+            <label className="block mb-3">
+              <span className="text-sm font-medium text-gray-700">Expiry Date</span>
+              <input
+                type="date"
+                value={editForm.expDate ?? ''}
+                onChange={(e) => setEditForm({ ...editForm, expDate: e.target.value || null })}
+                className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+              />
+            </label>
+            <label className="block mb-4">
+              <span className="text-sm font-medium text-gray-700">Product Label</span>
+              <input
+                type="text"
+                value={editForm.productLabel ?? ''}
+                onChange={(e) => setEditForm({ ...editForm, productLabel: e.target.value })}
+                placeholder="Auto-derived from GTIN/REF if left as default"
+                className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+              />
+              <span className="text-xs text-gray-500 mt-1 block">
+                Leave as the auto-derived value unless you need a manual override.
+              </span>
+            </label>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowEdit(false);
+                  setEditForm({});
+                }}
+                className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => editMutation.mutate()}
+                disabled={editMutation.isPending}
+                className="flex-1 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {editMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reassign panel */}
       {showReassign && (

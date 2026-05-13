@@ -2,7 +2,12 @@ import type { Request, Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 import { parseGS1, isParseError } from '../utils/parseGS1.js';
-import { getProductLabel, getItemNumber } from '../utils/gtin-map.js';
+import {
+  getProductLabel,
+  getItemNumber,
+  refToGtinShort,
+  gtinShortToFullGtin,
+} from '../utils/gtin-map.js';
 
 /**
  * POST /api/inventory/scan
@@ -300,6 +305,135 @@ export async function reassign(req: Request, res: Response) {
     return success(res, { message: 'Item reassigned' });
   } catch (err) {
     return error(res, 'Reassignment failed', 500);
+  }
+}
+
+/**
+ * PATCH /api/inventory/:udi/edit
+ * Edit item fields (GTIN, item number, lot, expiry, product label).
+ * Recomputes derived fields (gtinShort, udi, productLabel) and writes
+ * a row to AssignmentHistory describing exactly what changed.
+ *
+ * If an item number (REF) is provided that matches the Summa catalog,
+ * the canonical GTIN/gtinShort for that REF wins (REF is master).
+ */
+export async function edit(req: Request, res: Response) {
+  try {
+    const udi = str(req.params.udi);
+    const { gtin, lot, expDate, itemNumber, productLabel } = req.body as {
+      gtin?: string;
+      lot?: string;
+      expDate?: string | null;
+      itemNumber?: string;
+      productLabel?: string;
+    };
+
+    const item = await prisma.inventoryItem.findUnique({
+      where: { udi },
+      include: { distributor: true },
+    });
+    if (!item || item.deletedAt) {
+      return error(res, 'Item not found', 404);
+    }
+
+    let newGtin = item.gtin;
+    let newGtinShort = item.gtinShort;
+    let newLot = item.lot;
+    let newExpDate: Date | null = item.expDate;
+    let newProductLabel = item.productLabel;
+
+    // If REF is provided AND matches a known catalog entry, REF is master.
+    if (typeof itemNumber === 'string' && itemNumber.trim()) {
+      const ref = itemNumber.trim().toUpperCase();
+      const canonicalShort = refToGtinShort[ref];
+      if (canonicalShort) {
+        newGtinShort = canonicalShort;
+        newGtin = gtinShortToFullGtin(canonicalShort);
+      }
+      // If REF isn't in the catalog, we ignore it for GTIN purposes;
+      // it can still surface via getItemNumber from rawBarcode.
+    }
+
+    if (typeof gtin === 'string' && gtin.trim()) {
+      const g = gtin.trim();
+      if (!/^\d{14}$/.test(g)) {
+        return error(res, 'GTIN must be exactly 14 digits', 400);
+      }
+      newGtin = g;
+      newGtinShort = g.replace(/^0+/, '').slice(-7);
+    }
+
+    if (typeof lot === 'string' && lot.trim()) {
+      newLot = lot.trim();
+    }
+
+    if (expDate !== undefined) {
+      newExpDate = expDate ? new Date(expDate) : null;
+    }
+
+    // Decide productLabel:
+    //   - explicit override wins
+    //   - otherwise auto-derive only if gtinShort actually changed
+    //   - otherwise keep the existing label
+    if (typeof productLabel === 'string' && productLabel.trim()) {
+      newProductLabel = productLabel.trim();
+    } else if (newGtinShort !== item.gtinShort) {
+      newProductLabel = getProductLabel(newGtinShort, item.rawBarcode);
+    }
+
+    const newUdi = `${newGtinShort}-${newLot}`;
+
+    if (newUdi !== item.udi) {
+      const conflict = await prisma.inventoryItem.findUnique({ where: { udi: newUdi } });
+      if (conflict && conflict.id !== item.id && !conflict.deletedAt && !conflict.usedAt) {
+        return error(res, `Another active item already exists with UDI ${newUdi}`, 409);
+      }
+    }
+
+    const changes: string[] = [];
+    if (item.gtin !== newGtin) changes.push(`GTIN: ${item.gtin} → ${newGtin}`);
+    if (item.gtinShort !== newGtinShort) changes.push(`GTIN Short: ${item.gtinShort} → ${newGtinShort}`);
+    if (item.lot !== newLot) changes.push(`Lot: ${item.lot} → ${newLot}`);
+    if (item.udi !== newUdi) changes.push(`UDI: ${item.udi} → ${newUdi}`);
+    const oldExp = item.expDate ? item.expDate.toISOString().slice(0, 10) : 'none';
+    const nextExp = newExpDate ? newExpDate.toISOString().slice(0, 10) : 'none';
+    if (oldExp !== nextExp) changes.push(`Expiry: ${oldExp} → ${nextExp}`);
+    if (item.productLabel !== newProductLabel) {
+      changes.push(`Label: ${item.productLabel ?? 'none'} → ${newProductLabel ?? 'none'}`);
+    }
+
+    if (changes.length === 0) {
+      return success(res, { udi: item.udi, message: 'No changes' });
+    }
+
+    await prisma.$transaction([
+      prisma.inventoryItem.update({
+        where: { id: item.id },
+        data: {
+          gtin: newGtin,
+          gtinShort: newGtinShort,
+          lot: newLot,
+          udi: newUdi,
+          expDate: newExpDate,
+          productLabel: newProductLabel,
+        },
+      }),
+      prisma.assignmentHistory.create({
+        data: {
+          itemId: item.id,
+          fromDistributorId: item.distributorId,
+          fromDistributorName: item.distributor?.name || null,
+          toDistributorId: item.distributorId,
+          toDistributorName: item.distributor?.name || null,
+          changedBy: req.user?.username || null,
+          note: `Edited — ${changes.join('; ')}`,
+        },
+      }),
+    ]);
+
+    return success(res, { udi: newUdi, message: 'Item updated' });
+  } catch (err) {
+    return error(res, 'Edit failed', 500);
   }
 }
 
