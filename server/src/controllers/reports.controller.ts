@@ -1,7 +1,8 @@
 import type { Request, Response } from 'express';
-import { stringify } from 'csv-stringify/sync';
+import ExcelJS from 'exceljs';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
+import { getItemNumber } from '../utils/gtin-map.js';
 
 export async function summary(_req: Request, res: Response) {
   try {
@@ -60,6 +61,7 @@ export async function expiring(req: Request, res: Response) {
 
     const enriched = items.map((item) => ({
       udi: item.udi,
+      itemNumber: getItemNumber(item.gtinShort, item.rawBarcode),
       productLabel: item.productLabel,
       lot: item.lot,
       expDate: item.expDate?.toISOString() ?? null,
@@ -91,13 +93,18 @@ export async function distributorReport(req: Request, res: Response) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return success(res, { distributor, items });
+    const enrichedItems = items.map((it: { gtinShort: string; rawBarcode: string }) => ({
+      ...it,
+      itemNumber: getItemNumber(it.gtinShort, it.rawBarcode),
+    }));
+
+    return success(res, { distributor, items: enrichedItems });
   } catch (err) {
     return error(res, 'Failed to generate distributor report', 500);
   }
 }
 
-export async function exportCsv(req: Request, res: Response) {
+export async function exportExcel(req: Request, res: Response) {
   try {
     const where: Record<string, unknown> = { deletedAt: null, usedAt: null };
 
@@ -121,21 +128,52 @@ export async function exportCsv(req: Request, res: Response) {
       orderBy: { createdAt: 'desc' },
     });
 
-    const rows = items.map((item) => ({
-      UDI: item.udi,
-      Product: item.productLabel || '',
-      GTIN: item.gtin,
-      Lot: item.lot,
-      'Expiry Date': item.expDate ? item.expDate.toISOString().split('T')[0] : '',
-      Distributor: item.distributor?.name || 'Unassigned',
-      'Assigned Date': item.assignedAt ? item.assignedAt.toISOString().split('T')[0] : '',
-    }));
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Nail Tracker';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet('Inventory');
 
-    const csv = stringify(rows, { header: true });
+    sheet.columns = [
+      { header: 'Item Number', key: 'itemNumber', width: 22 },
+      { header: 'Product', key: 'product', width: 36 },
+      { header: 'GTIN', key: 'gtin', width: 18 },
+      { header: 'Lot', key: 'lot', width: 18 },
+      { header: 'Expiry Date', key: 'expDate', width: 14 },
+      { header: 'Distributor', key: 'distributor', width: 22 },
+      { header: 'Assigned Date', key: 'assignedDate', width: 14 },
+    ];
 
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=inventory-export.csv');
-    return res.send(csv);
+    // Bold header row + frozen pane so it stays visible while scrolling.
+    sheet.getRow(1).font = { bold: true };
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const now = Date.now();
+    for (const item of items) {
+      const expMs = item.expDate?.getTime();
+      const expired = !!expMs && expMs < now;
+      const row = sheet.addRow({
+        itemNumber: getItemNumber(item.gtinShort, item.rawBarcode) || '',
+        product: item.productLabel || '',
+        gtin: item.gtin,
+        lot: item.lot,
+        expDate: item.expDate ? item.expDate.toISOString().split('T')[0] : '',
+        distributor: item.distributor?.name || 'Unassigned',
+        assignedDate: item.assignedAt ? item.assignedAt.toISOString().split('T')[0] : '',
+      });
+      if (expired) {
+        row.getCell('expDate').font = { color: { argb: 'FFB00020' }, bold: true };
+      }
+    }
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `inventory-export-${dateStr}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    await workbook.xlsx.write(res);
+    return res.end();
   } catch (err) {
     return error(res, 'Export failed', 500);
   }

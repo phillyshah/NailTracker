@@ -192,7 +192,7 @@ export default function InventoryDetail() {
         <h2 className="text-xl font-bold text-gray-900 mb-1">
           {item.productLabel || 'Unknown Product'}
         </h2>
-        <p className="text-sm text-gray-500 font-mono mb-4">{item.udi}</p>
+        <p className="text-sm text-gray-500 font-mono mb-4">{item.itemNumber || '—'}</p>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <DetailRow label="Item Number (REF)" value={item.itemNumber || '—'} />

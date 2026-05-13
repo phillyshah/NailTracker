@@ -6,8 +6,11 @@ import { getSummary, getExpiring, getExportUrl } from '../api/reports';
 import { listDistributors } from '../api/distributors';
 import { listTransfers, type TransferRecord } from '../api/transfers';
 import { ExpiryBadge } from '../components/ExpiryBadge';
+import { SortableTh } from '../components/SortableTh';
+import { useSortable } from '../hooks/useSortable';
 import { cn } from '../utils/cn';
 import { HelpBanner } from '../components/HelpBanner';
+import type { ExpiringItem } from '../types';
 
 export default function Reports() {
   const navigate = useNavigate();
@@ -25,6 +28,44 @@ export default function Reports() {
 
   const transfers = transferData?.data ?? [];
   const transferMeta = transferData?.meta;
+
+  const {
+    sorted: sortedTransfers,
+    sortKey: transferSortKey,
+    sortDir: transferSortDir,
+    toggleSort: toggleTransferSort,
+  } = useSortable(
+    transfers,
+    {
+      transferId: (t: TransferRecord) => t.transferId,
+      createdAt: (t: TransferRecord) => t.createdAt,
+      fromDistributorName: (t: TransferRecord) => t.fromDistributorName || '',
+      toDistributorName: (t: TransferRecord) => t.toDistributorName || '',
+      itemCount: (t: TransferRecord) => t.itemCount,
+    },
+    'createdAt',
+    'desc',
+  );
+
+  const expiringList: ExpiringItem[] = (expiring ?? []).slice(0, 20);
+  const {
+    sorted: sortedExpiring,
+    sortKey: expSortKey,
+    sortDir: expSortDir,
+    toggleSort: toggleExpSort,
+  } = useSortable(
+    expiringList,
+    {
+      productLabel: (i) => i.productLabel || '',
+      itemNumber: (i) => i.itemNumber || '',
+      lot: (i) => i.lot,
+      expDate: (i) => i.expDate,
+      distributorName: (i) => i.distributorName || '',
+      daysUntilExpiry: (i) => i.daysUntilExpiry,
+    },
+    'daysUntilExpiry',
+    'asc',
+  );
 
   const metrics: Array<{
     label: string;
@@ -45,7 +86,7 @@ export default function Reports() {
       <h2 className="text-xl font-bold text-gray-900">Reports</h2>
 
       <HelpBanner storageKey="reports">
-        View inventory metrics, export CSV reports by distributor, and search transfer history by ID. Tap a transfer ID to see full details.
+        View inventory metrics (tap any card to drill in), download Excel reports by distributor, and search transfer history. Tap a column header to sort or a transfer ID to see full details.
       </HelpBanner>
 
       {/* Metric cards */}
@@ -135,17 +176,17 @@ export default function Reports() {
             <div className="hidden lg:block overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b text-gray-500">
-                    <th className="px-3 py-2">Transfer ID</th>
-                    <th className="px-3 py-2">Date</th>
-                    <th className="px-3 py-2">From</th>
-                    <th className="px-3 py-2">To</th>
-                    <th className="px-3 py-2">Items</th>
-                    <th className="px-3 py-2">Note</th>
+                  <tr className="border-b">
+                    <SortableTh label="Transfer ID" sortKey="transferId" currentKey={transferSortKey} currentDir={transferSortDir} onSort={toggleTransferSort} className="px-3 py-2" />
+                    <SortableTh label="Date" sortKey="createdAt" currentKey={transferSortKey} currentDir={transferSortDir} onSort={toggleTransferSort} className="px-3 py-2" />
+                    <SortableTh label="From" sortKey="fromDistributorName" currentKey={transferSortKey} currentDir={transferSortDir} onSort={toggleTransferSort} className="px-3 py-2" />
+                    <SortableTh label="To" sortKey="toDistributorName" currentKey={transferSortKey} currentDir={transferSortDir} onSort={toggleTransferSort} className="px-3 py-2" />
+                    <SortableTh label="Items" sortKey="itemCount" currentKey={transferSortKey} currentDir={transferSortDir} onSort={toggleTransferSort} className="px-3 py-2" />
+                    <th className="px-3 py-2 text-gray-500">Note</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {transfers.map((t: TransferRecord) => (
+                  {sortedTransfers.map((t: TransferRecord) => (
                     <tr key={t.id} className="border-b hover:bg-gray-50">
                       <td className="px-3 py-2 font-mono font-semibold text-primary-700"><button onClick={() => navigate(`/transfer/${t.transferId}`)} className="underline hover:text-primary-900">{t.transferId}</button></td>
                       <td className="px-3 py-2">{new Date(t.createdAt).toLocaleDateString()}</td>
@@ -191,12 +232,12 @@ export default function Reports() {
             Expiring Items (next 180 days)
           </h3>
           <div className="space-y-2 lg:hidden">
-            {expiring.slice(0, 20).map((item) => (
+            {sortedExpiring.map((item) => (
               <div key={item.udi} className="rounded-xl border border-gray-200 p-3">
                 <p className="text-base font-semibold text-gray-900">
                   {item.productLabel || 'Unknown'}
                 </p>
-                <p className="text-sm text-gray-500 font-mono">{item.udi}</p>
+                <p className="text-sm text-gray-500 font-mono">{item.itemNumber || '—'}</p>
                 <div className="mt-2 flex items-center justify-between">
                   <ExpiryBadge expDate={item.expDate} showDate />
                   <span className="text-sm text-gray-500">{item.distributorName}</span>
@@ -207,20 +248,20 @@ export default function Reports() {
           <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b text-gray-500">
-                  <th className="px-3 py-2">Product</th>
-                  <th className="px-3 py-2">UDI</th>
-                  <th className="px-3 py-2">Lot</th>
-                  <th className="px-3 py-2">Expiry</th>
-                  <th className="px-3 py-2">Distributor</th>
-                  <th className="px-3 py-2">Days Left</th>
+                <tr className="border-b">
+                  <SortableTh label="Product" sortKey="productLabel" currentKey={expSortKey} currentDir={expSortDir} onSort={toggleExpSort} className="px-3 py-2" />
+                  <SortableTh label="Item Number" sortKey="itemNumber" currentKey={expSortKey} currentDir={expSortDir} onSort={toggleExpSort} className="px-3 py-2" />
+                  <SortableTh label="Lot" sortKey="lot" currentKey={expSortKey} currentDir={expSortDir} onSort={toggleExpSort} className="px-3 py-2" />
+                  <SortableTh label="Expiry" sortKey="expDate" currentKey={expSortKey} currentDir={expSortDir} onSort={toggleExpSort} className="px-3 py-2" />
+                  <SortableTh label="Distributor" sortKey="distributorName" currentKey={expSortKey} currentDir={expSortDir} onSort={toggleExpSort} className="px-3 py-2" />
+                  <SortableTh label="Days Left" sortKey="daysUntilExpiry" currentKey={expSortKey} currentDir={expSortDir} onSort={toggleExpSort} className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody>
-                {expiring.slice(0, 20).map((item) => (
+                {sortedExpiring.map((item) => (
                   <tr key={item.udi} className="border-b hover:bg-gray-50">
                     <td className="px-3 py-2 font-medium">{item.productLabel || 'Unknown'}</td>
-                    <td className="px-3 py-2 font-mono">{item.udi}</td>
+                    <td className="px-3 py-2 font-mono">{item.itemNumber || '—'}</td>
                     <td className="px-3 py-2">{item.lot}</td>
                     <td className="px-3 py-2"><ExpiryBadge expDate={item.expDate} showDate /></td>
                     <td className="px-3 py-2">{item.distributorName}</td>

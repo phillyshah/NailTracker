@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9 — 2026-05-13
+- Exports are now Excel (.xlsx) instead of CSV — with bold header row, frozen top row, and expired dates highlighted in red
+- All major lists/tables (Inventory, Distributor Detail, Reports → Transfer History, Reports → Expiring, Transfer Detail) have sortable column headers — tap to sort, tap again to reverse
+- UDI replaced with Item Number (REF) across every list, card, and detail header
+
 ## v3.8 — 2026-05-13
 - Report cards (Total Units / Active Distributors / Expiring <180d / Expired / Unassigned) are now clickable — they navigate to the filtered inventory list
 - Inventory page reads URL filters and shows an active-filter chip with a Clear button

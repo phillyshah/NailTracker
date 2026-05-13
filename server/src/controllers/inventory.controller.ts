@@ -228,11 +228,25 @@ export async function list(req: Request, res: Response) {
       where.expDate = { gt: now, lte: cutoff };
     }
 
+    // Sortable columns -> Prisma orderBy spec. Anything else falls back to createdAt desc.
+    const sortBy = str(req.query.sortBy);
+    const sortDir: 'asc' | 'desc' = str(req.query.sortDir) === 'asc' ? 'asc' : 'desc';
+    const sortMap: Record<string, Record<string, unknown>> = {
+      productLabel: { productLabel: sortDir },
+      lot: { lot: sortDir },
+      expDate: { expDate: sortDir },
+      distributor: { distributor: { name: sortDir } },
+      createdAt: { createdAt: sortDir },
+      assignedAt: { assignedAt: sortDir },
+      gtinShort: { gtinShort: sortDir },
+    };
+    const orderBy = sortMap[sortBy] || { createdAt: 'desc' };
+
     const [items, total] = await Promise.all([
       prisma.inventoryItem.findMany({
         where,
         include: { distributor: { select: { id: true, name: true } } },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip,
         take: limit,
         // Don't return imageData in list view (too large)
@@ -363,6 +377,7 @@ export async function reassign(req: Request, res: Response) {
                 items: [
                   {
                     udi: item.udi,
+                    itemNumber: getItemNumber(item.gtinShort, item.rawBarcode),
                     productLabel: item.productLabel,
                     lot: item.lot,
                     gtin: item.gtin,

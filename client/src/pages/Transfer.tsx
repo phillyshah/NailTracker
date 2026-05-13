@@ -64,6 +64,7 @@ export default function Transfer() {
         note: note || '',
         items: selected.map((i) => ({
           udi: i.udi,
+          itemNumber: i.itemNumber || null,
           productLabel: i.productLabel,
           lot: i.lot,
           gtin: i.gtin,
@@ -230,7 +231,7 @@ export default function Transfer() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-gray-900 truncate">{item.productLabel || 'Unknown'}</p>
-                              <p className="text-xs font-mono text-gray-500 truncate">{item.udi}</p>
+                              <p className="text-xs font-mono text-gray-500 truncate">{item.itemNumber || '—'}</p>
                               <div className="mt-1 flex items-center gap-2">
                                 <span className="text-xs text-gray-400">LOT: {item.lot}</span>
                                 <ExpiryBadge expDate={item.expDate} showDate />
@@ -254,7 +255,7 @@ export default function Transfer() {
                               />
                             </th>
                             <th className="px-4 py-3">Product</th>
-                            <th className="px-4 py-3">UDI</th>
+                            <th className="px-4 py-3">Item Number</th>
                             <th className="px-4 py-3">LOT</th>
                             <th className="px-4 py-3">Expiry</th>
                           </tr>
@@ -273,7 +274,7 @@ export default function Transfer() {
                                 <input type="checkbox" checked={selectedUdis.has(item.udi)} readOnly className="h-4 w-4 rounded border-gray-300 text-primary-600" />
                               </td>
                               <td className="px-4 py-3 font-medium">{item.productLabel || 'Unknown'}</td>
-                              <td className="px-4 py-3 font-mono">{item.udi}</td>
+                              <td className="px-4 py-3 font-mono">{item.itemNumber || '—'}</td>
                               <td className="px-4 py-3">{item.lot}</td>
                               <td className="px-4 py-3"><ExpiryBadge expDate={item.expDate} showDate /></td>
                             </tr>

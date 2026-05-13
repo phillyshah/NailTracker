@@ -134,7 +134,7 @@ export default function BankDetail() {
               <div key={item.id} className="flex items-center gap-3 rounded-xl border border-gray-200 p-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900 truncate">{item.productLabel || 'Unknown'}</p>
-                  <p className="text-xs font-mono text-gray-500 truncate">{item.udi}</p>
+                  <p className="text-xs font-mono text-gray-500 truncate">{item.itemNumber || '—'}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="text-xs text-gray-400">LOT: {item.lot}</span>
                     <ExpiryBadge expDate={item.expDate} showDate />
@@ -181,7 +181,7 @@ export default function BankDetail() {
                     )}
                   >
                     <p className="text-sm font-semibold text-gray-900">{item.productLabel || 'Unknown'}</p>
-                    <p className="text-xs font-mono text-gray-500">{item.udi}</p>
+                    <p className="text-xs font-mono text-gray-500">{item.itemNumber || '—'}</p>
                   </div>
                 ))
               )}

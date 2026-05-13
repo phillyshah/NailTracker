@@ -5,6 +5,8 @@ import { getDistributor } from '../api/distributors';
 import { listInventory } from '../api/inventory';
 import { getExportUrl } from '../api/reports';
 import { ExpiryBadge } from '../components/ExpiryBadge';
+import { SortableTh } from '../components/SortableTh';
+import { useSortable } from '../hooks/useSortable';
 
 export default function DistributorDetail() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +25,17 @@ export default function DistributorDetail() {
   });
 
   const items = inventoryData?.data ?? [];
+
+  const { sorted: sortedItems, sortKey, sortDir, toggleSort } = useSortable(
+    items,
+    {
+      productLabel: (i) => i.productLabel || '',
+      itemNumber: (i) => i.itemNumber || '',
+      lot: (i) => i.lot,
+      expDate: (i) => i.expDate || null,
+    },
+    'productLabel',
+  );
 
   async function handleShare() {
     if (!distributor) return;
@@ -98,7 +111,7 @@ export default function DistributorDetail() {
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700 transition-colors"
           >
             <Download size={20} />
-            Download CSV
+            Download Excel
           </a>
           <button
             onClick={handleShare}
@@ -121,7 +134,7 @@ export default function DistributorDetail() {
           <>
             {/* Mobile cards */}
             <div className="space-y-2 lg:hidden">
-              {items.map((item) => (
+              {sortedItems.map((item) => (
                 <div
                   key={item.id}
                   onClick={() => navigate(`/inventory/${encodeURIComponent(item.udi)}`)}
@@ -130,7 +143,7 @@ export default function DistributorDetail() {
                   <p className="text-base font-semibold text-gray-900">
                     {item.productLabel || 'Unknown Product'}
                   </p>
-                  <p className="text-sm text-gray-600 font-mono">{item.udi}</p>
+                  <p className="text-sm text-gray-600 font-mono">{item.itemNumber || '—'}</p>
                   <div className="mt-1 flex items-center justify-between">
                     <span className="text-sm text-gray-500">LOT: {item.lot}</span>
                     <ExpiryBadge expDate={item.expDate} showDate />
@@ -143,22 +156,22 @@ export default function DistributorDetail() {
             <div className="hidden lg:block overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b text-gray-500">
-                    <th className="px-3 py-2">Product</th>
-                    <th className="px-3 py-2">UDI</th>
-                    <th className="px-3 py-2">LOT</th>
-                    <th className="px-3 py-2">Expiry</th>
+                  <tr className="border-b">
+                    <SortableTh label="Product" sortKey="productLabel" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
+                    <SortableTh label="Item Number" sortKey="itemNumber" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
+                    <SortableTh label="LOT" sortKey="lot" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
+                    <SortableTh label="Expiry" sortKey="expDate" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item) => (
+                  {sortedItems.map((item) => (
                     <tr
                       key={item.id}
                       onClick={() => navigate(`/inventory/${encodeURIComponent(item.udi)}`)}
                       className="border-b hover:bg-gray-50 cursor-pointer"
                     >
                       <td className="px-3 py-2 font-medium">{item.productLabel || 'Unknown'}</td>
-                      <td className="px-3 py-2 font-mono">{item.udi}</td>
+                      <td className="px-3 py-2 font-mono">{item.itemNumber || '—'}</td>
                       <td className="px-3 py-2">{item.lot}</td>
                       <td className="px-3 py-2"><ExpiryBadge expDate={item.expDate} showDate /></td>
                     </tr>
