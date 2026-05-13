@@ -307,7 +307,14 @@ export async function reassign(req: Request, res: Response) {
     const newDistId = distributorId || null;
     const distributorChanged = oldDistId !== newDistId;
 
-    const ops: Parameters<typeof prisma.$transaction>[0] = [
+    // Generate a Transfer id up front so we can include it inline in the
+    // $transaction call (avoiding TS issues with array-typed ops).
+    let transferId: string | null = null;
+    if (distributorChanged && !skipTransferRecord) {
+      transferId = await nextTransferId();
+    }
+
+    await prisma.$transaction([
       prisma.inventoryItem.update({
         where: { udi },
         data: {
@@ -327,40 +334,32 @@ export async function reassign(req: Request, res: Response) {
           note: note || null,
         },
       }),
-    ];
-
-    // Create a single-item Transfer record so the move shows up in Transfer
-    // History. Skipped when called from the batch transfer flow which writes
-    // its own combined Transfer record.
-    let transferId: string | null = null;
-    if (distributorChanged && !skipTransferRecord) {
-      transferId = await nextTransferId();
-      ops.push(
-        prisma.transfer.create({
-          data: {
-            transferId,
-            fromDistributorId: oldDistId,
-            fromDistributorName: item.distributor?.name || 'Unassigned',
-            toDistributorId: newDistId,
-            toDistributorName: newDistributor?.name || 'Unassigned',
-            note: note || null,
-            itemCount: 1,
-            items: [
-              {
-                udi: item.udi,
-                productLabel: item.productLabel,
-                lot: item.lot,
-                gtin: item.gtin,
-                expDate: item.expDate?.toISOString() || null,
+      ...(transferId
+        ? [
+            prisma.transfer.create({
+              data: {
+                transferId,
+                fromDistributorId: oldDistId,
+                fromDistributorName: item.distributor?.name || 'Unassigned',
+                toDistributorId: newDistId,
+                toDistributorName: newDistributor?.name || 'Unassigned',
+                note: note || null,
+                itemCount: 1,
+                items: [
+                  {
+                    udi: item.udi,
+                    productLabel: item.productLabel,
+                    lot: item.lot,
+                    gtin: item.gtin,
+                    expDate: item.expDate?.toISOString() || null,
+                  },
+                ],
+                transferredBy: req.user?.username || null,
               },
-            ],
-            transferredBy: req.user?.username || null,
-          },
-        }),
-      );
-    }
-
-    await prisma.$transaction(ops);
+            }),
+          ]
+        : []),
+    ]);
 
     return success(res, { message: 'Item reassigned', transferId });
   } catch (err) {
