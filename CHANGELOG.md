@@ -1,5 +1,14 @@
 # Changelog
 
+## v3.2 — 2026-05-13
+- Complete GTIN product map from Summa Orthopedics spreadsheet (105 products)
+- Fixed wrong angle values on existing nail entries (126° → 125°)
+- Fixed SO-SPFS mapping (was "Short Proximal Femoral System", now correctly "Set Screw")
+- Added all Short Nails (12), Long Nails (56), Lag Screws (11), Interlocking Screws (21), Cap Screws (4), Set Screw (1)
+- Added REF code parsing for actual item numbers: SO-S50I-SO (interlocking), SO-SPFC (cap screw)
+- Added backfill-labels endpoint to fix existing inventory items after map updates
+- Product descriptions now match Summa Orthopedics official format
+
 ## v3.1 — 2026-05-13
 - Fixed expiry dates not being captured from some barcode scans (OCR lot truncation bug)
 - Added Short Proximal Femoral System (SO-SPFS) product category

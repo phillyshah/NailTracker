@@ -28,4 +28,5 @@
 - Org: Summa Orthopaedics
 - Stack: React 19 + Vite + TypeScript + Tailwind CSS 4 (client), Express + Prisma 7 + PostgreSQL/Supabase (server)
 - Barcode format: GS1-128 (AI 01=GTIN, AI 10=lot, AI 17=expiry YYMMDD; also supports YYYY-MM-DD hourglass format)
-- Product categories: SO-SPFN (Short Femoral Nail), SO-LPFN (Long Femoral Nail), SO-SPFS (Short Proximal Femoral System), SO-SPFL-N/A/T (Lag Screws), SO-IS (Interlocking Screw), SO-EC (End Cap), SO-SS (Set Screw)
+- Product categories (per GTIN spreadsheet): SO-SPFN (Short Nail & Long Nail — long nails have L/R side suffix), SO-SPFL-N/A/T (Lag Screws), SO-S50I-SO (Interlocking Screw), SO-SPFC (Cap Screw), SO-SPFS (Set Screw)
+- Legacy REF prefixes also supported: SO-LPFN, SO-IS, SO-EC, SO-SS

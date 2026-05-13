@@ -43,6 +43,7 @@ router.post('/scan', validate(scanSchema), ctrl.scan);
 router.post('/parse', validate(parseSchema), ctrl.parse);
 router.post('/assign', validate(assignSchema), ctrl.assign);
 router.post('/backfill-expiry', ctrl.backfillExpiry);
+router.post('/backfill-labels', ctrl.backfillLabels);
 router.get('/', ctrl.list);
 router.get('/:udi', ctrl.getOne);
 router.patch('/:udi/reassign', validate(reassignSchema), ctrl.reassign);
