@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.9',
+    date: '2026-05-13',
+    changes: [
+      'Downloads are now Excel (.xlsx) — bold header row, frozen first row, expired dates highlighted in red',
+      'Every list/table is now sortable — tap a column header to sort, tap again to reverse',
+      'UDI replaced with Item Number (REF) everywhere it was shown',
+    ],
+  },
+  {
     version: '3.8',
     date: '2026-05-13',
     changes: [

@@ -6,6 +6,7 @@ import { listInventory, reassignItem, type InventoryFilters } from '../api/inven
 import { listDistributors } from '../api/distributors';
 import { getExportUrl } from '../api/reports';
 import { ExpiryBadge } from '../components/ExpiryBadge';
+import { SortableTh } from '../components/SortableTh';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import { cn } from '../utils/cn';
@@ -81,6 +82,15 @@ export default function Inventory() {
     setFilters((prev) => ({ ...prev, search, page: 1 }));
   }
 
+  function toggleSort(key: string) {
+    setFilters((prev) => {
+      if (prev.sortBy === key) {
+        return { ...prev, sortDir: prev.sortDir === 'asc' ? 'desc' : 'asc', page: 1 };
+      }
+      return { ...prev, sortBy: key, sortDir: 'asc', page: 1 };
+    });
+  }
+
   const specialFilterLabel = filters.unassigned
     ? 'Unassigned items'
     : filters.expired
@@ -146,7 +156,7 @@ export default function Inventory() {
       </div>
 
       <HelpBanner storageKey="inventory">
-        Browse all active inventory. Use the search bar to find items by UDI, lot, or product name. Tap the filter icon to narrow by distributor or expiry date. Tap any item for full details.
+        Browse all active inventory. Use the search bar to find items by item number, lot, or product name. Tap any column header to sort, the filter icon to narrow by distributor or expiry date, or any row for full details.
       </HelpBanner>
 
       {/* Search bar */}
@@ -158,7 +168,7 @@ export default function Inventory() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="Search UDI, lot, or product..."
+            placeholder="Search item number, lot, or product..."
             className="w-full rounded-xl border border-gray-300 py-3 pl-10 pr-4 text-base focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
           />
         </div>
@@ -295,7 +305,7 @@ export default function Inventory() {
                     <p className="text-base font-semibold text-gray-900">
                       {item.productLabel || 'Unknown Product'}
                     </p>
-                    <p className="text-sm text-gray-600 font-mono truncate">{item.udi}</p>
+                    <p className="text-sm text-gray-600 font-mono truncate">{item.itemNumber || '—'}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <ExpiryBadge expDate={item.expDate} showDate />
                       <span className="text-sm text-gray-500">
@@ -335,11 +345,39 @@ export default function Inventory() {
                       className="h-4 w-4 rounded border-gray-300"
                     />
                   </th>
-                  <th className="px-4 py-3">Product</th>
-                  <th className="px-4 py-3">UDI</th>
-                  <th className="px-4 py-3">LOT</th>
-                  <th className="px-4 py-3">Expiry</th>
-                  <th className="px-4 py-3">Distributor</th>
+                  <SortableTh
+                    label="Product"
+                    sortKey="productLabel"
+                    currentKey={filters.sortBy || 'createdAt'}
+                    currentDir={filters.sortDir || 'desc'}
+                    onSort={toggleSort}
+                    className="px-4 py-3"
+                  />
+                  <th className="px-4 py-3">Item Number</th>
+                  <SortableTh
+                    label="LOT"
+                    sortKey="lot"
+                    currentKey={filters.sortBy || 'createdAt'}
+                    currentDir={filters.sortDir || 'desc'}
+                    onSort={toggleSort}
+                    className="px-4 py-3"
+                  />
+                  <SortableTh
+                    label="Expiry"
+                    sortKey="expDate"
+                    currentKey={filters.sortBy || 'createdAt'}
+                    currentDir={filters.sortDir || 'desc'}
+                    onSort={toggleSort}
+                    className="px-4 py-3"
+                  />
+                  <SortableTh
+                    label="Distributor"
+                    sortKey="distributor"
+                    currentKey={filters.sortBy || 'createdAt'}
+                    currentDir={filters.sortDir || 'desc'}
+                    onSort={toggleSort}
+                    className="px-4 py-3"
+                  />
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -359,7 +397,7 @@ export default function Inventory() {
                       />
                     </td>
                     <td className="px-4 py-3 font-medium">{item.productLabel || 'Unknown'}</td>
-                    <td className="px-4 py-3 font-mono text-sm">{item.udi}</td>
+                    <td className="px-4 py-3 font-mono text-sm">{item.itemNumber || '—'}</td>
                     <td className="px-4 py-3 text-sm">{item.lot}</td>
                     <td className="px-4 py-3"><ExpiryBadge expDate={item.expDate} showDate /></td>
                     <td className="px-4 py-3 text-sm">{item.distributor?.name || 'Unassigned'}</td>

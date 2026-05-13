@@ -39,6 +39,8 @@ export interface InventoryFilters {
   unassigned?: boolean;
   expired?: boolean;
   expiringInDays?: number;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
 }
 
 export async function listInventory(filters: InventoryFilters = {}) {

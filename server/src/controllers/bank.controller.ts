@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
+import { getItemNumber } from '../utils/gtin-map.js';
 
 /** GET /api/banks — list all banks with item counts */
 export async function list(_req: Request, res: Response) {
@@ -34,7 +35,13 @@ export async function getOne(req: Request, res: Response) {
       },
     });
     if (!bank) return error(res, 'Bank not found', 404);
-    return success(res, bank);
+    return success(res, {
+      ...bank,
+      items: bank.items.map((it: { gtinShort: string; rawBarcode: string }) => ({
+        ...it,
+        itemNumber: getItemNumber(it.gtinShort, it.rawBarcode),
+      })),
+    });
   } catch (err) {
     return error(res, 'Failed to fetch bank', 500);
   }

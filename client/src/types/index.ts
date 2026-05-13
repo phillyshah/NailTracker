@@ -94,6 +94,7 @@ export interface SummaryReport {
 
 export interface ExpiringItem {
   udi: string;
+  itemNumber?: string | null;
   productLabel: string | null;
   lot: string;
   expDate: string;

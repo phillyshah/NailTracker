@@ -1,8 +1,19 @@
 import { useParams, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRightLeft, Printer } from 'lucide-react';
-import { getTransfer, type TransferRecord } from '../api/transfers';
+import { ArrowLeft, Printer } from 'lucide-react';
+import { getTransfer } from '../api/transfers';
+import { SortableTh } from '../components/SortableTh';
+import { useSortable } from '../hooks/useSortable';
 import { APP_VERSION } from '../version';
+
+interface TransferItem {
+  udi: string;
+  itemNumber?: string | null;
+  productLabel?: string | null;
+  lot: string;
+  gtin: string;
+  expDate: string | null;
+}
 
 export default function TransferDetail() {
   const { transferId } = useParams<{ transferId: string }>();
@@ -43,7 +54,19 @@ export default function TransferDetail() {
     );
   }
 
-  const items = transfer.items as any[];
+  const items = transfer.items as TransferItem[];
+
+  const { sorted: sortedItems, sortKey, sortDir, toggleSort } = useSortable(
+    items,
+    {
+      productLabel: (i) => i.productLabel || '',
+      itemNumber: (i) => i.itemNumber || '',
+      lot: (i) => i.lot,
+      gtin: (i) => i.gtin,
+      expDate: (i) => i.expDate,
+    },
+    'productLabel',
+  );
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -92,10 +115,10 @@ export default function TransferDetail() {
 
           {/* Mobile cards */}
           <div className="space-y-2 lg:hidden">
-            {items.map((item: any, idx: number) => (
+            {sortedItems.map((item, idx: number) => (
               <div key={idx} className="rounded-xl border border-gray-200 p-3">
                 <p className="text-sm font-semibold text-gray-900">{item.productLabel || 'Unknown'}</p>
-                <p className="text-xs font-mono text-gray-500">{item.udi}</p>
+                <p className="text-xs font-mono text-gray-500">{item.itemNumber || '\u2014'}</p>
                 <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
                   <span>LOT: {item.lot}</span>
                   <span>Exp: {item.expDate ? new Date(item.expDate).toLocaleDateString() : '\u2014'}</span>
@@ -108,21 +131,21 @@ export default function TransferDetail() {
           <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b text-gray-500">
-                  <th className="px-3 py-2">#</th>
-                  <th className="px-3 py-2">Product</th>
-                  <th className="px-3 py-2">UDI</th>
-                  <th className="px-3 py-2">LOT</th>
-                  <th className="px-3 py-2">GTIN</th>
-                  <th className="px-3 py-2">Expiry</th>
+                <tr className="border-b">
+                  <th className="px-3 py-2 text-gray-500">#</th>
+                  <SortableTh label="Product" sortKey="productLabel" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
+                  <SortableTh label="Item Number" sortKey="itemNumber" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
+                  <SortableTh label="LOT" sortKey="lot" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
+                  <SortableTh label="GTIN" sortKey="gtin" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
+                  <SortableTh label="Expiry" sortKey="expDate" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody>
-                {items.map((item: any, idx: number) => (
+                {sortedItems.map((item, idx: number) => (
                   <tr key={idx} className="border-b hover:bg-gray-50">
                     <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
                     <td className="px-3 py-2 font-medium">{item.productLabel || 'Unknown'}</td>
-                    <td className="px-3 py-2 font-mono text-sm">{item.udi}</td>
+                    <td className="px-3 py-2 font-mono text-sm">{item.itemNumber || '\u2014'}</td>
                     <td className="px-3 py-2">{item.lot}</td>
                     <td className="px-3 py-2 font-mono text-sm">{item.gtin}</td>
                     <td className="px-3 py-2">{item.expDate ? new Date(item.expDate).toLocaleDateString() : '\u2014'}</td>
@@ -172,18 +195,18 @@ export default function TransferDetail() {
               <tr className="border-b-2 border-gray-800">
                 <th className="py-1 pr-1">#</th>
                 <th className="py-1 px-1">Product</th>
-                <th className="py-1 px-1">UDI</th>
+                <th className="py-1 px-1">Item Number</th>
                 <th className="py-1 px-1">LOT</th>
                 <th className="py-1 px-1">GTIN</th>
                 <th className="py-1 pl-1">Expiry</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item: any, idx: number) => (
+              {sortedItems.map((item, idx: number) => (
                 <tr key={idx} className="border-b border-gray-300">
                   <td className="py-1 pr-1 text-gray-500">{idx + 1}</td>
                   <td className="py-1 px-1">{item.productLabel || 'Unknown'}</td>
-                  <td className="py-1 px-1 font-mono">{item.udi}</td>
+                  <td className="py-1 px-1 font-mono">{item.itemNumber || '\u2014'}</td>
                   <td className="py-1 px-1">{item.lot}</td>
                   <td className="py-1 px-1 font-mono">{item.gtin}</td>
                   <td className="py-1 pl-1">{item.expDate ? new Date(item.expDate).toLocaleDateString() : '\u2014'}</td>
