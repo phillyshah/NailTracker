@@ -91,6 +91,19 @@ export function parseGS1(rawBarcode: string): ParseResult {
     expDate = new Date(year, mm - 1, day);
   }
 
+  // Fallback: detect YYYY-MM-DD date from rawBarcode (hourglass label format)
+  if (!expDate) {
+    const isoMatch = trimmed.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      const y = parseInt(isoMatch[1], 10);
+      const m = parseInt(isoMatch[2], 10);
+      const d = parseInt(isoMatch[3], 10);
+      if (y >= 2000 && y <= 2099 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+        expDate = new Date(y, m - 1, d);
+      }
+    }
+  }
+
   const productLabel = getProductLabel(gtinShort, trimmed);
 
   return { gtin, gtinShort, lot, expDate, udi, rawBarcode: trimmed, productLabel };
