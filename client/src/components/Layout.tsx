@@ -13,10 +13,15 @@ import {
   UserCog,
   ArrowRightLeft,
   Boxes,
+  BookOpen,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { APP_VERSION } from '../version';
+import { changelog } from '../data/changelog';
 import { cn } from '../utils/cn';
+
+const GUIDE_URL = 'https://github.com/phillyshah/NailTracker/raw/main/Nail_Tracker_User_Guide.docx';
 
 const mainNavItems = [
   { to: '/receive', label: 'Receive', icon: Building2 },
@@ -38,6 +43,7 @@ export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [showMore, setShowMore] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
 
   // Close More menu on any route change
   useEffect(() => {
@@ -49,6 +55,8 @@ export function Layout() {
     navigate('/login');
   }
 
+  const latestEntry = changelog[0];
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
       {/* Top bar — desktop */}
@@ -56,9 +64,13 @@ export function Layout() {
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-primary-700">Nail Tracker</h1>
-            <span className="rounded-full bg-primary-100 px-2.5 py-0.5 text-sm font-semibold text-primary-600">
+            <button
+              onClick={() => setShowWhatsNew(true)}
+              className="rounded-full bg-primary-100 px-2.5 py-0.5 text-sm font-semibold text-primary-600 hover:bg-primary-200 transition-colors"
+              title="What's New"
+            >
               v{APP_VERSION}
-            </span>
+            </button>
           </div>
           <nav className="flex gap-1">
             {[...mainNavItems, ...moreNavItems].map((item) => (
@@ -80,7 +92,17 @@ export function Layout() {
             ))}
           </nav>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <a
+            href={GUIDE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            title="Download User Guide"
+          >
+            <BookOpen size={16} />
+            Guide
+          </a>
           <span className="text-sm text-gray-500">{user?.username}</span>
           <button
             onClick={handleLogout}
@@ -96,17 +118,32 @@ export function Layout() {
       <header className="flex lg:hidden items-center justify-between border-b bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2">
           <h1 className="text-lg font-bold text-primary-700">Nail Tracker</h1>
-          <span className="rounded-full bg-primary-100 px-2.5 py-0.5 text-sm font-bold text-primary-600">
+          <button
+            onClick={() => setShowWhatsNew(true)}
+            className="rounded-full bg-primary-100 px-2.5 py-0.5 text-sm font-bold text-primary-600"
+            title="What's New"
+          >
             v{APP_VERSION}
-          </span>
+          </button>
         </div>
-        <button
-          onClick={handleLogout}
-          className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
-          aria-label="Log out"
-        >
-          <LogOut size={22} />
-        </button>
+        <div className="flex items-center gap-1">
+          <a
+            href={GUIDE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            aria-label="User Guide"
+          >
+            <BookOpen size={20} />
+          </a>
+          <button
+            onClick={handleLogout}
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            aria-label="Log out"
+          >
+            <LogOut size={22} />
+          </button>
+        </div>
       </header>
 
       {/* Main content */}
@@ -130,7 +167,6 @@ export function Layout() {
             >
               {({ isActive }) => (
                 <>
-                  {/* Active indicator bar */}
                   {isActive && (
                     <div className="absolute -top-0.5 left-3 right-3 h-[3px] rounded-full bg-primary-600" />
                   )}
@@ -207,6 +243,77 @@ export function Layout() {
                   {item.label}
                 </NavLink>
               ))}
+              <a
+                href={GUIDE_URL}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setShowMore(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3.5 text-base font-medium text-gray-700 hover:bg-gray-100"
+              >
+                <BookOpen size={22} />
+                User Guide
+              </a>
+              <button
+                onClick={() => { setShowMore(false); setShowWhatsNew(true); }}
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-base font-medium text-gray-700 hover:bg-gray-100"
+              >
+                <Sparkles size={22} />
+                What's New
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* What's New modal */}
+      {showWhatsNew && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => setShowWhatsNew(false)}>
+          <div
+            className="w-full sm:max-w-lg max-h-[80vh] rounded-t-3xl sm:rounded-2xl bg-white p-5 shadow-xl overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles size={20} className="text-primary-600" />
+                <h3 className="text-lg font-bold text-gray-900">What's New</h3>
+              </div>
+              <button onClick={() => setShowWhatsNew(false)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-5">
+              {changelog.map((entry) => (
+                <div key={entry.version}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="rounded-full bg-primary-100 px-2.5 py-0.5 text-sm font-bold text-primary-700">
+                      v{entry.version}
+                    </span>
+                    <span className="text-xs text-gray-400">{new Date(entry.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                    {entry.version === latestEntry.version && (
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Latest</span>
+                    )}
+                  </div>
+                  <ul className="space-y-1">
+                    {entry.changes.map((change, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary-400" />
+                        {change}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <a
+                href={GUIDE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700"
+              >
+                <BookOpen size={18} />
+                Download User Guide
+              </a>
             </div>
           </div>
         </div>
