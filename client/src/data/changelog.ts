@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.8',
+    date: '2026-05-13',
+    changes: [
+      'Reports cards are now clickable — tap to drill into the filtered list of items',
+      'Inventory page shows a filter chip when arriving from a Reports card, with a Clear button to reset',
+    ],
+  },
+  {
     version: '3.7',
     date: '2026-05-13',
     changes: [

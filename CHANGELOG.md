@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.8 — 2026-05-13
+- Report cards (Total Units / Active Distributors / Expiring <180d / Expired / Unassigned) are now clickable — they navigate to the filtered inventory list
+- Inventory page reads URL filters and shows an active-filter chip with a Clear button
+
 ## v3.7 — 2026-05-13
 - Single-item reassignments now create a Transfer record (visible in Reports → Transfer History)
 - Each individual reassign gets its own TRF-YYYYMMDD-NNNN ID
