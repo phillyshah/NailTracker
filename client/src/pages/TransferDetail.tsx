@@ -20,7 +20,7 @@ export default function TransferDetail() {
   const { transferId } = useParams<{ transferId: string }>();
   const navigate = useNavigate();
 
-  const { data: transfer, isLoading } = useQuery({
+  const { data: transfer, isLoading, error } = useQuery({
     queryKey: ['transfer', transferId],
     queryFn: () => getTransfer(transferId!),
     enabled: !!transferId,
@@ -41,10 +41,10 @@ export default function TransferDetail() {
     );
   }
 
-  if (!transfer) {
+  if (error || !transfer) {
     return (
       <div className="mx-auto max-w-2xl text-center py-12">
-        <p className="text-lg text-gray-500">Transfer not found</p>
+        <p className="text-lg text-gray-500">{error ? `Error: ${error.message}` : 'Transfer not found'}</p>
         <button
           onClick={() => navigate('/reports')}
           className="mt-4 rounded-xl bg-primary-600 px-6 py-3 text-base font-semibold text-white hover:bg-primary-700"
@@ -55,7 +55,7 @@ export default function TransferDetail() {
     );
   }
 
-  const items = transfer.items as TransferItem[];
+  const items = Array.isArray(transfer.items) ? (transfer.items as TransferItem[]) : [];
 
   const { sorted: sortedItems, sortKey, sortDir, toggleSort } = useSortable(
     items,
