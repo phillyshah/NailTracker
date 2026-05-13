@@ -36,10 +36,18 @@ export interface InventoryFilters {
   distributorId?: string;
   search?: string;
   expBefore?: string;
+  unassigned?: boolean;
+  expired?: boolean;
+  expiringInDays?: number;
 }
 
 export async function listInventory(filters: InventoryFilters = {}) {
-  return api<ListResponse>('/inventory', { params: filters as Record<string, string | number> });
+  const params: Record<string, string | number> = {};
+  for (const [k, v] of Object.entries(filters)) {
+    if (v === undefined || v === '' || v === false) continue;
+    params[k] = typeof v === 'boolean' ? 'true' : (v as string | number);
+  }
+  return api<ListResponse>('/inventory', { params });
 }
 
 export async function getItem(udi: string) {

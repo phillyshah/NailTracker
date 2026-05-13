@@ -26,12 +26,18 @@ export default function Reports() {
   const transfers = transferData?.data ?? [];
   const transferMeta = transferData?.meta;
 
-  const metrics = [
-    { label: 'Total Units', value: summary?.totalUnits ?? '\u2014', icon: Package, color: 'bg-blue-50 text-blue-700' },
-    { label: 'Active Distributors', value: summary?.activeDistributors ?? '\u2014', icon: Users, color: 'bg-green-50 text-green-700' },
-    { label: 'Expiring < 180d', value: summary?.expiring180 ?? '\u2014', icon: Clock, color: 'bg-amber-50 text-amber-700' },
-    { label: 'Expired', value: summary?.expired ?? '\u2014', icon: XCircle, color: 'bg-red-50 text-red-700' },
-    { label: 'Unassigned', value: summary?.unassigned ?? '\u2014', icon: Inbox, color: 'bg-gray-100 text-gray-700' },
+  const metrics: Array<{
+    label: string;
+    value: number | string;
+    icon: typeof Package;
+    color: string;
+    href: string;
+  }> = [
+    { label: 'Total Units', value: summary?.totalUnits ?? '\u2014', icon: Package, color: 'bg-blue-50 text-blue-700', href: '/inventory' },
+    { label: 'Active Distributors', value: summary?.activeDistributors ?? '\u2014', icon: Users, color: 'bg-green-50 text-green-700', href: '/distributors' },
+    { label: 'Expiring < 180d', value: summary?.expiring180 ?? '\u2014', icon: Clock, color: 'bg-amber-50 text-amber-700', href: '/inventory?expiringInDays=180' },
+    { label: 'Expired', value: summary?.expired ?? '\u2014', icon: XCircle, color: 'bg-red-50 text-red-700', href: '/inventory?expired=true' },
+    { label: 'Unassigned', value: summary?.unassigned ?? '\u2014', icon: Inbox, color: 'bg-gray-100 text-gray-700', href: '/inventory?unassigned=true' },
   ];
 
   return (
@@ -45,11 +51,18 @@ export default function Reports() {
       {/* Metric cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {metrics.map((m) => (
-          <div key={m.label} className={cn('rounded-2xl p-4', m.color)}>
+          <button
+            key={m.label}
+            onClick={() => navigate(m.href)}
+            className={cn(
+              'rounded-2xl p-4 text-left transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-400',
+              m.color,
+            )}
+          >
             <m.icon size={24} className="mb-2" />
             <p className="text-2xl font-bold">{m.value}</p>
             <p className="text-sm font-medium opacity-80">{m.label}</p>
-          </div>
+          </button>
         ))}
       </div>
 

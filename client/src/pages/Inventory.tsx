@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
-import { Search, Filter, Download, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router';
+import { Search, Filter, Download, RefreshCw, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { listInventory, reassignItem, type InventoryFilters } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { getExportUrl } from '../api/reports';
@@ -16,7 +16,18 @@ export default function Inventory() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toasts, addToast, removeToast } = useToast();
-  const [filters, setFilters] = useState<InventoryFilters>({ page: 1, limit: 25 });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filters, setFilters] = useState<InventoryFilters>(() => ({
+    page: 1,
+    limit: 25,
+    distributorId: searchParams.get('distributorId') || undefined,
+    expBefore: searchParams.get('expBefore') || undefined,
+    unassigned: searchParams.get('unassigned') === 'true' || undefined,
+    expired: searchParams.get('expired') === 'true' || undefined,
+    expiringInDays: searchParams.get('expiringInDays')
+      ? parseInt(searchParams.get('expiringInDays')!, 10)
+      : undefined,
+  }));
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [reassigning, setReassigning] = useState<InventoryItem | null>(null);
@@ -68,6 +79,29 @@ export default function Inventory() {
 
   function handleSearch() {
     setFilters((prev) => ({ ...prev, search, page: 1 }));
+  }
+
+  const specialFilterLabel = filters.unassigned
+    ? 'Unassigned items'
+    : filters.expired
+      ? 'Expired items'
+      : filters.expiringInDays
+        ? `Expiring within ${filters.expiringInDays} days`
+        : null;
+
+  function clearSpecialFilter() {
+    setFilters((prev) => ({
+      ...prev,
+      unassigned: undefined,
+      expired: undefined,
+      expiringInDays: undefined,
+      page: 1,
+    }));
+    const next = new URLSearchParams(searchParams);
+    next.delete('unassigned');
+    next.delete('expired');
+    next.delete('expiringInDays');
+    setSearchParams(next, { replace: true });
   }
 
   function toggleSelect(udi: string) {
@@ -172,6 +206,22 @@ export default function Inventory() {
               />
             </label>
           </div>
+        </div>
+      )}
+
+      {/* Active special filter indicator */}
+      {specialFilterLabel && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl bg-primary-50 border border-primary-200 px-3 py-2">
+          <span className="text-sm font-medium text-primary-800">
+            Filtered: {specialFilterLabel}
+          </span>
+          <button
+            onClick={clearSpecialFilter}
+            className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+            aria-label="Clear filter"
+          >
+            <X size={14} /> Clear
+          </button>
         </div>
       )}
 

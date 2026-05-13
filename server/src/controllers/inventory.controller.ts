@@ -199,6 +199,10 @@ export async function list(req: Request, res: Response) {
       where.distributorId = distributorId;
     }
 
+    if (str(req.query.unassigned) === 'true') {
+      where.distributorId = null;
+    }
+
     const search = str(req.query.search);
     if (search) {
       where.OR = [
@@ -211,6 +215,17 @@ export async function list(req: Request, res: Response) {
     const expBefore = str(req.query.expBefore);
     if (expBefore) {
       where.expDate = { lte: new Date(expBefore) };
+    }
+
+    if (str(req.query.expired) === 'true') {
+      where.expDate = { lt: new Date() };
+    }
+
+    const expiringInDays = parseInt(str(req.query.expiringInDays), 10);
+    if (expiringInDays > 0) {
+      const now = new Date();
+      const cutoff = new Date(now.getTime() + expiringInDays * 24 * 60 * 60 * 1000);
+      where.expDate = { gt: now, lte: cutoff };
     }
 
     const [items, total] = await Promise.all([
