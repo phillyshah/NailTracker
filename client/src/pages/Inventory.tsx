@@ -21,6 +21,8 @@ export default function Inventory() {
   const [filters, setFilters] = useState<InventoryFilters>(() => ({
     page: 1,
     limit: 25,
+    sortBy: 'itemNumber',
+    sortDir: 'asc',
     distributorId: searchParams.get('distributorId') || undefined,
     expBefore: searchParams.get('expBefore') || undefined,
     unassigned: searchParams.get('unassigned') === 'true' || undefined,
@@ -346,35 +348,42 @@ export default function Inventory() {
                     />
                   </th>
                   <SortableTh
-                    label="Product"
-                    sortKey="productLabel"
-                    currentKey={filters.sortBy || 'createdAt'}
-                    currentDir={filters.sortDir || 'desc'}
+                    label="Item Number"
+                    sortKey="itemNumber"
+                    currentKey={filters.sortBy || 'itemNumber'}
+                    currentDir={filters.sortDir || 'asc'}
                     onSort={toggleSort}
                     className="px-4 py-3"
                   />
-                  <th className="px-4 py-3">Item Number</th>
+                  <SortableTh
+                    label="Description"
+                    sortKey="productLabel"
+                    currentKey={filters.sortBy || 'itemNumber'}
+                    currentDir={filters.sortDir || 'asc'}
+                    onSort={toggleSort}
+                    className="px-4 py-3"
+                  />
                   <SortableTh
                     label="LOT"
                     sortKey="lot"
-                    currentKey={filters.sortBy || 'createdAt'}
-                    currentDir={filters.sortDir || 'desc'}
+                    currentKey={filters.sortBy || 'itemNumber'}
+                    currentDir={filters.sortDir || 'asc'}
                     onSort={toggleSort}
                     className="px-4 py-3"
                   />
                   <SortableTh
                     label="Expiry"
                     sortKey="expDate"
-                    currentKey={filters.sortBy || 'createdAt'}
-                    currentDir={filters.sortDir || 'desc'}
+                    currentKey={filters.sortBy || 'itemNumber'}
+                    currentDir={filters.sortDir || 'asc'}
                     onSort={toggleSort}
                     className="px-4 py-3"
                   />
                   <SortableTh
                     label="Distributor"
                     sortKey="distributor"
-                    currentKey={filters.sortBy || 'createdAt'}
-                    currentDir={filters.sortDir || 'desc'}
+                    currentKey={filters.sortBy || 'itemNumber'}
+                    currentDir={filters.sortDir || 'asc'}
                     onSort={toggleSort}
                     className="px-4 py-3"
                   />
@@ -396,8 +405,8 @@ export default function Inventory() {
                         className="h-4 w-4 rounded border-gray-300"
                       />
                     </td>
-                    <td className="px-4 py-3 font-medium">{item.productLabel || 'Unknown'}</td>
                     <td className="px-4 py-3 font-mono text-sm">{item.itemNumber || '—'}</td>
+                    <td className="px-4 py-3 font-medium">{item.productLabel || 'Unknown'}</td>
                     <td className="px-4 py-3 text-sm">{item.lot}</td>
                     <td className="px-4 py-3"><ExpiryBadge expDate={item.expDate} showDate /></td>
                     <td className="px-4 py-3 text-sm">{item.distributor?.name || 'Unassigned'}</td>

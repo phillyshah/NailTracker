@@ -113,6 +113,10 @@ export async function exportExcel(req: Request, res: Response) {
       where.distributorId = distributorId;
     }
 
+    if (str(req.query.unassigned) === 'true') {
+      where.distributorId = null;
+    }
+
     const search = str(req.query.search);
     if (search) {
       where.OR = [
@@ -122,10 +126,40 @@ export async function exportExcel(req: Request, res: Response) {
       ];
     }
 
+    const expBefore = str(req.query.expBefore);
+    if (expBefore) {
+      where.expDate = { lte: new Date(expBefore) };
+    }
+
+    if (str(req.query.expired) === 'true') {
+      where.expDate = { lt: new Date() };
+    }
+
+    const expiringInDays = parseInt(str(req.query.expiringInDays), 10);
+    if (expiringInDays > 0) {
+      const now = new Date();
+      const cutoff = new Date(now.getTime() + expiringInDays * 24 * 60 * 60 * 1000);
+      where.expDate = { gt: now, lte: cutoff };
+    }
+
+    const sortBy = str(req.query.sortBy);
+    const sortDir: 'asc' | 'desc' = str(req.query.sortDir) === 'asc' ? 'asc' : 'desc';
+    const sortMap: Record<string, Record<string, unknown>> = {
+      productLabel: { productLabel: sortDir },
+      lot: { lot: sortDir },
+      expDate: { expDate: sortDir },
+      distributor: { distributor: { name: sortDir } },
+      createdAt: { createdAt: sortDir },
+      assignedAt: { assignedAt: sortDir },
+      gtinShort: { gtinShort: sortDir },
+      itemNumber: { gtinShort: sortDir },
+    };
+    const orderBy = sortMap[sortBy] || { createdAt: 'desc' };
+
     const items = await prisma.inventoryItem.findMany({
       where,
       include: { distributor: { select: { name: true } } },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
     });
 
     const workbook = new ExcelJS.Workbook();
@@ -167,6 +201,152 @@ export async function exportExcel(req: Request, res: Response) {
 
     const dateStr = new Date().toISOString().slice(0, 10);
     const filename = `inventory-export-${dateStr}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    await workbook.xlsx.write(res);
+    return res.end();
+  } catch (err) {
+    return error(res, 'Export failed', 500);
+  }
+}
+
+/**
+ * GET /api/reports/stock-by-item
+ * Pivot table: rows = item number, columns = Home Office + each active distributor + Total.
+ */
+export async function stockByItem(_req: Request, res: Response) {
+  try {
+    const [items, distributors] = await Promise.all([
+      prisma.inventoryItem.findMany({
+        where: { deletedAt: null, usedAt: null },
+        select: { gtinShort: true, rawBarcode: true, productLabel: true, distributorId: true },
+      }),
+      prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
+    ]);
+
+    type Row = {
+      gtinShort: string;
+      itemNumber: string;
+      productLabel: string;
+      counts: Record<string, number>;
+      total: number;
+    };
+
+    const HOME = 'home';
+    const rowsMap = new Map<string, Row>();
+    for (const it of items) {
+      let row = rowsMap.get(it.gtinShort);
+      if (!row) {
+        row = {
+          gtinShort: it.gtinShort,
+          itemNumber: getItemNumber(it.gtinShort, it.rawBarcode) || '',
+          productLabel: it.productLabel || 'Unknown',
+          counts: { [HOME]: 0 },
+          total: 0,
+        };
+        for (const d of distributors) row.counts[d.id] = 0;
+        rowsMap.set(it.gtinShort, row);
+      }
+      const key = it.distributorId ?? HOME;
+      row.counts[key] = (row.counts[key] ?? 0) + 1;
+      row.total += 1;
+    }
+
+    const rows = Array.from(rowsMap.values()).sort((a, b) =>
+      (a.itemNumber || a.gtinShort).localeCompare(b.itemNumber || b.gtinShort),
+    );
+
+    return success(res, {
+      locations: [
+        { id: HOME, name: 'Home Office' },
+        ...distributors.map((d) => ({ id: d.id, name: d.name })),
+      ],
+      rows,
+    });
+  } catch (err) {
+    return error(res, 'Failed to generate stock report', 500);
+  }
+}
+
+/**
+ * GET /api/reports/stock-by-item/export
+ * Same data as stockByItem, but rendered to .xlsx.
+ */
+export async function exportStockByItem(_req: Request, res: Response) {
+  try {
+    const [items, distributors] = await Promise.all([
+      prisma.inventoryItem.findMany({
+        where: { deletedAt: null, usedAt: null },
+        select: { gtinShort: true, rawBarcode: true, productLabel: true, distributorId: true },
+      }),
+      prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
+    ]);
+
+    type Row = {
+      itemNumber: string;
+      productLabel: string;
+      counts: Record<string, number>;
+      total: number;
+    };
+    const HOME = 'home';
+    const rowsMap = new Map<string, Row>();
+    for (const it of items) {
+      let row = rowsMap.get(it.gtinShort);
+      if (!row) {
+        row = {
+          itemNumber: getItemNumber(it.gtinShort, it.rawBarcode) || it.gtinShort,
+          productLabel: it.productLabel || 'Unknown',
+          counts: { [HOME]: 0 },
+          total: 0,
+        };
+        for (const d of distributors) row.counts[d.id] = 0;
+        rowsMap.set(it.gtinShort, row);
+      }
+      const key = it.distributorId ?? HOME;
+      row.counts[key] = (row.counts[key] ?? 0) + 1;
+      row.total += 1;
+    }
+    const rows = Array.from(rowsMap.values()).sort((a, b) =>
+      a.itemNumber.localeCompare(b.itemNumber),
+    );
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Nail Tracker';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet('Stock by Item');
+
+    const columns = [
+      { header: 'Item Number', key: 'itemNumber', width: 24 },
+      { header: 'Description', key: 'productLabel', width: 36 },
+      { header: 'Home Office', key: HOME, width: 14 },
+      ...distributors.map((d) => ({ header: d.name, key: d.id, width: 18 })),
+      { header: 'Total', key: 'total', width: 10 },
+    ];
+    sheet.columns = columns;
+
+    sheet.getRow(1).font = { bold: true };
+    sheet.views = [{ state: 'frozen', ySplit: 1, xSplit: 2 }];
+
+    for (const row of rows) {
+      const data: Record<string, string | number> = {
+        itemNumber: row.itemNumber,
+        productLabel: row.productLabel,
+        [HOME]: row.counts[HOME] ?? 0,
+        total: row.total,
+      };
+      for (const d of distributors) data[d.id] = row.counts[d.id] ?? 0;
+      sheet.addRow(data);
+    }
+
+    // Bold the Total column.
+    const totalCol = sheet.getColumn('total');
+    totalCol.font = { bold: true };
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `stock-by-item-${dateStr}.xlsx`;
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
