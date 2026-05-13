@@ -13,12 +13,16 @@
  *   SO-IS-{length}    = Interlocking Screw
  *   SO-EC-{size}      = End Cap
  *   SO-SS             = Set Screw
+ *   SO-SPFS           = Short Proximal Femoral System
  */
 
 export const gtinMap: Record<string, string> = {
   // ── Short Proximal Femoral Nails (SO-SPFN) ──────────────────────
   '9459162': 'Short Femoral Nail 10mm x 200mm, 126°',
   '9459247': 'Short Femoral Nail 11mm x 200mm, 126°',
+
+  // ── Short Proximal Femoral System (SO-SPFS) ───────────────────────
+  '9462605': 'Short Proximal Femoral System',
 
   // ── Lag Screws — Normal (SO-SPFL-N) ──────────────────────────────
   '9461431': 'Lag Screw Normal 100mm',
@@ -30,6 +34,7 @@ export const gtinMap: Record<string, string> = {
 const refCategories: [RegExp, string][] = [
   [/SO-SPFN/i, 'Short Femoral Nail'],
   [/SO-LPFN/i, 'Long Femoral Nail'],
+  [/SO-SPFS/i, 'Short Proximal Femoral System'],
   [/SO-SPFL-N/i, 'Lag Screw (Normal)'],
   [/SO-SPFL-A/i, 'Lag Screw (Anti-Rotation)'],
   [/SO-SPFL-T/i, 'Lag Screw (Telescopic)'],
@@ -95,6 +100,11 @@ function parseRefCode(text: string): string | null {
   const ecMatch = text.match(/SO-EC-(\d{1,2})/i);
   if (ecMatch) {
     return `End Cap ${parseInt(ecMatch[1], 10)}mm`;
+  }
+
+  // Match SO-SPFS-{ref}
+  if (/SO-SPFS/i.test(text)) {
+    return 'Short Proximal Femoral System';
   }
 
   // Match SO-SS
