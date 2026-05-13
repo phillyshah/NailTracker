@@ -39,6 +39,14 @@ const reassignSchema = z.object({
   note: z.string().optional(),
 });
 
+const editSchema = z.object({
+  gtin: z.string().optional(),
+  lot: z.string().optional(),
+  expDate: z.string().nullable().optional(),
+  itemNumber: z.string().optional(),
+  productLabel: z.string().optional(),
+});
+
 router.post('/scan', validate(scanSchema), ctrl.scan);
 router.post('/parse', validate(parseSchema), ctrl.parse);
 router.post('/assign', validate(assignSchema), ctrl.assign);
@@ -47,6 +55,7 @@ router.post('/backfill-labels', ctrl.backfillLabels);
 router.get('/', ctrl.list);
 router.get('/:udi', ctrl.getOne);
 router.patch('/:udi/reassign', validate(reassignSchema), ctrl.reassign);
+router.patch('/:udi/edit', validate(editSchema), ctrl.edit);
 router.patch('/:udi/use', ctrl.markUsed);
 router.delete('/:udi', ctrl.remove);
 

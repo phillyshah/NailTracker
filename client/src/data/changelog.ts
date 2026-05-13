@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.4',
+    date: '2026-05-13',
+    changes: [
+      'New Edit button on inventory detail page — fix GTIN, REF, Lot, Expiry, or Product Label',
+      'Entering a known Item Number (REF) auto-resolves the correct GTIN and product description',
+      'Every edit is recorded in the item history with what changed and who did it',
+    ],
+  },
+  {
     version: '3.3',
     date: '2026-05-13',
     changes: [

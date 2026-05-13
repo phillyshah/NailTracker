@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.4 — 2026-05-13
+- New "Edit" button on inventory detail page — correct GTIN, Item Number (REF), Lot, Expiry, or Product Label
+- Entering a known Item Number auto-resolves the canonical GTIN + product label
+- All edits are logged to the assignment history with a full audit trail (who, when, what changed)
+- Changing GTIN or Lot updates the UDI and navigates to the new URL automatically
+
 ## v3.3 — 2026-05-13
 - Inventory detail page now shows the official Item Number (REF code)
 - Item Number is master: if a REF code is found on the label, it overrides the GTIN for categorization
