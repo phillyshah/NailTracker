@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.5',
+    date: '2026-05-13',
+    changes: [
+      'Press ESC to close the full-screen barcode image and modal dialogs',
+    ],
+  },
+  {
     version: '3.4',
     date: '2026-05-13',
     changes: [

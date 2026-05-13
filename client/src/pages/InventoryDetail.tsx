@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRightLeft, Trash2, CheckCircle2, Image, X, Pencil } from 'lucide-react';
@@ -19,6 +19,18 @@ export default function InventoryDetail() {
   const [newDistId, setNewDistId] = useState('');
   const [note, setNote] = useState('');
   const [editForm, setEditForm] = useState<EditItemPayload>({});
+
+  // ESC closes the topmost open overlay: image > edit > reassign.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showImage) setShowImage(false);
+      else if (showEdit) setShowEdit(false);
+      else if (showReassign) setShowReassign(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showImage, showEdit, showReassign]);
 
   const { data: distributors = [] } = useQuery({
     queryKey: ['distributors'],
