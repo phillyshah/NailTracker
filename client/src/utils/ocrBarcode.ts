@@ -315,8 +315,9 @@ function findAIVariable(text: string, ai: string): string | null {
     const match = text.match(pattern);
     if (match) {
       let value = match[1].trim();
-      // Stop at next (XX) pattern
-      const nextAI = value.match(/\s*\(?\d{2}\)?/);
+      // Stop at next (XX) pattern — require explicit parentheses to avoid
+      // truncating lot numbers that contain embedded digit pairs (e.g. J250929)
+      const nextAI = value.match(/\s*\(\d{2}\)/);
       if (nextAI && nextAI.index && nextAI.index > 0) {
         value = value.slice(0, nextAI.index);
       }
