@@ -16,10 +16,11 @@ import {
   BookOpen,
   Sparkles,
 } from 'lucide-react';
+
 import { useAuth } from '../context/AuthContext';
 import { NotificationBell } from './NotificationBell';
+import { WhatsNewModal } from './WhatsNewModal';
 import { APP_VERSION } from '../version';
-import { changelog } from '../data/changelog';
 import { cn } from '../utils/cn';
 
 const GUIDE_URL = 'https://github.com/phillyshah/NailTracker/raw/main/Nail_Tracker_User_Guide.docx';
@@ -44,14 +45,7 @@ export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [showMore, setShowMore] = useState(false);
-  const [showWhatsNew, setShowWhatsNew] = useState(
-    () => localStorage.getItem('last_seen_version') !== APP_VERSION,
-  );
-
-  function closeWhatsNew() {
-    localStorage.setItem('last_seen_version', APP_VERSION);
-    closeWhatsNew();
-  }
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
 
   // Close More menu on any route change
   useEffect(() => {
@@ -62,8 +56,6 @@ export function Layout() {
     await logout();
     navigate('/login');
   }
-
-  const latestEntry = changelog[0];
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -275,59 +267,7 @@ export function Layout() {
         </div>
       )}
 
-      {/* What's New modal */}
-      {showWhatsNew && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => closeWhatsNew()}>
-          <div
-            className="w-full sm:max-w-lg max-h-[80vh] rounded-t-3xl sm:rounded-2xl bg-white p-5 shadow-xl overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles size={20} className="text-primary-600" />
-                <h3 className="text-lg font-bold text-gray-900">What's New</h3>
-              </div>
-              <button onClick={() => closeWhatsNew()} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-5">
-              {changelog.map((entry) => (
-                <div key={entry.version}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="rounded-full bg-primary-100 px-2.5 py-0.5 text-sm font-bold text-primary-700">
-                      v{entry.version}
-                    </span>
-                    <span className="text-xs text-gray-400">{new Date(entry.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                    {entry.version === latestEntry.version && (
-                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Latest</span>
-                    )}
-                  </div>
-                  <ul className="space-y-1">
-                    {entry.changes.map((change, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary-400" />
-                        {change}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 pt-4 border-t">
-              <a
-                href={GUIDE_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700"
-              >
-                <BookOpen size={18} />
-                Download User Guide
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
+      <WhatsNewModal open={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
     </div>
   );
 }

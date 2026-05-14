@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, Warehouse, Eye, EyeOff } from 'lucide-react';
 import { APP_VERSION } from '../version';
+import { WhatsNewModal } from '../components/WhatsNewModal';
 
 export default function Login() {
   const { user, login } = useAuth();
@@ -12,6 +13,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
 
   if (user) return <Navigate to="/" replace />;
 
@@ -92,9 +94,17 @@ export default function Login() {
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-500">
-          Nail Tracker &middot; v{APP_VERSION}
+          Nail Tracker &middot; v{APP_VERSION} &middot;{' '}
+          <button
+            onClick={() => setShowWhatsNew(true)}
+            className="underline hover:text-gray-700"
+          >
+            What's New
+          </button>
         </p>
       </div>
+
+      <WhatsNewModal open={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
     </div>
   );
 }
