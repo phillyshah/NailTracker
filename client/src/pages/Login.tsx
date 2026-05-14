@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, Warehouse, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Warehouse, Eye, EyeOff, BookOpen } from 'lucide-react';
 import { APP_VERSION } from '../version';
 import { WhatsNewModal } from '../components/WhatsNewModal';
+
+const GUIDE_URL = 'https://github.com/phillyshah/NailTracker/raw/main/Nail_Tracker_User_Guide.docx';
 
 export default function Login() {
   const { user, login } = useAuth();
@@ -93,15 +95,26 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-500">
-          Nail Tracker &middot; v{APP_VERSION} &middot;{' '}
-          <button
-            onClick={() => setShowWhatsNew(true)}
-            className="underline hover:text-gray-700"
+        <div className="mt-6 text-center">
+          <a
+            href={GUIDE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
           >
-            What's New
-          </button>
-        </p>
+            <BookOpen size={16} />
+            User Guide
+          </a>
+          <p className="mt-3 text-xs text-gray-400">
+            Nail Tracker &middot; v{APP_VERSION} &middot;{' '}
+            <button
+              onClick={() => setShowWhatsNew(true)}
+              className="underline hover:text-gray-600"
+            >
+              What's New
+            </button>
+          </p>
+        </div>
       </div>
 
       <WhatsNewModal open={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
