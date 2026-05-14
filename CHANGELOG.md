@@ -1,6 +1,11 @@
 # Changelog
 
 ## v3.13 — 2026-05-14
+- Stock by Item Number: clicking an item number now drills into only that item's inventory across all locations
+- Stock by Item Number: clicking a specific count at a location now shows only that item at that location (was incorrectly showing all inventory)
+- Stock by Item Number: total column is also clickable to drill into all units of that item
+- Added `gtinShort` filter to inventory API for exact item-number matching
+- Inventory filter chip now shows both the item and the location when arriving from Stock by Item drill-down
 - Bell notification icon in the app header shows items expiring within 90 days — no need to open Reports to check
 - Alerts can be dismissed individually or all at once; dismissed state persists across sessions
 - New Live Scan button on the Receive page — continuous camera stream detects GS1-128 barcodes automatically without taking a photo first

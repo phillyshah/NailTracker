@@ -52,11 +52,17 @@ export default function StockByItem() {
     'asc',
   );
 
-  function drillTo(locationId: string, itemNumber: string) {
+  function drillToAll(gtinShort: string) {
     const params = new URLSearchParams();
+    params.set('gtinShort', gtinShort);
+    navigate(`/inventory?${params.toString()}`);
+  }
+
+  function drillTo(locationId: string, gtinShort: string) {
+    const params = new URLSearchParams();
+    params.set('gtinShort', gtinShort);
     if (locationId === HOME) params.set('unassigned', 'true');
     else params.set('distributorId', locationId);
-    if (itemNumber) params.set('search', itemNumber);
     navigate(`/inventory?${params.toString()}`);
   }
 
@@ -113,9 +119,12 @@ export default function StockByItem() {
           <div className="space-y-2 lg:hidden">
             {sorted.map((r) => (
               <div key={r.gtinShort} className="rounded-2xl bg-white p-4 shadow-sm">
-                <div className="flex items-baseline justify-between gap-3">
+                <button
+                  onClick={() => drillToAll(r.gtinShort)}
+                  className="flex w-full items-baseline justify-between gap-3 text-left"
+                >
                   <div className="min-w-0">
-                    <p className="font-mono text-sm font-semibold text-gray-900 truncate">
+                    <p className="font-mono text-sm font-semibold text-primary-700 truncate hover:underline">
                       {r.itemNumber || r.gtinShort}
                     </p>
                     <p className="text-sm text-gray-600 truncate">{r.productLabel}</p>
@@ -123,14 +132,14 @@ export default function StockByItem() {
                   <span className="shrink-0 rounded-full bg-primary-100 px-3 py-1 text-sm font-bold text-primary-700">
                     {r.total}
                   </span>
-                </div>
+                </button>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   {locations
                     .filter((loc) => (r.counts[loc.id] ?? 0) > 0)
                     .map((loc) => (
                       <button
                         key={loc.id}
-                        onClick={() => drillTo(loc.id, r.itemNumber)}
+                        onClick={() => drillTo(loc.id, r.gtinShort)}
                         className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-left hover:bg-gray-100"
                       >
                         <span className="text-xs font-medium text-gray-600 truncate">
@@ -194,8 +203,13 @@ export default function StockByItem() {
               <tbody>
                 {sorted.map((r) => (
                   <tr key={r.gtinShort} className="border-b hover:bg-gray-50">
-                    <td className="sticky left-0 bg-white px-4 py-3 font-mono font-semibold text-gray-900">
-                      {r.itemNumber || r.gtinShort}
+                    <td className="sticky left-0 bg-white px-4 py-3 font-mono font-semibold">
+                      <button
+                        onClick={() => drillToAll(r.gtinShort)}
+                        className="text-primary-700 hover:underline"
+                      >
+                        {r.itemNumber || r.gtinShort}
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-gray-700">{r.productLabel}</td>
                     {locations.map((loc) => {
@@ -211,7 +225,7 @@ export default function StockByItem() {
                         >
                           {n > 0 ? (
                             <button
-                              onClick={() => drillTo(loc.id, r.itemNumber)}
+                              onClick={() => drillTo(loc.id, r.gtinShort)}
                               className="font-semibold text-primary-700 hover:underline"
                             >
                               {n}
@@ -223,7 +237,12 @@ export default function StockByItem() {
                       );
                     })}
                     <td className="px-4 py-3 text-right font-bold bg-primary-50/40">
-                      {r.total}
+                      <button
+                        onClick={() => drillToAll(r.gtinShort)}
+                        className="hover:underline"
+                      >
+                        {r.total}
+                      </button>
                     </td>
                   </tr>
                 ))}
