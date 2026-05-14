@@ -44,7 +44,14 @@ export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [showMore, setShowMore] = useState(false);
-  const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(
+    () => localStorage.getItem('last_seen_version') !== APP_VERSION,
+  );
+
+  function closeWhatsNew() {
+    localStorage.setItem('last_seen_version', APP_VERSION);
+    closeWhatsNew();
+  }
 
   // Close More menu on any route change
   useEffect(() => {
@@ -270,7 +277,7 @@ export function Layout() {
 
       {/* What's New modal */}
       {showWhatsNew && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => setShowWhatsNew(false)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => closeWhatsNew()}>
           <div
             className="w-full sm:max-w-lg max-h-[80vh] rounded-t-3xl sm:rounded-2xl bg-white p-5 shadow-xl overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
@@ -280,7 +287,7 @@ export function Layout() {
                 <Sparkles size={20} className="text-primary-600" />
                 <h3 className="text-lg font-bold text-gray-900">What's New</h3>
               </div>
-              <button onClick={() => setShowWhatsNew(false)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
+              <button onClick={() => closeWhatsNew()} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100">
                 <X size={20} />
               </button>
             </div>
