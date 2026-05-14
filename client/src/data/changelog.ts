@@ -13,6 +13,9 @@ export const changelog: ChangelogEntry[] = [
       'Stock by Item Number: clicking a count at a specific location shows only that item at that location',
       'Stock by Item Number: total column is now clickable too',
       'Inventory filter chip shows both item and location when drilling down from Stock report',
+      'New bell icon in the header shows expiry alerts — items expiring within 90 days appear instantly without visiting Reports',
+      'Dismiss alerts individually or all at once — dismissed state is remembered across sessions',
+      'New Live Scan button on the Receive page — point your camera at a barcode and it\'s detected automatically without taking a photo',
     ],
   },
   {
