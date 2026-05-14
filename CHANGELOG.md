@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.14 — 2026-05-14
+- Fixed mobile bulk reassign bar — the Reassign button and distributor dropdown are now fully visible without swiping
+- User Guide rewritten for inventory staff with plain-English instructions and troubleshooting section
+- User Guide download button added to the login page
+- Word doc (.docx) regenerated to match updated guide
+
 ## v3.13 — 2026-05-14
 - Stock by Item Number: clicking an item number now drills into only that item's inventory across all locations
 - Stock by Item Number: clicking a specific count at a location now shows only that item at that location (was incorrectly showing all inventory)

@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.14',
+    date: '2026-05-14',
+    changes: [
+      'Bulk reassign bar on mobile now fits on screen — no more swiping right to find the Reassign button',
+      'User Guide rewritten with plain-English instructions and a troubleshooting section',
+      'User Guide download button added to the login page',
+    ],
+  },
+  {
     version: '3.13',
     date: '2026-05-14',
     changes: [
@@ -44,15 +53,6 @@ export const changelog: ChangelogEntry[] = [
       'Stock matrix has its own Excel download',
       'Fixed Excel exports coming back empty — filters were being sent incorrectly',
       'Inventory page now defaults to sorting by Item Number, and every column header is sortable (Item Number → Description → Lot → Expiry → Distributor)',
-    ],
-  },
-  {
-    version: '3.9',
-    date: '2026-05-13',
-    changes: [
-      'Downloads are now Excel (.xlsx) — bold header row, frozen first row, expired dates highlighted in red',
-      'Every list/table is now sortable — tap a column header to sort, tap again to reverse',
-      'UDI replaced with Item Number (REF) everywhere it was shown',
     ],
   },
 ];
