@@ -250,36 +250,39 @@ export default function Inventory() {
 
       {/* Bulk actions */}
       {selectedItems.size > 0 && (
-        <div className="mb-3 flex items-center gap-3 rounded-2xl bg-primary-50 border-2 border-primary-200 p-3">
-          <span className="text-sm font-semibold text-primary-700">
-            {selectedItems.size} selected
-          </span>
-          <span className="text-xs text-primary-600 font-medium">Move to:</span>
-          <select
-            value={reassignDistId}
-            onChange={(e) => setReassignDistId(e.target.value)}
-            className="flex-1 rounded-xl border border-primary-300 px-3 py-2 text-sm bg-white focus:outline-none"
-          >
-            <option value="">Unassigned</option>
-            {distributors.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => bulkReassignMutation.mutate()}
-            disabled={bulkReassignMutation.isPending}
-            className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-          >
-            Reassign
-          </button>
-          <button
-            onClick={() => setSelectedItems(new Set())}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            Clear
-          </button>
+        <div className="mb-3 rounded-2xl bg-primary-50 border-2 border-primary-200 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-primary-700">
+              {selectedItems.size} selected
+            </span>
+            <button
+              onClick={() => setSelectedItems(new Set())}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <select
+              value={reassignDistId}
+              onChange={(e) => setReassignDistId(e.target.value)}
+              className="flex-1 min-w-0 rounded-xl border border-primary-300 px-3 py-2.5 text-sm bg-white focus:outline-none"
+            >
+              <option value="">Unassigned</option>
+              {distributors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => bulkReassignMutation.mutate()}
+              disabled={bulkReassignMutation.isPending}
+              className="shrink-0 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              Reassign
+            </button>
+          </div>
         </div>
       )}
 
