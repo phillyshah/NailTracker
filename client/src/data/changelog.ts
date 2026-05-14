@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.13',
+    date: '2026-05-14',
+    changes: [
+      'New bell icon in the header shows expiry alerts — items expiring within 90 days appear instantly without visiting Reports',
+      'Dismiss alerts individually or all at once — dismissed state is remembered across sessions',
+      'New Live Scan button on the Receive page — point your camera at a barcode and it\'s detected automatically without taking a photo',
+    ],
+  },
+  {
     version: '3.12',
     date: '2026-05-13',
     changes: [

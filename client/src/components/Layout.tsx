@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { NotificationBell } from './NotificationBell';
 import { APP_VERSION } from '../version';
 import { changelog } from '../data/changelog';
 import { cn } from '../utils/cn';
@@ -93,6 +94,7 @@ export function Layout() {
           </nav>
         </div>
         <div className="flex items-center gap-3">
+          <NotificationBell />
           <a
             href={GUIDE_URL}
             target="_blank"
@@ -127,6 +129,7 @@ export function Layout() {
           </button>
         </div>
         <div className="flex items-center gap-1">
+          <NotificationBell />
           <a
             href={GUIDE_URL}
             target="_blank"
