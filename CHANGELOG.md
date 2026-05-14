@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.13 — 2026-05-14
+- Stock by Item Number: clicking an item number now drills into only that item's inventory across all locations
+- Stock by Item Number: clicking a specific count at a location now shows only that item at that location (was incorrectly showing all inventory)
+- Stock by Item Number: total column is also clickable to drill into all units of that item
+- Added `gtinShort` filter to inventory API for exact item-number matching
+- Inventory filter chip now shows both the item and the location when arriving from Stock by Item drill-down
+
 ## v3.12 — 2026-05-13
 - Fixed Transfer History detail pages showing blank when clicked
 - Added error messaging to help diagnose API failures

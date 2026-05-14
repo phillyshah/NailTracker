@@ -140,12 +140,18 @@ export async function list(req: Request, res: Response) {
       where.distributorId = null;
     }
 
+    const gtinShort = str(req.query.gtinShort);
+    if (gtinShort) {
+      where.gtinShort = gtinShort;
+    }
+
     const search = str(req.query.search);
     if (search) {
       where.OR = [
         { udi: { contains: search, mode: 'insensitive' } },
         { lot: { contains: search, mode: 'insensitive' } },
         { productLabel: { contains: search, mode: 'insensitive' } },
+        { gtinShort: { contains: search, mode: 'insensitive' } },
       ];
     }
 

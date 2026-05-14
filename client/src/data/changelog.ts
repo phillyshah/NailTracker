@@ -6,6 +6,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.13',
+    date: '2026-05-14',
+    changes: [
+      'Stock by Item Number: clicking an item number drills into that item\'s inventory across all locations',
+      'Stock by Item Number: clicking a count at a specific location shows only that item at that location',
+      'Stock by Item Number: total column is now clickable too',
+      'Inventory filter chip shows both item and location when drilling down from Stock report',
+    ],
+  },
+  {
     version: '3.12',
     date: '2026-05-13',
     changes: [

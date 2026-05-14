@@ -23,7 +23,9 @@ export default function Inventory() {
     limit: 25,
     sortBy: 'itemNumber',
     sortDir: 'asc',
+    search: searchParams.get('search') || undefined,
     distributorId: searchParams.get('distributorId') || undefined,
+    gtinShort: searchParams.get('gtinShort') || undefined,
     expBefore: searchParams.get('expBefore') || undefined,
     unassigned: searchParams.get('unassigned') === 'true' || undefined,
     expired: searchParams.get('expired') === 'true' || undefined,
@@ -31,7 +33,7 @@ export default function Inventory() {
       ? parseInt(searchParams.get('expiringInDays')!, 10)
       : undefined,
   }));
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [showFilters, setShowFilters] = useState(false);
   const [reassigning, setReassigning] = useState<InventoryItem | null>(null);
   const [reassignDistId, setReassignDistId] = useState('');
@@ -93,26 +95,35 @@ export default function Inventory() {
     });
   }
 
-  const specialFilterLabel = filters.unassigned
-    ? 'Unassigned items'
-    : filters.expired
-      ? 'Expired items'
-      : filters.expiringInDays
-        ? `Expiring within ${filters.expiringInDays} days`
-        : null;
+  const gtinLabel = filters.gtinShort
+    ? items.find((i) => i.gtinShort === filters.gtinShort)?.itemNumber || filters.gtinShort
+    : null;
+  const distLabel = filters.distributorId
+    ? distributors.find((d) => d.id === filters.distributorId)?.name
+    : filters.unassigned ? 'Unassigned' : null;
+  const specialFilterLabel = filters.gtinShort
+    ? `Item: ${gtinLabel}${distLabel ? ` @ ${distLabel}` : ''}`
+    : filters.unassigned
+      ? 'Unassigned items'
+      : filters.expired
+        ? 'Expired items'
+        : filters.expiringInDays
+          ? `Expiring within ${filters.expiringInDays} days`
+          : null;
 
   function clearSpecialFilter() {
     setFilters((prev) => ({
       ...prev,
+      gtinShort: undefined,
+      search: undefined,
       unassigned: undefined,
       expired: undefined,
       expiringInDays: undefined,
+      distributorId: undefined,
       page: 1,
     }));
-    const next = new URLSearchParams(searchParams);
-    next.delete('unassigned');
-    next.delete('expired');
-    next.delete('expiringInDays');
+    setSearch('');
+    const next = new URLSearchParams();
     setSearchParams(next, { replace: true });
   }
 

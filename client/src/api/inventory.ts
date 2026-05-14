@@ -34,6 +34,7 @@ export interface InventoryFilters {
   page?: number;
   limit?: number;
   distributorId?: string;
+  gtinShort?: string;
   search?: string;
   expBefore?: string;
   unassigned?: boolean;
