@@ -10,10 +10,11 @@
 - **Maintain `CHANGELOG.md`** in the project root — append a dated entry with every PR
 - **Also update the in-app changelog** in `client/src/data/changelog.ts` so users see What's New in the app
 - Format: version number, date, bullet list of user-facing changes
+- **`changelog.ts` must never exceed 5 entries** — drop the oldest entry whenever a new one is added
 
 ## User Guide
 - Guide files: `USER_GUIDE.md` (Markdown) and `Nail_Tracker_User_Guide.docx` (Word)
-- **Update the guide on every major version change** (e.g. 3.x → 4.0)
+- **Update `USER_GUIDE.md` on every PR that adds or changes a feature** — bug fixes alone do not require a guide update
 - The app header links to the guide — keep the link current
 - When regenerating the Word doc, use `python3 generate_guide.py` then delete the script
 
