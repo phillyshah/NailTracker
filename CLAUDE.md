@@ -14,9 +14,10 @@
 
 ## User Guide
 - Guide files: `USER_GUIDE.md` (Markdown) and `Nail_Tracker_User_Guide.docx` (Word)
-- **Update `USER_GUIDE.md` on every PR that adds or changes a feature** — bug fixes alone do not require a guide update
-- The app header links to the guide — keep the link current
-- When regenerating the Word doc, use `python3 generate_guide.py` then delete the script
+- **Update BOTH files on every PR that adds or changes a feature** — bug fixes alone do not require a guide update
+- **Users download the Word doc** — updating only the Markdown is not enough; always regenerate the `.docx` too
+- The app header links to `Nail_Tracker_User_Guide.docx` on GitHub raw — updating it in the repo is all that's needed (no VPS deploy required)
+- To regenerate the Word doc: write `generate_guide.py`, run `python3 generate_guide.py`, then delete the script before committing
 
 ## Deployment
 - Development branch: `claude/summa-inventory-app-g9HJi`
