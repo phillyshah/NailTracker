@@ -4,43 +4,70 @@
 
 ---
 
+## What Is Nail Tracker?
+
+Nail Tracker is the system your company uses to keep track of orthopedic implants — things like nails, screws, and caps — as they move from the Home Office warehouse out to sales reps and distributors in the field.
+
+Every time a box of implants arrives, gets moved, or gets used in surgery, Nail Tracker records it. That way, you always know exactly what you have, where it is, and when it expires.
+
+This guide will walk you through everything you need to know to use the system confidently.
+
+---
+
 ## Getting Started
 
 ### Logging In
 
-1. Open the app at your organization's URL (e.g., `inventory.phillyshah.com`)
-2. Enter your username and password (login is case-insensitive)
-3. Use the eye icon to toggle password visibility if needed
-4. Sessions last 7 days before requiring re-login
+1. On your phone or computer, open the app at your company's web address (e.g., `inventory.phillyshah.com`)
+2. Type your username and password — it doesn't matter if you use capital letters or not
+3. If you need to see the password you typed, tap the eye icon on the right side of the password box
+4. Once you're in, you'll stay logged in for 7 days before you need to sign in again
 
-### Installing as a Mobile App (Recommended)
-
-For the best mobile experience, add Nail Tracker to your home screen:
-
-- **iPhone/iPad (Safari):** Tap the Share button → "Add to Home Screen"
-- **Android (Chrome):** Tap the three-dot menu → "Add to Home Screen"
-
-This removes the browser toolbar and gives you a full-screen app experience.
-
-### Navigation
-
-- **Mobile:** Bottom tab bar with Receive, Lookup, Inventory, and Reports. Tap **More** for additional features (Banks, Transfer, Distributors, Batch Upload, User Management).
-- **Desktop:** All navigation items appear in the top bar.
-
-### What's New / Version Badge
-
-Tap the version badge (e.g., **v3.13**) in the header to open the **What's New** panel, which shows a summary of recent changes.
+> **Forgot your login?** Ask your manager or system administrator to reset it for you.
 
 ---
 
-## Expiry Alerts (Bell Icon)
+### Installing the App on Your Phone (Recommended)
 
-The **bell icon** in the top-right header gives you instant visibility into items expiring soon — without needing to visit the Reports page.
+Nail Tracker works in a web browser, but you can also add it to your phone's home screen so it opens like a regular app — no browser bar, no extra steps.
 
-- Tap the bell to see all items expiring within **90 days**
-- Each alert shows the product name, lot, expiry date, and current location
-- Tap an individual alert to dismiss it, or tap **Dismiss All** to clear everything
-- Dismissed alerts are remembered across sessions
+**On an iPhone or iPad:**
+1. Open the app in **Safari** (must be Safari, not Chrome)
+2. Tap the **Share** button (the box with an arrow pointing up)
+3. Scroll down and tap **"Add to Home Screen"**
+4. Tap **Add** — the app icon will appear on your home screen
+
+**On an Android phone:**
+1. Open the app in **Chrome**
+2. Tap the three-dot menu in the top right
+3. Tap **"Add to Home Screen"** or **"Install App"**
+
+Once installed, it opens full-screen just like any other app on your phone.
+
+---
+
+### Finding Your Way Around
+
+**On a phone:** You'll see four tabs at the bottom of the screen — **Receive**, **Lookup**, **Inventory**, and **Reports**. Tap **More** to access the rest: Banks, Transfer, Distributors, Batch Upload, and User Management.
+
+**On a computer:** All the pages are listed in the navigation bar at the top.
+
+**Version badge:** You'll see a small button like **v3.13** near the top of the screen. Tap it to see a summary of recent changes to the app.
+
+---
+
+## Expiry Alerts
+
+### The Bell Icon — Your Early Warning System
+
+Near the top-right corner of the screen, there's a **bell icon**. This is one of the most important tools in the app — it tells you immediately if anything in your inventory is getting close to its expiration date, without you having to go looking for it.
+
+- Tap the bell to see a list of all items expiring **within the next 90 days**
+- Each alert tells you the product name, lot number, expiry date, and where it's currently located
+- Once you've reviewed an alert, tap the **X** next to it to dismiss it, or tap **Dismiss All** to clear the whole list
+- The app remembers which alerts you've dismissed, so they won't keep coming back
+
+**Why this matters:** Expired implants cannot be used in surgery. Catching items early gives you time to arrange returns or replacements before they become a problem.
 
 ---
 
@@ -48,220 +75,309 @@ The **bell icon** in the top-right header gives you instant visibility into item
 
 ### 1. Receiving Inventory
 
-**Location:** Receive tab (home screen)
+**Where to go:** Tap the **Receive** tab (it's the home screen when you open the app)
 
-This is where new items enter the system. All received items go to the Home Office distributor automatically.
+This is where you bring new items into the system. When a shipment arrives at the Home Office warehouse, you scan each item here. The system automatically records it under "Home Office."
 
-**Option A — Live Scan (easiest, continuous):**
-1. Tap **Live Scan**
-2. Point your camera at the GS1-128 barcode label
-3. The app detects the barcode automatically — no button press needed
-4. A confirmation card appears immediately; keep scanning the next item
+---
 
-**Option B — Take a Photo:**
-1. Tap the camera area or **Take Photo**
-2. Capture the barcode label
-3. The app parses the image and saves the item
+**The four ways to receive an item:**
 
-**Option C — Batch Upload (multiple photos):**
+#### Option A — Live Scan *(best for high volume)*
+
+This is the fastest method for scanning many items in a row.
+
+1. Tap the **Live Scan** button
+2. Hold your phone camera over a barcode label
+3. The app reads it automatically — you don't have to tap anything
+4. A green card appears confirming what was just received
+5. Move on to the next item — the camera stays ready
+
+> **Tip:** Make sure the barcode is well-lit and fully in frame. The app will beep or show a confirmation when it successfully reads a barcode.
+
+#### Option B — Take a Photo
+
+Good for single items or when Live Scan isn't working.
+
+1. Tap the camera area on screen
+2. Point at the barcode label and take a photo
+3. The app will analyze the photo and pull out the product details
+4. You'll see a confirmation card if it was successful, or an error message if it couldn't read the barcode
+
+#### Option C — Batch Upload *(for large shipments)*
+
+If you have a lot of items to scan and want to do them all at once using photos already saved on your phone:
+
 1. Tap **Batch Upload**
-2. Select multiple barcode photos from your gallery
-3. Each photo is processed — up to 4 barcodes can be detected per image
-4. All parsed items are saved to Home Office
+2. Select multiple photos from your phone's gallery — you can pick as many as you want
+3. The app will work through each photo and can detect up to **4 barcodes per image**
+4. All successfully scanned items are saved to Home Office automatically
 
-**Option D — Manual Entry:**
+#### Option D — Manual Entry
+
+Use this if a barcode won't scan (damaged label, etc.) and you can read the numbers by eye.
+
 1. Tap **Manual Entry**
-2. Type or paste the barcode string, e.g., `(01)08880089459148(10)J250929-L021(17)300928`
+2. Type the barcode string exactly as it appears — for example: `(01)08880089459148(10)J250929-L021(17)300928`
 3. Press Enter or tap **Add**
 
-> **Note:** Multiple units of the same product and lot number (e.g., 50 identical screws from the same manufacturing batch) can each be received individually — the system creates a separate inventory record for each scan.
-
-**Assigning to a bank after receiving:**
-After scanning items, you'll see an option: *"Assign received items to a bank?"*
-1. Tap the button
-2. Select a bank from the dropdown (only Home Office banks are shown)
-3. Tap **Assign** to add all newly received items to that bank
+> **About duplicate lot numbers:** If you're receiving 50 screws that all came from the same manufacturing batch (same lot number), that's completely fine — scan each one individually and the system will create a separate record for each physical item. This is the correct way to do it.
 
 ---
 
-### 2. Looking Up Items
+**Assigning received items to a bank:**
 
-**Location:** Lookup tab
+After scanning, you may see a prompt: *"Assign received items to a bank?"* A "bank" is a named group of items (like a kit or tray). If these items belong to a specific kit:
 
-Use this to quickly check if an item is already in the system.
+1. Tap the **Assign to Bank** button
+2. Choose the bank from the dropdown
+3. Tap **Assign**
 
-1. Scan or photograph a barcode
-2. The app shows whether the item exists, its current distributor, lot, expiry, and full history
-3. From the result you can transfer it to another distributor or mark it as used (implanted)
-
----
-
-### 3. Inventory Management
-
-**Location:** Inventory tab
-
-Browse, search, and manage all active items in the system.
-
-**Searching and filtering:**
-- **Search bar** — find items by item number (REF code), lot number, or product name
-- **Filter panel** (funnel icon) — narrow by distributor or expiry date
-- **Filter chip** — when you arrive from a Reports card or Stock by Item drilldown, a blue chip at the top shows what's filtered (e.g., "Item: SO-S50I-SO-026-T @ Home Office"). Tap **Clear** to reset.
-
-**Sorting:**
-- Tap any column header to sort by that field; tap again to reverse the order
-- Default sort is by Item Number
-
-**Actions:**
-- **Bulk reassign:** Select multiple items with checkboxes, choose a destination distributor from the "Move to:" dropdown, and tap **Reassign**
-- **Individual reassign:** Tap the reassign button on any item card
-- **Export:** Tap the **Export** button to download an Excel (.xlsx) file — expired items are highlighted red in the spreadsheet
-- Tap any item row to open its full detail page
-
-**Item status indicators:**
-- **Red badge:** expired or expiring within 90 days
-- **Yellow badge:** expiring within 6 months
-- No badge: more than 6 months out
+If they don't belong to a kit yet, just skip this step — you can always assign them later.
 
 ---
 
-### 4. Inventory Item Detail
+### 2. Looking Up an Item
 
-**Location:** Tap any item in Inventory, Distributor Detail, or a drilldown result
+**Where to go:** Tap **Lookup** in the bottom navigation
 
-Displays everything about a single item and lets you correct or act on it.
+Use this when you want to check on a specific item — maybe you scanned something and want to know where it is, or a rep called and wants to know the status of a particular lot.
 
-**Information shown:**
-- Product label, Item Number (REF code), GTIN, GTIN Short
-- Lot number, expiry date, current distributor
-- Barcode photo (tap to view full screen; press **ESC** to close)
-- Full assignment history with who moved it, when, and why
+1. Scan the barcode (or type it manually)
+2. The app will show you:
+   - Whether the item is in the system
+   - Where it currently is (which distributor has it)
+   - Its lot number and expiry date
+   - Its full history — every time it was moved and who moved it
+3. From here, you can also **transfer it** to another location or **mark it as used** (meaning it was implanted in a patient)
 
-**Available actions:**
+---
 
-| Action | Description |
+### 3. Browsing Your Inventory
+
+**Where to go:** Tap **Inventory** in the bottom navigation
+
+This page shows all active items in the system — everything that hasn't been used or deleted. Think of it as a live spreadsheet of your entire stock.
+
+---
+
+**Finding what you're looking for:**
+
+- **Search bar** at the top: Type a product name, lot number, or item number (REF code). The list filters as you search.
+- **Filter button** (the funnel icon): Narrow down by distributor or expiry date.
+- **Filter chip**: If you arrive at this page by tapping a report card or clicking through from the Stock report, you'll see a blue bar at the top showing what filter is active — for example, *"Item: SO-S50I-SO-026-T @ Home Office"*. Tap **Clear** to go back to the full list.
+
+**Sorting the list:**
+
+Tap any column header to sort by that column. Tap it again to reverse the order (A→Z or Z→A, newest or oldest, etc.). By default, items are sorted by Item Number.
+
+---
+
+**Taking action on items:**
+
+- **Move one item:** Tap the item row to open its detail page, then use the **Reassign** button there
+- **Move several items at once:** Check the box next to each item you want to move, then choose a destination from the **"Move to:"** dropdown and tap **Reassign**
+- **Download to Excel:** Tap the **Export** button to get a spreadsheet of your current filtered inventory. Expired items are highlighted in red automatically.
+
+---
+
+**What the color badges mean:**
+
+| Badge Color | What It Means |
+|------------|---------------|
+| Red | Expired, or expiring within 90 days — needs attention |
+| Yellow | Expiring within 6 months — keep an eye on it |
+| No badge | More than 6 months until expiry — you're fine |
+
+---
+
+### 4. Viewing and Editing an Item
+
+**Where to go:** Tap any item row anywhere in the app (Inventory, Distributor page, etc.)
+
+This page shows you everything about one specific physical item.
+
+---
+
+**What you'll see:**
+
+- Product name and Item Number (the REF code, like SO-SPFN-0180-11-25)
+- GTIN (the long product code), GTIN Short, lot number, and expiry date
+- Which distributor currently has it
+- A photo of the barcode label (tap to expand; press **ESC** or tap outside to close)
+- A full history of everywhere the item has been and who moved it
+
+---
+
+**What you can do:**
+
+| Button | What It Does |
 |--------|-------------|
-| **Edit** | Fix GTIN, Item Number (REF), Lot, Expiry, or Product Label — every change is logged with your username and timestamp |
-| **Reassign** | Move the item to a different distributor; a Transfer record is created automatically |
-| **Mark as Used** | Flag the item as implanted; it disappears from active inventory |
-| **Delete** | Remove the item from the system |
+| **Edit** | Fix a mistake — wrong lot number, wrong expiry date, wrong product label. Every change is saved with your name and the time so there's a full audit trail. |
+| **Reassign** | Move the item to a different distributor. A transfer record is created automatically. |
+| **Mark as Used** | Record that this item was implanted in a patient. It will disappear from active inventory. |
+| **Delete** | Remove the item entirely. Use with caution. |
 
-> **Tip:** Press **ESC** at any time to close the full-screen barcode image or any open modal.
+> **Keyboard shortcut:** If you're on a computer, press **ESC** at any time to close a photo or a pop-up window.
 
 ---
 
-### 5. Banks (Inventory Groups)
+### 5. Banks (Item Kits)
 
-**Location:** More → Banks
+**Where to go:** Tap **More** → **Banks**
 
-Banks let you group items into named sets that travel together — think of a bank as a tray or kit that goes to a surgery site.
+A "bank" is a named group of items that belong together — for example, a kit that a sales rep takes to a specific hospital, or a tray of implants for a particular surgery type. Banks make it easy to move a whole group of items at once instead of one by one.
+
+---
 
 **Creating a bank:**
+
 1. Tap **Create Bank**
-2. Enter a name, optional description, and select the distributor where the bank currently lives
-3. Tap **Create**
+2. Give it a name (e.g., "Smith - General Hospital Kit") and an optional description
+3. Select which distributor it belongs to
+4. Tap **Create**
 
 **Adding items to a bank:**
-1. Open a bank → tap **Add Items**
-2. Items at the same distributor as the bank are shown (items already in another bank are excluded)
-3. Select items and tap **Add**
 
-**Removing items:**
-Tap the **X** next to any item in the bank to remove it. The item stays in inventory — it just leaves the bank.
+1. Open the bank, then tap **Add Items**
+2. You'll see a list of items at the same distributor as the bank — items already in another bank won't appear here
+3. Check the items you want to add, then tap **Add**
 
-**Moving a bank:**
-1. Open a bank → tap **Move Bank**
-2. Select the destination distributor
-3. All items in the bank are reassigned to the new distributor and an audit trail is created
+**Removing an item:**
+
+Tap the **X** next to an item in the bank list. The item doesn't get deleted — it just leaves the bank and stays in that distributor's regular inventory.
+
+**Moving a whole bank:**
+
+1. Open the bank, tap **Move Bank**
+2. Choose the destination distributor
+3. Every item in the bank gets reassigned to that distributor, and the move is logged in the history
 
 ---
 
 ### 6. Transfers
 
-**Location:** More → Transfer
+**Where to go:** Tap **More** → **Transfer**
 
-Create formal transfer records when moving inventory between distributors.
+Use this when you need to officially move items from one distributor to another — for example, pulling items back from a rep or shipping a set of implants out to a new location. Every transfer gets its own ID (like `TRF-20260514-0001`) so you can reference it later.
+
+---
 
 **Creating a transfer:**
-1. Select the source distributor (**From**)
-2. Select the destination distributor (**To**)
-3. Select items to transfer (use **Select All** for speed)
-4. Add an optional note
-5. Tap **Confirm Transfer** — a transfer ID is auto-generated (`TRF-YYYYMMDD-NNNN`)
 
-> **Note:** When you reassign a single item from its detail page, a Transfer record is also created automatically and appears in Transfer History.
+1. Under **From**, choose where the items are coming from
+2. Under **To**, choose where they're going
+3. Check the boxes next to the items you want to move. Tap **Select All** if you want everything.
+4. Add an optional note (e.g., "Returning expired stock" or "Filling new rep order")
+5. Tap **Confirm Transfer**
 
-**Viewing and printing a transfer:**
-1. Open the transfer from Reports → Transfer History (or navigate directly to its URL)
-2. Tap **Print** — a clean, print-formatted report opens
-3. The PDF filename defaults to the transfer ID
+The system creates a transfer record and updates every item's location automatically.
+
+> **Single-item reassignment also counts:** If you move one item from its detail page using the Reassign button, a transfer record is created for that too — so every move is always tracked.
+
+---
+
+**Printing a transfer report:**
+
+If you need a paper record of a transfer:
+
+1. Find the transfer in **Reports** → **Transfer History** and tap its ID (e.g., TRF-20260514-0001)
+2. Tap the **Print** button
+3. A clean, print-ready version opens — use Ctrl+P (Windows) or Cmd+P (Mac) to print or save as PDF
 
 ---
 
 ### 7. Reports
 
-**Location:** Reports tab
+**Where to go:** Tap **Reports** in the bottom navigation
 
-**Metric cards (clickable):**
-Tap any card to jump to a filtered inventory list:
-- **Total Units** → all active inventory
-- **Active Distributors** → distributor list
-- **Expiring < 180d** → items expiring within 6 months
-- **Expired** → all expired items
-- **Unassigned** → items not yet at a distributor
+The Reports page gives you a bird's-eye view of your entire inventory at a glance.
+
+---
+
+**The summary cards at the top:**
+
+There are five colored cards that each show a number. **Tap any card to see the matching list of items.**
+
+| Card | What It Shows | Tap to See |
+|------|--------------|------------|
+| Total Units | How many items are in the system right now | All inventory |
+| Active Distributors | How many distributors have items | Distributor list |
+| Expiring < 180d | Items that expire within 6 months | Those specific items |
+| Expired | Items that are already past their expiry date | Those specific items |
+| Unassigned | Items at Home Office not yet sent anywhere | Those specific items |
+
+---
 
 **Stock by Item Number:**
-Tap the **Stock by Item Number** card to open a full matrix view:
-- Rows = every item number in your inventory
-- Columns = Home Office + each distributor + Total
-- **Click an item number or Total** → shows all units of that item across every location
-- **Click a count** (e.g., 13 at Home Office) → shows only that item at that specific location
-- Sortable by any column; searchable by item number or description
-- **Export Excel** button downloads a formatted spreadsheet
 
-**Export Inventory:**
-Download the full inventory, or per-distributor breakdowns, as Excel files.
+Tap the **Stock by Item Number** button to open a detailed matrix view. This is one of the most useful reports in the system.
+
+- Every row is one type of product (one item number)
+- Every column is a location (Home Office, plus each distributor)
+- The **Total** column on the right shows how many of that item exist across everywhere
+
+**Drilling down:**
+- Tap an **item number** in the leftmost column (or its Total) → see all units of that product across all locations
+- Tap a **specific count** (e.g., the "13" under a distributor's column) → see only that product at that location
+
+You can also search by item number or description at the top, sort by any column, and download the whole matrix as an Excel file.
+
+---
 
 **Transfer History:**
-- Searchable list of all transfers
-- Sortable by Transfer ID, Date, From/To, Item Count
-- Tap any Transfer ID to see the full list of items transferred
 
-**Expiring Items table:**
-Shows up to 20 items expiring within the next 180 days, sorted by days remaining. Sortable by all columns.
+A searchable list of every transfer ever created. Type a transfer ID, distributor name, or date in the search bar to find what you're looking for. Tap any transfer ID to see the full detail and print it.
+
+---
+
+**Expiring Items:**
+
+A table showing up to 20 items that expire in the next 180 days, sorted by how many days are left. Tap any column header to re-sort the list.
 
 ---
 
 ### 8. Batch Upload
 
-**Location:** More → Batch Upload
+**Where to go:** Tap **More** → **Batch Upload**
 
-For high-volume receiving when you have many barcode images or a spreadsheet.
+Use this when you have a large number of items to add to the system and you'd rather upload photos or a spreadsheet than scan them one at a time.
 
-**Image upload:**
-- Select multiple barcode photos — up to 4 barcodes are detected per image
-- Each barcode becomes a separate inventory item
+---
 
-**CSV/Excel upload:**
-- Upload a `.csv` file with barcode strings (one per row in the first column)
-- Items sharing the same GTIN and lot number are each created as individual units — no rows are skipped
+**Uploading photos:**
 
-**After upload:**
-- A results grid shows status for each item (success / error)
-- Select the items you want to keep and choose a destination distributor
-- Tap **Assign** to save them
+1. Tap the upload area and select images from your phone or computer
+2. The app scans each photo automatically — it can find up to **4 barcodes per image**
+3. You'll see results appear one by one showing what was found (or any errors)
+
+**Uploading a CSV/Excel file:**
+
+If your shipping documents come as a spreadsheet with barcode data:
+
+1. Make sure the barcode strings are in the first column
+2. Tap the upload area and select your file
+3. Each row becomes one inventory item — items that share a lot number are each created individually, not skipped
+
+**After uploading:**
+
+1. A grid shows all the items that were found, with a checkmark (success) or X (failed to read)
+2. Select the items you want to keep
+3. Choose a destination distributor from the dropdown
+4. Tap **Assign** to save them
 
 ---
 
 ### 9. Distributors
 
-**Location:** More → Distributors
+**Where to go:** Tap **More** → **Distributors**
 
-View and manage your distributor network.
+This page shows your full list of distributors — the sales reps, hospitals, or other locations where your inventory lives.
 
-- See each distributor's active item count
-- Tap a distributor to view all their items, download an Excel export, or share a link
-- Items in the **Distributor Detail** view link back to the full inventory detail page
-- The **Home Office** distributor is the central receiving location — all scanned items go here first
+- Each distributor card shows how many items they currently have
+- Tap a distributor to see their full item list, download it as Excel, or share a link to the page
+- From the distributor detail page, tap any item to open its full detail page
+- **Home Office** is always the starting point — all items come here first before going anywhere else
 
 ---
 
@@ -269,40 +385,51 @@ View and manage your distributor network.
 
 ### User Management
 
-**Location:** More → User Management (admin only)
-
-**Adding a user:**
-1. Tap **Add User**
-2. Enter a username (minimum 2 characters) and password (minimum 6 characters)
-3. Select role: **User** or **Admin**
-4. Tap **Create User**
-
-**Managing users:**
-- **Toggle role:** Tap the shield icon to switch between User and Admin (you cannot change your own role)
-- **Change password:** Tap the key icon
-- **Delete user:** Tap the trash icon (you cannot delete yourself or the last admin)
+**Where to go:** Tap **More** → **User Management** *(only visible to admins)*
 
 ---
 
-## Barcode Format
+**Adding a new user:**
 
-Nail Tracker reads **GS1-128** barcodes with these Application Identifiers:
+1. Tap **Add User**
+2. Enter a username (at least 2 characters) and a password (at least 6 characters)
+3. Choose a role:
+   - **User** — can view and manage inventory, but can't add or delete other users
+   - **Admin** — full access including User Management
+4. Tap **Create User**
 
-| AI | Field | Format |
-|----|-------|--------|
-| 01 | GTIN | 14 digits |
-| 10 | Lot Number | Variable length |
-| 17 | Expiry Date | YYMMDD (6 digits) |
+**Managing existing users:**
 
-**Supported input formats:**
-- Parenthesized: `(01)08880089459148(10)J250929-L021(17)300928`
-- Raw stream: `010888008945914810J250929-L02117300928`
-- Hourglass date format: `YYYY-MM-DD` (used on some label printers)
+- **Change role:** Tap the shield icon next to a user to switch them between User and Admin. (You can't change your own role.)
+- **Reset password:** Tap the key icon next to a user and enter a new password
+- **Delete user:** Tap the trash icon. You can't delete yourself or the last remaining admin.
 
-The system also recognizes **REF codes** to auto-categorize products:
+---
 
-| REF Prefix | Product |
-|------------|---------|
+## Barcode Format Reference
+
+Nail Tracker reads **GS1-128 barcodes** — the standard format used on medical device packaging. Each barcode contains several pieces of information identified by a two-digit code called an Application Identifier (AI).
+
+| AI Code | What It Contains | Example |
+|---------|-----------------|---------|
+| 01 | GTIN (product code, 14 digits) | 08880089459148 |
+| 10 | Lot number | J250929-L021 |
+| 17 | Expiry date (YYMMDD format) | 300928 = Sept 28, 2030 |
+
+**What a full barcode string looks like:**
+
+`(01)08880089459148(10)J250929-L021(17)300928`
+
+The app also accepts the raw format without parentheses, and supports an alternate date format (YYYY-MM-DD) used by some label printers.
+
+---
+
+**Product REF Code Reference:**
+
+Every Summa Orthopaedics product has a REF code printed on its label. The app uses this code to automatically identify the product name. Here are the prefixes and what they mean:
+
+| REF Prefix | Product Type |
+|------------|-------------|
 | SO-SPFN | Short Femoral Nail |
 | SO-LPFN | Long Femoral Nail |
 | SO-SPFL-N | Lag Screw (Normal) |
@@ -311,20 +438,41 @@ The system also recognizes **REF codes** to auto-categorize products:
 | SO-S50I-SO | Interlocking Screw |
 | SO-SPFC | Cap Screw |
 | SO-SPFS | Set Screw |
-| SO-IS | Interlocking Screw (legacy) |
-| SO-EC | End Cap (legacy) |
-| SO-SS | Set Screw (legacy) |
+| SO-IS | Interlocking Screw (older label format) |
+| SO-EC | End Cap (older label format) |
+| SO-SS | Set Screw (older label format) |
 
-All 105 Summa Orthopaedics products are recognized. Items not yet in the database show "Unknown — GTIN: XXXXXXXXXX" and can be corrected using the **Edit** button on the item detail page.
+All 105 Summa Orthopaedics products are in the database. If an item shows up as "Unknown — GTIN: XXXXXXXXXX," it means the product code isn't recognized yet. Use the **Edit** button on that item's detail page to correct it, or let your manager know so it can be added to the database.
 
 ---
 
-## Tips
+## Tips and Troubleshooting
 
-- **Best scanning results:** Good lighting and holding the phone steady get the most reliable reads. Live Scan mode works best for continuous high-volume receiving.
-- **Same lot, multiple units:** Scanning the same barcode label 10 times creates 10 individual inventory records — which is correct for tracking individual physical implants.
-- **Help banners:** Dismissible help text appears on key pages. Tap **? Help** to bring them back.
-- **Excel exports:** All downloads are `.xlsx` with a bold header row. Expired items are highlighted red. Open in Excel or Google Sheets.
-- **Keyboard shortcut:** Press **ESC** to close full-screen images and modal dialogs.
-- **Print reports:** Use Ctrl+P / Cmd+P — page headers and navigation are automatically hidden in print mode.
-- **REF code auto-fill:** When editing an item, entering a known Item Number (REF code) auto-fills the correct GTIN and product description.
+**Barcode won't scan?**
+- Make sure there's good lighting — shadows on the barcode cause read failures
+- Hold the phone steady and make sure the whole barcode is in the frame
+- Try **Manual Entry** if the label is damaged or the barcode is smudged
+
+**Item shows up as "Unknown" product?**
+- The product code may not be in the database yet
+- Tap the item to open its detail page, then tap **Edit** to assign the correct product label
+- Every edit is logged so there's always a record of what was changed
+
+**Accidentally received the same item twice?**
+- If it's genuinely a different physical unit (different box), that's correct — leave both records
+- If it was a duplicate scan of the same box, open one of the records and tap **Delete**
+
+**Need to correct a lot number or expiry date?**
+- Open the item's detail page and tap **Edit**
+- Fix the field and save — the correction is recorded in the item's history automatically
+
+**Exported Excel file won't open?**
+- Make sure you have Microsoft Excel or Google Sheets installed
+- The file is `.xlsx` format — it won't open in Notes or similar apps
+
+**Lost your login or forgot your password?**
+- You can't reset your own password — ask your system administrator
+
+**Items expiring soon?**
+- Check the bell icon at the top of the screen for a quick list
+- Or go to **Reports** and tap the **Expiring < 180d** card for the full list
