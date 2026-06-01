@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.15 — 2026-06-01
+- Receive Inventory **Manual Entry** now offers two methods when a barcode/QR code can't be scanned:
+  - **Paste QR Code Data** — paste or type the full raw GS1/QR string (existing behavior)
+  - **Enter Item Info Manually** — type Item Number (Summa REF code), Lot Number, Expiration Date, and Quantity Received as individual fields
+- Manual field entry resolves the REF code to a GTIN server-side and is processed exactly like a scan (same product label / UDI derivation)
+- Quantity Received creates one inventory record per unit, mirroring scanning the same label multiple times
+- Added `POST /api/inventory/scan-manual` endpoint to resolve manually-entered fields into a parsed item
+
 ## v3.14 — 2026-05-14
 - Fixed mobile bulk reassign bar — the Reassign button and distributor dropdown are now fully visible without swiping
 - User Guide rewritten for inventory staff with plain-English instructions and troubleshooting section

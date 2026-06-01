@@ -7,7 +7,7 @@ import {
   Images,
   X,
 } from 'lucide-react';
-import { scanBarcode, assignItems } from '../api/inventory';
+import { scanBarcode, scanManual, assignItems } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { listBanks, addItemsToBank } from '../api/banks';
 import { compressImage } from '../utils/compressImage';
@@ -32,7 +32,12 @@ export default function Receive() {
   const [receivedItems, setReceivedItems] = useState<ReceivedItem[]>([]);
   const [scanning, setScanning] = useState(true);
   const [showManual, setShowManual] = useState(false);
+  const [manualMode, setManualMode] = useState<'qr' | 'fields'>('qr');
   const [manualBarcode, setManualBarcode] = useState('');
+  const [mItemNumber, setMItemNumber] = useState('');
+  const [mLot, setMLot] = useState('');
+  const [mExpDate, setMExpDate] = useState('');
+  const [mQty, setMQty] = useState('1');
   const [showBankAssign, setShowBankAssign] = useState(false);
   const [selectedBankId, setSelectedBankId] = useState('');
   const { toasts, addToast, removeToast } = useToast();
@@ -62,6 +67,35 @@ export default function Receive() {
     mutationFn: (params: { barcode: string; imageData?: string }) => scanBarcode(params),
   });
 
+  // Receive an already-parsed item: auto-assign to Home Office and add it to
+  // the on-screen list. Shared by barcode scans and manual field entry.
+  async function receiveParsed(parsed: any, imageData: string) {
+    if (homeOffice) {
+      try {
+        const itemData = { ...parsed, imageData };
+        const assignResult = await assignItems([itemData], homeOffice.id);
+        if (assignResult.created > 0) {
+          setReceivedItems((prev) => [
+            { id: nextId++, parsed, imageData, status: 'new' },
+            ...prev,
+          ]);
+          addToast(`Received: ${parsed.productLabel}`, 'success');
+          queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        } else {
+          addToast('Item was skipped (may already exist)', 'error');
+        }
+      } catch {
+        addToast('Failed to save item', 'error');
+      }
+    } else {
+      setReceivedItems((prev) => [
+        { id: nextId++, parsed, imageData, status: 'new' },
+        ...prev,
+      ]);
+      addToast('Scanned — set up Home Office distributor to auto-receive', 'error');
+    }
+  }
+
   async function handleBarcode(barcode: string, imageData: string) {
     try {
       const result = await scanMutation.mutateAsync({ barcode, imageData });
@@ -72,31 +106,7 @@ export default function Receive() {
         return;
       }
 
-      // Auto-receive new items directly to Home Office
-      if (homeOffice) {
-        try {
-          const itemData = { ...result.parsed, imageData };
-          const assignResult = await assignItems([itemData], homeOffice.id);
-          if (assignResult.created > 0) {
-            setReceivedItems((prev) => [
-              { id: nextId++, parsed: result.parsed, imageData, status: 'new' },
-              ...prev,
-            ]);
-            addToast(`Received: ${result.parsed.productLabel}`, 'success');
-            queryClient.invalidateQueries({ queryKey: ['inventory'] });
-          } else {
-            addToast('Item was skipped (may already exist)', 'error');
-          }
-        } catch {
-          addToast('Failed to save item', 'error');
-        }
-      } else {
-        setReceivedItems((prev) => [
-          { id: nextId++, parsed: result.parsed, imageData, status: 'new' },
-          ...prev,
-        ]);
-        addToast('Scanned — set up Home Office distributor to auto-receive', 'error');
-      }
+      await receiveParsed(result.parsed, imageData);
     } catch {
       addToast('Failed to process barcode', 'error');
     }
@@ -108,6 +118,38 @@ export default function Receive() {
     if (!trimmed) return;
     setManualBarcode('');
     await handleBarcode(trimmed, '');
+  }
+
+  async function handleManualFieldsSubmit() {
+    const itemNumber = mItemNumber.trim();
+    const lot = mLot.trim();
+    const expDate = mExpDate.trim();
+    const qty = parseInt(mQty, 10);
+
+    if (!itemNumber || !lot || !expDate) {
+      addToast('Item Number, Lot Number, and Expiration Date are all required', 'error');
+      return;
+    }
+    if (!qty || qty < 1) {
+      addToast('Quantity must be at least 1', 'error');
+      return;
+    }
+
+    try {
+      const result = await scanManual({ itemNumber, lot, expDate });
+      // Each unit is its own inventory row — receive the item `qty` times,
+      // exactly as if the same label had been scanned `qty` times.
+      for (let i = 0; i < qty; i++) {
+        await receiveParsed(result.parsed, '');
+      }
+      setMItemNumber('');
+      setMLot('');
+      setMExpDate('');
+      setMQty('1');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to add item';
+      addToast(message, 'error');
+    }
   }
 
   async function handleBatchFiles(e: React.ChangeEvent<HTMLInputElement>) {
@@ -209,22 +251,111 @@ export default function Receive() {
           />
 
           {showManual && (
-            <div className="mt-3 flex gap-2">
-              <input
-                type="text"
-                value={manualBarcode}
-                onChange={(e) => setManualBarcode(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
-                placeholder="(01)08880089459148(10)..."
-                className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:border-primary-500 focus:outline-none"
-              />
-              <button
-                onClick={handleManualSubmit}
-                disabled={!manualBarcode.trim()}
-                className="rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-              >
-                Add
-              </button>
+            <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              {/* Method toggle */}
+              <div className="mb-3 flex gap-2">
+                <button
+                  onClick={() => setManualMode('qr')}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
+                    manualMode === 'qr'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Paste QR Code Data
+                </button>
+                <button
+                  onClick={() => setManualMode('fields')}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
+                    manualMode === 'fields'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Enter Item Info Manually
+                </button>
+              </div>
+
+              {manualMode === 'qr' ? (
+                <>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">
+                    Paste or type the full QR / barcode string
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={manualBarcode}
+                      onChange={(e) => setManualBarcode(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
+                      placeholder="(01)08880089459148(10)..."
+                      className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:border-primary-500 focus:outline-none"
+                    />
+                    <button
+                      onClick={handleManualSubmit}
+                      disabled={!manualBarcode.trim()}
+                      className="rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Item Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={mItemNumber}
+                      onChange={(e) => setMItemNumber(e.target.value)}
+                      placeholder="e.g. SO-SPFN-0180-10-25"
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Lot Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={mLot}
+                      onChange={(e) => setMLot(e.target.value)}
+                      placeholder="e.g. J250929-L021"
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Expiration Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={mExpDate}
+                      onChange={(e) => setMExpDate(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Quantity Received <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={mQty}
+                      onChange={(e) => setMQty(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={handleManualFieldsSubmit}
+                    className="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-700"
+                  >
+                    Save Receipt
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

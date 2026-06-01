@@ -41,6 +41,58 @@ export async function scan(req: Request, res: Response) {
 }
 
 /**
+ * POST /api/inventory/scan-manual
+ * Build a parsed item from individually-entered fields (Item Number / Lot /
+ * Expiration) instead of a scanned barcode. The Item Number is a Summa REF
+ * code, resolved to a GTIN via the product map (same resolution edit() uses),
+ * so the result is processed exactly as if it had come from a scan.
+ */
+export async function scanManual(req: Request, res: Response) {
+  try {
+    const { itemNumber, lot, expDate } = req.body as {
+      itemNumber: string;
+      lot: string;
+      expDate?: string | null;
+    };
+
+    const ref = itemNumber.trim().toUpperCase();
+    let gtin = '';
+    let gtinShort = '';
+
+    const canonicalShort = refToGtinShort[ref];
+    if (canonicalShort) {
+      gtinShort = canonicalShort;
+      gtin = gtinShortToFullGtin(canonicalShort);
+    } else if (/^\d{1,14}$/.test(itemNumber.trim())) {
+      // Graceful fallback: a numeric barcode value was typed instead of a REF.
+      gtin = itemNumber.trim().padStart(14, '0');
+      gtinShort = gtin.replace(/^0+/, '').slice(-7);
+    } else {
+      return error(res, `Unknown item number "${itemNumber.trim()}" — not found in product catalog`, 400);
+    }
+
+    const trimmedLot = lot.trim();
+    const parsedExp = expDate ? new Date(expDate) : null;
+
+    return success(res, {
+      parsed: {
+        gtin,
+        gtinShort,
+        lot: trimmedLot,
+        expDate: parsedExp ? parsedExp.toISOString() : null,
+        udi: `${gtinShort}-${trimmedLot}`,
+        rawBarcode: ref,
+        productLabel: getProductLabel(gtinShort, ref),
+        status: 'new' as const,
+      },
+      existing: null,
+    });
+  } catch (err) {
+    return error(res, 'Manual entry failed', 500);
+  }
+}
+
+/**
  * POST /api/inventory/parse
  * Parse multiple barcodes. Same per-unit semantics as scan() —
  * matching UDIs are not duplicates.
