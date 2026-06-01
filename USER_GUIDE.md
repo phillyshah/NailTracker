@@ -115,11 +115,29 @@ If you have a lot of items to scan and want to do them all at once using photos 
 
 #### Option D — Manual Entry
 
-Use this if a barcode won't scan (damaged label, etc.) and you can read the numbers by eye.
+Use this when a barcode won't scan (damaged label, no scanner handy, or the details came from paperwork). Tap **Manual Entry**, then choose one of two methods:
 
-1. Tap **Manual Entry**
-2. Type the barcode string exactly as it appears — for example: `(01)08880089459148(10)J250929-L021(17)300928`
+**Method 1 — Paste QR Code Data**
+
+Best when you already have the full barcode/QR text.
+
+1. Make sure **Paste QR Code Data** is selected
+2. Type or paste the barcode string exactly as it appears — for example: `(01)08880089459148(10)J250929-L021(17)300928`
 3. Press Enter or tap **Add**
+
+**Method 2 — Enter Item Info Manually**
+
+Best when you can read the item details off the box or paperwork but don't have the full barcode string.
+
+1. Tap **Enter Item Info Manually**
+2. Fill in all four fields:
+   - **Item Number** — the Summa REF code, e.g. `SO-SPFN-0180-10-25`
+   - **Lot Number** — the lot/batch number
+   - **Expiration Date** — pick the date
+   - **Quantity Received** — how many of this exact item you're receiving
+3. Tap **Save Receipt**
+
+The app looks up the item number, fills in the product details automatically, and creates one inventory record for each unit in the quantity — exactly as if you'd scanned that many labels. If the item number isn't recognized, you'll see a message and nothing is saved, so double-check the REF code.
 
 > **About duplicate lot numbers:** If you're receiving 50 screws that all came from the same manufacturing batch (same lot number), that's completely fine — scan each one individually and the system will create a separate record for each physical item. This is the correct way to do it.
 

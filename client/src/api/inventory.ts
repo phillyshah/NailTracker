@@ -18,6 +18,23 @@ export async function scanBarcode(params: { barcode: string; imageData?: string 
   return res.data!;
 }
 
+/**
+ * Build a parsed item from manually-entered fields (Item Number / Lot /
+ * Expiration). The server resolves the REF code to a GTIN and returns the same
+ * shape as scanBarcode, so the result can be received exactly like a scan.
+ */
+export async function scanManual(params: {
+  itemNumber: string;
+  lot: string;
+  expDate?: string | null;
+}) {
+  const res = await api<ScanResponse>('/inventory/scan-manual', {
+    method: 'POST',
+    body: params,
+  });
+  return res.data!;
+}
+
 export async function assignItems(
   items: unknown[],
   distributorId: string | null,
