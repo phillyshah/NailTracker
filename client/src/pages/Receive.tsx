@@ -146,6 +146,10 @@ export default function Receive() {
       setMLot('');
       setMExpDate('');
       setMQty('1');
+      // Collapse the manual entry panel so the received items and the
+      // "Assign received items to a bank?" prompt below it are surfaced —
+      // otherwise the tall form keeps that prompt pushed off-screen.
+      setShowManual(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to add item';
       addToast(message, 'error');
