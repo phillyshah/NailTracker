@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.16 — 2026-06-01
+- Fixed: after tapping **Save Receipt** for a manually-entered item, the "Assign received items to a bank?" prompt now appears as expected. Previously the still-open entry form pushed the prompt off-screen, so it looked like it was never offered. The manual entry panel now collapses on a successful save, surfacing the received items and the bank-assignment prompt (matching the post-scan flow).
+
 ## v3.15 — 2026-06-01
 - Receive Inventory **Manual Entry** now offers two methods when a barcode/QR code can't be scanned:
   - **Paste QR Code Data** — paste or type the full raw GS1/QR string (existing behavior)

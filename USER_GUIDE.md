@@ -145,7 +145,7 @@ The app looks up the item number, fills in the product details automatically, an
 
 **Assigning received items to a bank:**
 
-After scanning, you may see a prompt: *"Assign received items to a bank?"* A "bank" is a named group of items (like a kit or tray). If these items belong to a specific kit:
+After receiving items — whether by scanning or by Manual Entry — you may see a prompt: *"Assign received items to a bank?"* A "bank" is a named group of items (like a kit or tray). If these items belong to a specific kit:
 
 1. Tap the **Assign to Bank** button
 2. Choose the bank from the dropdown
