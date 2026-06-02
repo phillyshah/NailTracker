@@ -10,6 +10,7 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-01',
     changes: [
       'Fixed: expiration dates on manually-entered items showed one day early — they now display the date you actually entered',
+      'Admins can fix already-affected items in one click via Fix Manual Expiry Dates on the User Management page',
     ],
   },
   {
