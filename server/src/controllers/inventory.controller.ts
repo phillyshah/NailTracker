@@ -3,6 +3,7 @@ import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 import { parseGS1, isParseError } from '../utils/parseGS1.js';
 import { parseDateOnly, formatDateOnly, normalizeToUtcMidnight } from '../utils/date.js';
+import { extractBarcodes } from '../utils/spreadsheet.js';
 import {
   getProductLabel,
   getItemNumber,
@@ -119,6 +120,38 @@ export async function parse(req: Request, res: Response) {
     return success(res, enriched);
   } catch (err) {
     return error(res, 'Parse failed', 500);
+  }
+}
+
+/**
+ * POST /api/inventory/parse-spreadsheet
+ * Extract barcode strings from an uploaded CSV/TXT or Excel (.xlsx) file. The
+ * file arrives base64-encoded; parsing happens here (via exceljs) so .xlsx
+ * uploads work identically on desktop and mobile — the browser only reads the
+ * raw bytes. Returns the barcode strings; the client then runs them through the
+ * normal scan/parse flow.
+ */
+export async function parseSpreadsheet(req: Request, res: Response) {
+  try {
+    const { dataBase64 } = req.body as { fileName?: string; dataBase64: string };
+    const buf = Buffer.from(dataBase64, 'base64');
+    if (buf.length === 0) return error(res, 'The uploaded file is empty', 400);
+
+    const barcodes = await extractBarcodes(buf);
+    if (barcodes.length === 0) {
+      return error(
+        res,
+        'No barcode data found. Put one barcode per row in the first column.',
+        400,
+      );
+    }
+    return success(res, { barcodes });
+  } catch (err) {
+    return error(
+      res,
+      err instanceof Error ? err.message : 'Could not read the spreadsheet',
+      400,
+    );
   }
 }
 

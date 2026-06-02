@@ -11,7 +11,7 @@ import {
   Images,
   Trash2,
 } from 'lucide-react';
-import { scanBarcode, assignItems } from '../api/inventory';
+import { scanBarcode, assignItems, parseSpreadsheet } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { compressImage } from '../utils/compressImage';
 import { detectBarcodesFromImage } from '../utils/barcodeDetector';
@@ -78,17 +78,9 @@ export default function BatchUpload() {
     setProcessing(true);
 
     try {
-      const text = await file.text();
-      const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-      // Skip header row if it looks like one
-      const startIdx = lines[0]?.match(/^(barcode|gtin|udi|code)/i) ? 1 : 0;
-      const barcodes: string[] = [];
-      for (let i = startIdx; i < lines.length; i++) {
-        // Take the first non-empty column from each CSV row
-        const cols = lines[i].split(',').map((c) => c.trim().replace(/^["']|["']$/g, ''));
-        const barcode = cols[0];
-        if (barcode && barcode.length > 5) barcodes.push(barcode);
-      }
+      // Parse the file server-side (exceljs) so .csv, .txt, and .xlsx all work
+      // identically across desktop and mobile.
+      const barcodes = await parseSpreadsheet(file);
 
       if (barcodes.length === 0) {
         addToast('No barcodes found in file', 'error');
@@ -138,8 +130,8 @@ export default function BatchUpload() {
       }
 
       addToast(`Processed ${barcodes.length} barcodes from file`, 'success');
-    } catch {
-      addToast('Failed to read file', 'error');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to read file', 'error');
     }
 
     setProcessing(false);
