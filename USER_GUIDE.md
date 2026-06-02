@@ -424,6 +424,12 @@ This page shows your full list of distributors — the sales reps, hospitals, or
 
 ---
 
+**Maintenance — Fix Manual Expiry Dates:**
+
+At the bottom of the User Management page (admins only) is a **Fix Manual Expiry Dates** button. Older manually-entered items could be saved with an expiration date that displayed one day early. Tap this button once to correct any affected items across the whole system. It's safe to run anytime — it only changes items that still need fixing, and reports how many it corrected.
+
+---
+
 ## Barcode Format Reference
 
 Nail Tracker reads **GS1-128 barcodes** — the standard format used on medical device packaging. Each barcode contains several pieces of information identified by a two-digit code called an Application Identifier (AI).

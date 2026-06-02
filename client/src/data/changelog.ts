@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.17',
+    date: '2026-06-01',
+    changes: [
+      'Fixed: expiration dates on manually-entered items showed one day early — they now display the date you actually entered',
+      'Admins can fix already-affected items in one click via Fix Manual Expiry Dates on the User Management page',
+    ],
+  },
+  {
     version: '3.16',
     date: '2026-06-01',
     changes: [
@@ -42,14 +50,6 @@ export const changelog: ChangelogEntry[] = [
       'New bell icon in the header shows expiry alerts — items expiring within 90 days appear instantly without visiting Reports',
       'Dismiss alerts individually or all at once — dismissed state is remembered across sessions',
       'New Live Scan button on the Receive page — point your camera at a barcode and it\'s detected automatically without taking a photo',
-    ],
-  },
-  {
-    version: '3.12',
-    date: '2026-05-13',
-    changes: [
-      'Fixed Transfer History detail pages showing blank when clicked',
-      'Added error messaging to diagnose transfer lookup failures',
     ],
   },
 ];

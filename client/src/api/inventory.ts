@@ -115,3 +115,14 @@ export async function deleteItem(id: string) {
     method: 'DELETE',
   });
 }
+
+/**
+ * Admin maintenance: correct expiry dates on manually-entered items that were
+ * saved one day early (before the local-vs-UTC date fix). Idempotent.
+ */
+export async function backfillManualExpiry() {
+  return api<ApiResponse<{ total: number; updated: number }>>(
+    '/inventory/backfill-manual-expiry',
+    { method: 'POST' },
+  );
+}
