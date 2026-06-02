@@ -113,8 +113,10 @@ export function parseGS1(rawBarcode: string): ParseResult {
     // GS1 standard: years 00-49 = 2000-2049, 50-99 = 1950-1999
     const year = yy < 50 ? 2000 + yy : 1900 + yy;
     // dd=00 means last day of month per GS1 spec
-    const day = dd === 0 ? new Date(year, mm, 0).getDate() : dd;
-    expDate = new Date(year, mm - 1, day);
+    const day = dd === 0 ? new Date(Date.UTC(year, mm, 0)).getUTCDate() : dd;
+    // Calendar dates are stored at UTC midnight (see utils/date.ts) so the day
+    // survives every timezone boundary intact.
+    expDate = new Date(Date.UTC(year, mm - 1, day));
   }
 
   // Fallback: detect YYYY-MM-DD date from rawBarcode (hourglass label format)
@@ -125,7 +127,7 @@ export function parseGS1(rawBarcode: string): ParseResult {
       const m = parseInt(isoMatch[2], 10);
       const d = parseInt(isoMatch[3], 10);
       if (y >= 2000 && y <= 2099 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-        expDate = new Date(y, m - 1, d);
+        expDate = new Date(Date.UTC(y, m - 1, d));
       }
     }
   }

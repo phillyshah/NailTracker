@@ -35,6 +35,34 @@ export async function scanManual(params: {
   return res.data!;
 }
 
+/** Read a File as base64 (no data-URL prefix). */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Upload a CSV/TXT or Excel (.xlsx) file and get back the barcode strings it
+ * contains. Parsing happens server-side so .xlsx works the same on every
+ * platform — the browser only reads the raw bytes.
+ */
+export async function parseSpreadsheet(file: File): Promise<string[]> {
+  const dataBase64 = await fileToBase64(file);
+  const res = await api<ApiResponse<{ barcodes: string[] }>>('/inventory/parse-spreadsheet', {
+    method: 'POST',
+    body: { fileName: file.name, dataBase64 },
+  });
+  return res.data?.barcodes ?? [];
+}
+
 export async function assignItems(
   items: unknown[],
   distributorId: string | null,

@@ -37,7 +37,7 @@ const baseItem = {
   gtin: '08880089459148',
   gtinShort: '8945914',
   lot: 'LOT1',
-  expDate: new Date(2030, 0, 1), // existing expiry: Jan 1 2030 (local midnight)
+  expDate: new Date(Date.UTC(2030, 0, 1)), // existing expiry: Jan 1 2030 (UTC midnight)
   udi: '8945914-LOT1',
   rawBarcode: 'SO-SPFN-0180-10-25', // manual entry (REF code, not a GS1 barcode)
   productLabel: 'Femoral Nail',
@@ -65,7 +65,7 @@ describe('edit controller — Save Changes expiry handling', () => {
     txMock.mockResolvedValue([]);
   });
 
-  it('stores a newly-entered date at LOCAL midnight (no UTC off-by-one)', async () => {
+  it('stores a newly-entered date at UTC midnight (no off-by-one, any timezone)', async () => {
     const { res, promise } = callEdit({ expDate: '2030-09-28' });
     await promise;
 
@@ -73,12 +73,12 @@ describe('edit controller — Save Changes expiry handling', () => {
     expect(updateMock).toHaveBeenCalledTimes(1);
     const written = updateMock.mock.calls[0][0].data.expDate as Date;
 
-    // Must equal the scan path's construction, not new Date("2030-09-28") (UTC).
-    expect(written.getTime()).toBe(new Date(2030, 8, 28).getTime());
-    expect(written.getFullYear()).toBe(2030);
-    expect(written.getMonth()).toBe(8); // September
-    expect(written.getDate()).toBe(28); // the day the user typed survives
-    expect(written.getHours()).toBe(0);
+    // Canonical form: UTC midnight of the typed day — identical in every zone.
+    expect(written.toISOString()).toBe('2030-09-28T00:00:00.000Z');
+    expect(written.getTime()).toBe(Date.UTC(2030, 8, 28));
+    expect(written.getUTCFullYear()).toBe(2030);
+    expect(written.getUTCMonth()).toBe(8); // September
+    expect(written.getUTCDate()).toBe(28); // the day the user typed survives
 
     // And it reports success.
     expect(res.status).toHaveBeenCalledWith(200);
@@ -99,7 +99,7 @@ describe('edit controller — Save Changes expiry handling', () => {
   it('treats re-saving the same date as no change (does not rewrite)', async () => {
     // Existing expiry already Sep 28 2030; user opens edit and saves without
     // touching the date — change detection compares calendar days and no-ops.
-    findUniqueMock.mockResolvedValue({ ...baseItem, expDate: new Date(2030, 8, 28) });
+    findUniqueMock.mockResolvedValue({ ...baseItem, expDate: new Date(Date.UTC(2030, 8, 28)) });
 
     const { res, promise } = callEdit({ expDate: '2030-09-28' });
     await promise;

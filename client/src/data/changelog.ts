@@ -6,11 +6,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.18',
+    date: '2026-06-02',
+    changes: [
+      'Fixed for real: expiration dates now show the exact day you entered or scanned, on every device and timezone (the earlier fix never took effect on the server)',
+      'Admins: run Fix Manual Expiry Dates once on the User Management page to clean up any items still stored off by a day',
+      'Fixed: Batch Upload now imports Excel (.xlsx) files correctly on desktop and mobile — previously real Excel files were read as gibberish and found no barcodes',
+    ],
+  },
+  {
     version: '3.17',
     date: '2026-06-01',
     changes: [
-      'Fixed: expiration dates on manually-entered items showed one day early — they now display the date you actually entered',
-      'Admins can fix already-affected items in one click via Fix Manual Expiry Dates on the User Management page',
+      'Added the admin Fix Manual Expiry Dates button on the User Management page',
     ],
   },
   {
@@ -37,19 +45,6 @@ export const changelog: ChangelogEntry[] = [
       'Bulk reassign bar on mobile now fits on screen — no more swiping right to find the Reassign button',
       'User Guide rewritten with plain-English instructions and a troubleshooting section',
       'User Guide download button added to the login page',
-    ],
-  },
-  {
-    version: '3.13',
-    date: '2026-05-14',
-    changes: [
-      'Stock by Item Number: clicking an item number drills into that item\'s inventory across all locations',
-      'Stock by Item Number: clicking a count at a specific location shows only that item at that location',
-      'Stock by Item Number: total column is now clickable too',
-      'Inventory filter chip shows both item and location when drilling down from Stock report',
-      'New bell icon in the header shows expiry alerts — items expiring within 90 days appear instantly without visiting Reports',
-      'Dismiss alerts individually or all at once — dismissed state is remembered across sessions',
-      'New Live Scan button on the Receive page — point your camera at a barcode and it\'s detected automatically without taking a photo',
     ],
   },
 ];

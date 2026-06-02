@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.18 — 2026-06-02
+- **Properly fixed the expiry off-by-one bug.** The v3.17 server-side change (parse bare dates at *local* midnight) was a no-op on the UTC production server and never addressed the real cause, which was on the **display** side: a UTC-midnight value rendered with `toLocaleDateString()` shows the previous day in negative-offset timezones (e.g. US Eastern).
+- Adopted one canonical representation end-to-end: expiry is stored as **UTC midnight** of the calendar day (`Date.UTC(...)` in both `parseDateOnly` and `parseGS1`, client and server) and always **rendered in UTC** (`{ timeZone: 'UTC' }`).
+- New client helper `utils/expiry.ts` (`formatExpiry`, `daysUntilExpiry`) — the single place that knows expiry is UTC-canonical. `ExpiryBadge`, Transfer, and Transfer Detail now use it.
+- `formatDateOnly` (audit notes) now reads the UTC day; the `backfill-manual-expiry` endpoint now normalizes **every** stored expiry to UTC midnight (idempotent), not just manual entries.
+- Added timezone-parameterized test suites (run under America/New_York, UTC, Asia/Tokyo): `server/src/utils/date.test.ts`, `server/src/utils/parseGS1.test.ts`, `client/src/utils/expiry.test.ts`, `client/src/utils/parseGS1.test.ts`. Added a `test` script + Vitest config to the client workspace.
+- **Fixed Excel (.xlsx) Batch Upload.** The client read every imported file with `file.text()` and split it as CSV — fine for .csv/.txt, but .xlsx/.xls are binary, so real Excel files parsed to nothing and behaved inconsistently across desktop/mobile pickers. Files are now parsed **server-side** with the existing `exceljs` dependency via `POST /api/inventory/parse-spreadsheet`, with **content-signature detection** (PK = xlsx, D0CF11E0 = legacy .xls) so the result never depends on the reported extension. One code path → consistent on every platform. Legacy .xls returns a clear "re-save as .xlsx or .csv" message. New `server/src/utils/spreadsheet.ts` + `spreadsheet.test.ts` (real exceljs round-trip).
+
 ## v3.17 — 2026-06-01
 - Fixed: expiration dates on **manually-entered** items were displayed one day early. A bare calendar date was being interpreted as UTC midnight, then shown in local time. Manual entry (and editing) now interprets the date at local midnight, matching scanned items.
 - Added a maintenance endpoint (`POST /api/inventory/backfill-manual-expiry`) to correct expiry dates on manual items that were already saved with the off-by-one value.

@@ -14,6 +14,6 @@
     "build": "npm run build:server && npm run build:client",
     "db:migrate": "npm run db:migrate --workspace=server",
     "db:seed": "npm run db:seed --workspace=server",
-    "test": "npm run test --workspace=server"
+    "test": "npm run test --workspace=server && npm run test --workspace=client"
   }
 }

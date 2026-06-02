@@ -17,6 +17,11 @@ const parseSchema = z.object({
   barcodes: z.array(z.string().min(1)).min(1, 'At least one barcode is required'),
 });
 
+const parseSpreadsheetSchema = z.object({
+  fileName: z.string().optional(),
+  dataBase64: z.string().min(1, 'File data is required'),
+});
+
 const scanManualSchema = z.object({
   itemNumber: z.string().min(1, 'Item number is required'),
   lot: z.string().min(1, 'Lot number is required'),
@@ -57,6 +62,7 @@ const editSchema = z.object({
 router.post('/scan', validate(scanSchema), ctrl.scan);
 router.post('/scan-manual', validate(scanManualSchema), ctrl.scanManual);
 router.post('/parse', validate(parseSchema), ctrl.parse);
+router.post('/parse-spreadsheet', validate(parseSpreadsheetSchema), ctrl.parseSpreadsheet);
 router.post('/assign', validate(assignSchema), ctrl.assign);
 router.post('/backfill-expiry', ctrl.backfillExpiry);
 router.post('/backfill-labels', ctrl.backfillLabels);
