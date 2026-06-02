@@ -48,7 +48,7 @@ Once installed, it opens full-screen just like any other app on your phone.
 
 ### Finding Your Way Around
 
-**On a phone:** You'll see five tabs at the bottom of the screen — **Receive**, **Lookup**, **Inventory**, **Usage**, and **Reports**. Tap **More** to access the rest: Banks, Transfer, Usage History, Distributors, Batch Upload, and User Management.
+**On a phone:** You'll see four tabs at the bottom of the screen — **Receive**, **Usage**, **Inventory**, and **Reports**. Tap **More** for everything else, grouped into **Tools** (Lookup, Transfer, Batch Upload), **Organize** (Banks, Distributors), and **Admin** (User Management). All reports and histories — including Usage History and Transfer History — live under **Reports**.
 
 **On a computer:** All the pages are listed in the navigation bar at the top.
 
@@ -157,7 +157,7 @@ If they don't belong to a kit yet, just skip this step — you can always assign
 
 ### 2. Looking Up an Item
 
-**Where to go:** Tap **Lookup** in the bottom navigation
+**Where to go:** Tap **More → Lookup**, or the **Scan** button on the Inventory page
 
 Use this when you want to check on a specific item — maybe you scanned something and want to know where it is, or a rep called and wants to know the status of a particular lot.
 
@@ -369,6 +369,18 @@ Tap the **Stock by Item Number** button to open a detailed matrix view. This is 
 - Tap a **specific count** (e.g., the "13" under a distributor's column) → see only that product at that location
 
 You can also search by item number or description at the top, sort by any column, and download the whole matrix as an Excel file.
+
+---
+
+**Usage Reports (how products are being used):**
+
+The Reports page has a **Usage** section with three reports that show what's actually being consumed — useful for planning orders and balancing stock between distributors. Each one has an **Excel** export button.
+
+- **Monthly Usage Report** — pick *any* month and (optionally) a distributor to get a full itemized statement: every product used that month, grouped by distributor, with quantities, subtotals, and a grand total. This is your go-to "what did we use in May?" report.
+- **Usage Trends** — units consumed each month by product category (Short Nail, Long Nail, Lag Screw, Interlocking Screw, Cap Screw, Set Screw) over the last 3, 6, or 12 months. A bar chart shows the monthly totals; the table breaks it down by category. Filter to one distributor to see just their usage.
+- **Usage by Distributor** — a grid with product categories down the side and distributors across the top, showing how many of each were used over the window. Quickly compares who uses what.
+
+> Usage reports fill in as you record usage tickets (Usage tab). The more you record, the more useful the trends become.
 
 ---
 

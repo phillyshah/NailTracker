@@ -7,6 +7,9 @@ import Inventory from './pages/Inventory';
 import InventoryDetail from './pages/InventoryDetail';
 import Reports from './pages/Reports';
 import StockByItem from './pages/StockByItem';
+import UsageTrends from './pages/UsageTrends';
+import UsageMatrix from './pages/UsageMatrix';
+import MonthlyUsage from './pages/MonthlyUsage';
 import Distributors from './pages/Distributors';
 import DistributorDetail from './pages/DistributorDetail';
 import Users from './pages/Users';
@@ -52,6 +55,9 @@ export default function App() {
         <Route path="inventory/:id" element={<InventoryDetail />} />
         <Route path="reports" element={<Reports />} />
         <Route path="reports/stock-by-item" element={<StockByItem />} />
+        <Route path="reports/usage-trends" element={<UsageTrends />} />
+        <Route path="reports/usage-by-distributor" element={<UsageMatrix />} />
+        <Route path="reports/monthly-usage" element={<MonthlyUsage />} />
         <Route path="distributors" element={<Distributors />} />
         <Route path="distributors/:id" element={<DistributorDetail />} />
         <Route path="users" element={<Users />} />

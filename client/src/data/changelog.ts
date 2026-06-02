@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.20',
+    date: '2026-06-02',
+    changes: [
+      'New usage reports under Reports → Usage: Monthly Usage Report (any month, by distributor and product), Usage Trends (units per month by product type), and Usage by Distributor',
+      'Reports page reorganized into Stock / Usage / Movement sections; every report and history now lives in one place',
+      'Cleaned up navigation: 4 bottom tabs (Receive · Usage · Inventory · Reports) and a grouped More menu; Lookup is now under More and on the Inventory page',
+    ],
+  },
+  {
     version: '3.19',
     date: '2026-06-02',
     changes: [
@@ -36,16 +45,6 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-01',
     changes: [
       'Fixed: after saving a manually-entered item, the "Assign received items to a bank?" prompt now appears as expected (the entry form no longer hides it)',
-    ],
-  },
-  {
-    version: '3.15',
-    date: '2026-06-01',
-    changes: [
-      'Manual Entry on the Receive page now offers two ways to add an item when you can\'t scan',
-      'Paste QR Code Data: paste or type the full QR/barcode string and tap Add',
-      'Enter Item Info Manually: type the Item Number, Lot Number, Expiration Date, and Quantity Received',
-      'Quantity lets you receive several identical units at once — each becomes its own inventory record',
     ],
   },
 ];

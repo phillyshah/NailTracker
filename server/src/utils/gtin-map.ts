@@ -461,3 +461,49 @@ export function getProductLabel(gtinShort: string, rawBarcode?: string): string 
 
   return `Unknown — GTIN: ${gtinShort}`;
 }
+
+/**
+ * The six Summa product types used for usage analytics, plus an 'Other' bucket.
+ * (Short vs Long Nail are split off the SO-SPFN family by the L/R side suffix.)
+ */
+export const PRODUCT_CATEGORIES = [
+  'Short Nail',
+  'Long Nail',
+  'Lag Screw',
+  'Interlocking Screw',
+  'Cap Screw',
+  'Set Screw',
+  'Other',
+] as const;
+
+export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
+
+/**
+ * Classify an item into one of the six product categories (or 'Other').
+ *
+ * REF code first (deterministic — the SPFN family is split into Short/Long by
+ * the diameter's L/R side suffix), then the resolved product label as a fallback
+ * for items only known via the GTIN catalog.
+ */
+export function getProductCategory(gtinShort: string, rawBarcode?: string): ProductCategory {
+  const ref = (rawBarcode && extractItemNumber(rawBarcode)) || gtinToRef[gtinShort] || '';
+  if (/SO-LPFN/i.test(ref)) return 'Long Nail';
+  if (/SO-SPFN/i.test(ref)) {
+    // Long nails carry a side letter right after the diameter, e.g. SO-SPFN-0300-10L-25.
+    return /SO-SPFN-\d{3,4}-\d{1,2}[LR]-/i.test(ref) ? 'Long Nail' : 'Short Nail';
+  }
+  if (/SO-SPFL/i.test(ref)) return 'Lag Screw';
+  if (/SO-S50I|SO-IS\b/i.test(ref)) return 'Interlocking Screw';
+  if (/SO-SPFC|SO-EC\b/i.test(ref)) return 'Cap Screw';
+  if (/SO-SPFS|SO-SS\b/i.test(ref)) return 'Set Screw';
+
+  // Fall back to the human label (handles items resolvable only via gtinMap).
+  const label = getProductLabel(gtinShort, rawBarcode);
+  if (/short nail/i.test(label)) return 'Short Nail';
+  if (/long nail/i.test(label)) return 'Long Nail';
+  if (/lag screw/i.test(label)) return 'Lag Screw';
+  if (/interlocking/i.test(label)) return 'Interlocking Screw';
+  if (/cap screw/i.test(label)) return 'Cap Screw';
+  if (/set screw/i.test(label)) return 'Set Screw';
+  return 'Other';
+}

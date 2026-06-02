@@ -16,7 +16,6 @@ import {
   BookOpen,
   Sparkles,
   ClipboardCheck,
-  History,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -27,22 +26,40 @@ import { cn } from '../utils/cn';
 
 const GUIDE_URL = 'https://github.com/phillyshah/NailTracker/raw/main/Nail_Tracker_User_Guide.docx';
 
+// Four daily pillars on the bottom bar: stock in, stock out, browse, analyze.
 const mainNavItems = [
   { to: '/receive', label: 'Receive', icon: Building2 },
-  { to: '/scan', label: 'Lookup', icon: ScanLine },
-  { to: '/inventory', label: 'Inventory', icon: Package },
   { to: '/usage', label: 'Usage', icon: ClipboardCheck },
+  { to: '/inventory', label: 'Inventory', icon: Package },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
 ];
 
-const moreNavItems = [
-  { to: '/banks', label: 'Banks', icon: Boxes },
-  { to: '/transfer', label: 'Transfer', icon: ArrowRightLeft },
-  { to: '/usage/history', label: 'Usage History', icon: History },
-  { to: '/distributors', label: 'Distributors', icon: Users },
-  { to: '/batch', label: 'Batch Upload', icon: Images },
-  { to: '/users', label: 'User Management', icon: UserCog },
+// Everything else, grouped so the More sheet stays scannable. Histories and
+// analytics live under Reports — More holds actions and setup only.
+const moreGroups = [
+  {
+    label: 'Tools',
+    items: [
+      { to: '/scan', label: 'Lookup', icon: ScanLine },
+      { to: '/transfer', label: 'Transfer', icon: ArrowRightLeft },
+      { to: '/batch', label: 'Batch Upload', icon: Images },
+    ],
+  },
+  {
+    label: 'Organize',
+    items: [
+      { to: '/banks', label: 'Banks', icon: Boxes },
+      { to: '/distributors', label: 'Distributors', icon: Users },
+    ],
+  },
+  {
+    label: 'Admin',
+    items: [{ to: '/users', label: 'User Management', icon: UserCog }],
+  },
 ];
+
+// Flat list for the desktop top nav.
+const moreNavItems = moreGroups.flatMap((g) => g.items);
 
 export function Layout() {
   const { user, logout } = useAuth();
@@ -230,25 +247,35 @@ export function Layout() {
                 <X size={20} />
               </button>
             </div>
-            <div className="space-y-1">
-              {moreNavItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setShowMore(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center gap-3 rounded-xl px-4 py-3.5 text-base font-medium transition-colors',
-                      isActive
-                        ? 'bg-primary-100 text-primary-700'
-                        : 'text-gray-700 hover:bg-gray-100',
-                    )
-                  }
-                >
-                  <item.icon size={22} />
-                  {item.label}
-                </NavLink>
+            <div className="space-y-4">
+              {moreGroups.map((group) => (
+                <div key={group.label}>
+                  <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    {group.label}
+                  </p>
+                  <div className="space-y-1">
+                    {group.items.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setShowMore(false)}
+                        className={({ isActive }) =>
+                          cn(
+                            'flex items-center gap-3 rounded-xl px-4 py-3.5 text-base font-medium transition-colors',
+                            isActive
+                              ? 'bg-primary-100 text-primary-700'
+                              : 'text-gray-700 hover:bg-gray-100',
+                          )
+                        }
+                      >
+                        <item.icon size={22} />
+                        {item.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
               ))}
+              <div className="border-t border-gray-100 pt-2 space-y-1">
               <a
                 href={GUIDE_URL}
                 target="_blank"
@@ -266,6 +293,7 @@ export function Layout() {
                 <Sparkles size={22} />
                 What's New
               </button>
+              </div>
             </div>
           </div>
         </div>

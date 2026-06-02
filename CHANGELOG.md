@@ -1,5 +1,17 @@
 # Changelog
 
+## v3.20 — 2026-06-02
+- **New usage analytics reports** (Reports → Usage), built on consumption data (`InventoryItem.usedAt`, aggregated in-memory and bucketed by UTC month):
+  - **Monthly Usage Report** — pick any month for a full itemized statement of every product consumed, grouped by distributor, with subtotals and a grand total. Item-level (one row per REF), shows each item's category. Excel export.
+  - **Usage Trends** — units consumed per month by the six product categories over a selectable 3/6/12-month window, with a dependency-free bar chart + a category × month table. Optional distributor filter. Excel export.
+  - **Usage by Distributor** — category × distributor matrix of units consumed over the window (mirrors Stock by Item). Excel export.
+  - New endpoints `GET /api/reports/usage-trends`, `/usage-matrix`, `/monthly-usage` (+ `/export` variants). New `getProductCategory` (six Summa types + Other) and pure `utils/usageReport.ts` aggregators, both timezone-stable.
+- **Navigation cleanup** so the growing feature set stays usable:
+  - Bottom bar trimmed to four daily pillars — **Receive · Usage · Inventory · Reports** — plus a **grouped More** menu (Tools / Organize / Admin).
+  - **Lookup** moved into More and surfaced as a **Scan** button on the Inventory page.
+  - The **Reports** hub reorganized into **Stock / Usage / Movement** sections; Usage History and Transfer History now both live under Reports (More holds only actions/setup).
+- New tests: `utils/usageReport.test.ts`, `utils/gtinCategory.test.ts`, `controllers/usageReports.controller.test.ts` (run under multiple timezones).
+
 ## v3.19 — 2026-06-02
 - **New Usage Tickets feature** — record daily inventory consumption. Pick one distributor, scan the ticket's product stickers, and the app confirms each item is actually in that distributor's available stock before deducting it.
   - Two-phase flow: `POST /api/usage/preview` (read-only — parses each sticker and FIFO-matches it against the distributor's stock) then `POST /api/usage/commit` (consumes the confirmed units in one transaction).
