@@ -15,6 +15,8 @@ import {
   Boxes,
   BookOpen,
   Sparkles,
+  ClipboardCheck,
+  History,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -29,12 +31,14 @@ const mainNavItems = [
   { to: '/receive', label: 'Receive', icon: Building2 },
   { to: '/scan', label: 'Lookup', icon: ScanLine },
   { to: '/inventory', label: 'Inventory', icon: Package },
+  { to: '/usage', label: 'Usage', icon: ClipboardCheck },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
 ];
 
 const moreNavItems = [
   { to: '/banks', label: 'Banks', icon: Boxes },
   { to: '/transfer', label: 'Transfer', icon: ArrowRightLeft },
+  { to: '/usage/history', label: 'Usage History', icon: History },
   { to: '/distributors', label: 'Distributors', icon: Users },
   { to: '/batch', label: 'Batch Upload', icon: Images },
   { to: '/users', label: 'User Management', icon: UserCog },

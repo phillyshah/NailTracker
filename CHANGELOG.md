@@ -1,5 +1,15 @@
 # Changelog
 
+## v3.19 — 2026-06-02
+- **New Usage Tickets feature** — record daily inventory consumption. Pick one distributor, scan the ticket's product stickers, and the app confirms each item is actually in that distributor's available stock before deducting it.
+  - Two-phase flow: `POST /api/usage/preview` (read-only — parses each sticker and FIFO-matches it against the distributor's stock) then `POST /api/usage/commit` (consumes the confirmed units in one transaction).
+  - **Matching:** by Item # + Lot within the chosen distributor's active stock; when several identical units exist, the oldest-expiry unit is consumed first (FIFO), then oldest received. Each sticker consumes exactly one unit; identical stickers on the same ticket each claim a distinct unit.
+  - **Blocked, never guessed:** items not found in that distributor's stock are flagged "not in stock" and cannot be deducted. Race-safe — a unit used between preview and commit is reported as skipped, never double-consumed.
+  - Consumption reuses the existing "used" status (so consumed units leave inventory) and writes a per-item audit-history entry plus a grouped **UsageTicket** record (`USE-YYYYMMDD-NNNN`).
+  - New **Usage** tab (scan + confirm flow, mobile-first) and **Usage History** list + printable ticket detail.
+  - New `UsageTicket` table + `InventoryItem.usageTicketId` — **run `server/prisma/migrations/0006_add_usage_ticket/migration.sql` in the Supabase SQL Editor before deploying**, then `npx prisma generate`.
+  - New tests: `server/src/utils/usageMatch.test.ts` (FIFO), `server/src/controllers/usage.controller.test.ts` (preview/commit, dedup, blocking, 409).
+
 ## v3.18 — 2026-06-02
 - **Properly fixed the expiry off-by-one bug.** The v3.17 server-side change (parse bare dates at *local* midnight) was a no-op on the UTC production server and never addressed the real cause, which was on the **display** side: a UTC-midnight value rendered with `toLocaleDateString()` shows the previous day in negative-offset timezones (e.g. US Eastern).
 - Adopted one canonical representation end-to-end: expiry is stored as **UTC midnight** of the calendar day (`Date.UTC(...)` in both `parseDateOnly` and `parseGS1`, client and server) and always **rendered in UTC** (`{ timeZone: 'UTC' }`).

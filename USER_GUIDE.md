@@ -48,7 +48,7 @@ Once installed, it opens full-screen just like any other app on your phone.
 
 ### Finding Your Way Around
 
-**On a phone:** You'll see four tabs at the bottom of the screen — **Receive**, **Lookup**, **Inventory**, and **Reports**. Tap **More** to access the rest: Banks, Transfer, Distributors, Batch Upload, and User Management.
+**On a phone:** You'll see five tabs at the bottom of the screen — **Receive**, **Lookup**, **Inventory**, **Usage**, and **Reports**. Tap **More** to access the rest: Banks, Transfer, Usage History, Distributors, Batch Upload, and User Management.
 
 **On a computer:** All the pages are listed in the navigation bar at the top.
 
@@ -305,7 +305,36 @@ If you need a paper record of a transfer:
 
 ---
 
-### 7. Reports
+### 7. Recording Daily Usage (Usage Tickets)
+
+**Where to go:** Tap **Usage** in the bottom navigation
+
+Use this every day to record the implants a distributor has used. You scan the product stickers from the paper usage ticket, and the app deducts those items from that distributor's inventory — but only after confirming they're actually in stock.
+
+---
+
+**Recording a usage ticket:**
+
+1. **Pick the distributor** at the top. (All the items on one ticket come out of this one distributor. To record a different distributor, finish this ticket first or change the selection to start over.)
+2. **Scan each sticker** — use Live Scan, Take Photo, or Upload Photo, just like receiving. You can also tap **Enter barcode manually** to type one in.
+3. As you scan, each item shows a status:
+   - 🟢 **Available** — found in this distributor's stock and ready to deduct. If several identical units exist, the one expiring soonest is used first.
+   - 🟡 **Not in stock** — this item isn't in that distributor's inventory, so it **can't** be deducted. Double-check the distributor, or that the item was received first.
+   - 🔴 **Unreadable** — the sticker couldn't be read; try scanning again or enter it manually.
+4. Tap **Consume N items**. Review the list, add an optional note (case number, surgeon, etc.), and tap **Consume**.
+5. The items are deducted from inventory and the ticket is saved with its own number (like `USE-20260602-0001`).
+
+> **Only in-stock items are deducted.** Anything flagged "not in stock" is left untouched — the app never guesses or deducts something a distributor doesn't have.
+
+---
+
+**Usage History:**
+
+Tap **History** (top of the Usage page) or **More → Usage History** to see every ticket you've recorded. Tap a ticket to see exactly which items were consumed, and use **Print** for a paper or PDF record.
+
+---
+
+### 8. Reports
 
 **Where to go:** Tap **Reports** in the bottom navigation
 
@@ -355,7 +384,7 @@ A table showing up to 20 items that expire in the next 180 days, sorted by how m
 
 ---
 
-### 8. Batch Upload
+### 9. Batch Upload
 
 **Where to go:** Tap **More** → **Batch Upload**
 
@@ -386,7 +415,7 @@ If your shipping documents come as a spreadsheet with barcode data:
 
 ---
 
-### 9. Distributors
+### 10. Distributors
 
 **Where to go:** Tap **More** → **Distributors**
 
