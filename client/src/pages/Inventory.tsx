@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router';
-import { Search, Filter, Download, RefreshCw, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Search, Filter, Download, RefreshCw, ChevronLeft, ChevronRight, X, ScanLine } from 'lucide-react';
 import { listInventory, reassignItem, type InventoryFilters } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { getExportUrl } from '../api/reports';
@@ -151,6 +151,12 @@ export default function Inventory() {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Inventory</h2>
         <div className="flex gap-2">
+          <button
+            onClick={() => navigate('/scan')}
+            className="flex items-center gap-1.5 rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+          >
+            <ScanLine size={18} /> Scan
+          </button>
           <button
             onClick={() => refetch()}
             className="rounded-xl border border-gray-300 p-2.5 text-gray-600 hover:bg-gray-100"
