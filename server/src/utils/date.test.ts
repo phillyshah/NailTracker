@@ -1,49 +1,36 @@
 import { describe, it, expect } from 'vitest';
-import { parseDateOnly, formatDateOnly } from './date.js';
+import { parseDateOnly, formatDateOnly, normalizeToUtcMidnight } from './date.js';
 
 /**
  * Regression tests for the manual-entry expiry off-by-one bug.
  *
- * Root cause: `new Date("YYYY-MM-DD")` parses as UTC midnight, so in a
- * negative-offset timezone it renders as the previous calendar day. The scan
- * path builds dates with `new Date(year, month, day)` (local midnight), so
- * parseDateOnly must do the same for bare calendar dates.
- *
- * Run under a negative-offset zone to exercise the bug:
+ * Expiry is stored canonically as UTC midnight of the typed calendar day, so
+ * the stored ISO must be "YYYY-MM-DDT00:00:00.000Z" no matter what timezone the
+ * server runs in. Run under several zones to prove timezone independence:
  *   TZ=America/New_York npx vitest run src/utils/date.test.ts
+ *   TZ=Asia/Tokyo       npx vitest run src/utils/date.test.ts
  */
 describe('parseDateOnly', () => {
-  it('interprets a bare YYYY-MM-DD at LOCAL midnight (preserves the calendar day)', () => {
+  it('parses a bare YYYY-MM-DD to UTC midnight, regardless of server timezone', () => {
     const d = parseDateOnly('2030-09-28')!;
     expect(d).not.toBeNull();
-    // The day the user typed must survive — regardless of the runner's timezone.
-    expect(d.getFullYear()).toBe(2030);
-    expect(d.getMonth()).toBe(8); // September (0-indexed)
-    expect(d.getDate()).toBe(28);
-    expect(d.getHours()).toBe(0);
-    expect(d.getMinutes()).toBe(0);
+    // The exact stored value users round-trip through the DB.
+    expect(d.toISOString()).toBe('2030-09-28T00:00:00.000Z');
+    expect(d.getUTCFullYear()).toBe(2030);
+    expect(d.getUTCMonth()).toBe(8); // September (0-indexed)
+    expect(d.getUTCDate()).toBe(28);
   });
 
-  it('matches the scan path exactly (new Date(y, m-1, d))', () => {
-    // parseGS1 builds expiry as new Date(year, month-1, day); manual entry must agree.
-    expect(parseDateOnly('2030-09-28')!.getTime()).toBe(new Date(2030, 8, 28).getTime());
-    expect(parseDateOnly('2026-01-01')!.getTime()).toBe(new Date(2026, 0, 1).getTime());
+  it('keeps the typed calendar day no matter the timezone (the off-by-one fix)', () => {
+    // .toISOString() is always UTC, so the date portion is the typed day.
+    expect(parseDateOnly('2030-09-28')!.toISOString().slice(0, 10)).toBe('2030-09-28');
+    expect(parseDateOnly('2026-01-01')!.toISOString().slice(0, 10)).toBe('2026-01-01');
+    expect(parseDateOnly('2024-12-31')!.toISOString().slice(0, 10)).toBe('2024-12-31');
   });
 
-  it('fixes the off-by-one vs. the old naive new Date(string) in non-UTC zones', () => {
-    const fixed = parseDateOnly('2030-09-28')!;
-    const naive = new Date('2030-09-28'); // the old buggy behavior (UTC midnight)
-    const offsetMinutes = fixed.getTimezoneOffset();
-
-    if (offsetMinutes === 0) {
-      // UTC runner: the bug can't manifest, both land on the same instant.
-      expect(fixed.getTime()).toBe(naive.getTime());
-    } else {
-      // Any real timezone: the fixed value differs from the naive UTC parse,
-      // and crucially still reports the typed calendar day in local time.
-      expect(fixed.getTime()).not.toBe(naive.getTime());
-      expect(fixed.getDate()).toBe(28);
-    }
+  it('matches Date.UTC exactly', () => {
+    expect(parseDateOnly('2030-09-28')!.getTime()).toBe(Date.UTC(2030, 8, 28));
+    expect(parseDateOnly('2026-01-01')!.getTime()).toBe(Date.UTC(2026, 0, 1));
   });
 
   it('passes through full ISO datetime strings unchanged', () => {
@@ -70,7 +57,22 @@ describe('formatDateOnly', () => {
     }
   });
 
-  it('uses local calendar components (not the UTC day)', () => {
-    expect(formatDateOnly(new Date(2030, 8, 28))).toBe('2030-09-28');
+  it('reads the UTC calendar day (not the local day)', () => {
+    expect(formatDateOnly(new Date('2030-09-28T00:00:00.000Z'))).toBe('2030-09-28');
+    // An item stored with a baked-in offset still reports its UTC day.
+    expect(formatDateOnly(new Date('2030-09-28T23:30:00.000Z'))).toBe('2030-09-28');
+  });
+});
+
+describe('normalizeToUtcMidnight', () => {
+  it('is a no-op for a value already at UTC midnight', () => {
+    const d = new Date('2030-09-28T00:00:00.000Z');
+    expect(normalizeToUtcMidnight(d).getTime()).toBe(d.getTime());
+  });
+
+  it('drops a baked-in time-of-day without shifting the UTC calendar day', () => {
+    // A US-scanned item: local midnight Sep 28 EDT == 04:00Z, UTC day is Sep 28.
+    const scanned = new Date('2030-09-28T04:00:00.000Z');
+    expect(normalizeToUtcMidnight(scanned).toISOString()).toBe('2030-09-28T00:00:00.000Z');
   });
 });

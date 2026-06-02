@@ -5,6 +5,7 @@ import { getTransfer } from '../api/transfers';
 import { SortableTh } from '../components/SortableTh';
 import { useSortable } from '../hooks/useSortable';
 import { APP_VERSION } from '../version';
+import { formatExpiry } from '../utils/expiry';
 
 interface TransferItem {
   id?: string;
@@ -122,7 +123,7 @@ export default function TransferDetail() {
                 <p className="text-xs font-mono text-gray-500">{item.itemNumber || '\u2014'}</p>
                 <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
                   <span>LOT: {item.lot}</span>
-                  <span>Exp: {item.expDate ? new Date(item.expDate).toLocaleDateString() : '\u2014'}</span>
+                  <span>Exp: {formatExpiry(item.expDate)}</span>
                 </div>
               </div>
             ))}
@@ -149,7 +150,7 @@ export default function TransferDetail() {
                     <td className="px-3 py-2 font-mono text-sm">{item.itemNumber || '\u2014'}</td>
                     <td className="px-3 py-2">{item.lot}</td>
                     <td className="px-3 py-2 font-mono text-sm">{item.gtin}</td>
-                    <td className="px-3 py-2">{item.expDate ? new Date(item.expDate).toLocaleDateString() : '\u2014'}</td>
+                    <td className="px-3 py-2">{formatExpiry(item.expDate)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -210,7 +211,7 @@ export default function TransferDetail() {
                   <td className="py-1 px-1 font-mono">{item.itemNumber || '\u2014'}</td>
                   <td className="py-1 px-1">{item.lot}</td>
                   <td className="py-1 px-1 font-mono">{item.gtin}</td>
-                  <td className="py-1 pl-1">{item.expDate ? new Date(item.expDate).toLocaleDateString() : '\u2014'}</td>
+                  <td className="py-1 pl-1">{formatExpiry(item.expDate)}</td>
                 </tr>
               ))}
             </tbody>
