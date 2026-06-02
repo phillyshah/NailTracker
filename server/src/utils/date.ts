@@ -23,3 +23,17 @@ export function parseDateOnly(value: string | null | undefined): Date | null {
   const d = new Date(trimmed);
   return Number.isNaN(d.getTime()) ? null : d;
 }
+
+/**
+ * Format a Date as a "YYYY-MM-DD" calendar date using its LOCAL components.
+ *
+ * Counterpart to parseDateOnly: expiry is a calendar date, so comparisons and
+ * audit strings must use the local day, not `toISOString().slice(0, 10)` (which
+ * is the UTC day and lands one off in positive-offset timezones).
+ */
+export function formatDateOnly(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}

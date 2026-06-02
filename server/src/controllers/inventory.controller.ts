@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 import { parseGS1, isParseError } from '../utils/parseGS1.js';
-import { parseDateOnly } from '../utils/date.js';
+import { parseDateOnly, formatDateOnly } from '../utils/date.js';
 import {
   getProductLabel,
   getItemNumber,
@@ -467,8 +467,8 @@ export async function edit(req: Request, res: Response) {
     if (item.gtinShort !== newGtinShort) changes.push(`GTIN Short: ${item.gtinShort} → ${newGtinShort}`);
     if (item.lot !== newLot) changes.push(`Lot: ${item.lot} → ${newLot}`);
     if (item.udi !== newUdi) changes.push(`UDI: ${item.udi} → ${newUdi}`);
-    const oldExp = item.expDate ? item.expDate.toISOString().slice(0, 10) : 'none';
-    const nextExp = newExpDate ? newExpDate.toISOString().slice(0, 10) : 'none';
+    const oldExp = item.expDate ? formatDateOnly(item.expDate) : 'none';
+    const nextExp = newExpDate ? formatDateOnly(newExpDate) : 'none';
     if (oldExp !== nextExp) changes.push(`Expiry: ${oldExp} → ${nextExp}`);
     if (item.productLabel !== newProductLabel) {
       changes.push(`Label: ${item.productLabel ?? 'none'} → ${newProductLabel ?? 'none'}`);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDateOnly } from './date.js';
+import { parseDateOnly, formatDateOnly } from './date.js';
 
 /**
  * Regression tests for the manual-entry expiry off-by-one bug.
@@ -60,5 +60,17 @@ describe('parseDateOnly', () => {
 
   it('returns null for unparseable input', () => {
     expect(parseDateOnly('not-a-date')).toBeNull();
+  });
+});
+
+describe('formatDateOnly', () => {
+  it('round-trips with parseDateOnly in every timezone', () => {
+    for (const input of ['2030-09-28', '2026-01-01', '2024-12-31']) {
+      expect(formatDateOnly(parseDateOnly(input)!)).toBe(input);
+    }
+  });
+
+  it('uses local calendar components (not the UTC day)', () => {
+    expect(formatDateOnly(new Date(2030, 8, 28))).toBe('2030-09-28');
   });
 });
