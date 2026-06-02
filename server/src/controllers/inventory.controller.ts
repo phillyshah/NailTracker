@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 import { parseGS1, isParseError } from '../utils/parseGS1.js';
+import { parseDateOnly } from '../utils/date.js';
 import {
   getProductLabel,
   getItemNumber,
@@ -72,7 +73,9 @@ export async function scanManual(req: Request, res: Response) {
     }
 
     const trimmedLot = lot.trim();
-    const parsedExp = expDate ? new Date(expDate) : null;
+    // Interpret a bare "YYYY-MM-DD" at local midnight (same as the scan path),
+    // not UTC midnight — otherwise it renders one day early when displayed.
+    const parsedExp = parseDateOnly(expDate);
 
     return success(res, {
       parsed: {
@@ -448,7 +451,7 @@ export async function edit(req: Request, res: Response) {
     }
 
     if (expDate !== undefined) {
-      newExpDate = expDate ? new Date(expDate) : null;
+      newExpDate = parseDateOnly(expDate);
     }
 
     if (typeof productLabel === 'string' && productLabel.trim()) {
@@ -605,6 +608,47 @@ export async function backfillLabels(_req: Request, res: Response) {
     return success(res, { total: items.length, updated });
   } catch (err) {
     return error(res, 'Label backfill failed', 500);
+  }
+}
+
+/**
+ * POST /api/inventory/backfill-manual-expiry
+ * Repairs expiry dates on manually-entered items saved before the local-vs-UTC
+ * date fix. Manual entries (whose rawBarcode is a REF code, not a parseable GS1
+ * barcode) had expDate stored at UTC midnight, which renders one day early in
+ * negative-offset timezones. Rewrite each such value to LOCAL midnight of the
+ * same calendar date so it matches the scan path. Idempotent.
+ */
+export async function backfillManualExpiry(_req: Request, res: Response) {
+  try {
+    const items = await prisma.inventoryItem.findMany({
+      where: { deletedAt: null, expDate: { not: null } },
+      select: { id: true, rawBarcode: true, expDate: true },
+    });
+
+    let updated = 0;
+    for (const item of items) {
+      const exp = item.expDate;
+      if (!exp) continue;
+      // Only manual entries — skip anything that parses as a real GS1 barcode.
+      if (!isParseError(parseGS1(item.rawBarcode))) continue;
+      // Only the buggy UTC-midnight values need correcting.
+      if (exp.getUTCHours() !== 0 || exp.getUTCMinutes() !== 0 || exp.getUTCSeconds() !== 0) {
+        continue;
+      }
+      const corrected = new Date(exp.getUTCFullYear(), exp.getUTCMonth(), exp.getUTCDate());
+      if (corrected.getTime() !== exp.getTime()) {
+        await prisma.inventoryItem.update({
+          where: { id: item.id },
+          data: { expDate: corrected },
+        });
+        updated++;
+      }
+    }
+
+    return success(res, { total: items.length, updated });
+  } catch (err) {
+    return error(res, 'Manual expiry backfill failed', 500);
   }
 }
 
