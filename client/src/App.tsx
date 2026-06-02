@@ -16,6 +16,9 @@ import Transfer from './pages/Transfer';
 import TransferDetail from './pages/TransferDetail';
 import Banks from './pages/Banks';
 import BankDetail from './pages/BankDetail';
+import Usage from './pages/Usage';
+import UsageHistory from './pages/UsageHistory';
+import UsageDetail from './pages/UsageDetail';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -57,6 +60,9 @@ export default function App() {
         <Route path="banks/:id" element={<BankDetail />} />
         <Route path="transfer" element={<Transfer />} />
         <Route path="transfer/:transferId" element={<TransferDetail />} />
+        <Route path="usage" element={<Usage />} />
+        <Route path="usage/history" element={<UsageHistory />} />
+        <Route path="usage/history/:ticketId" element={<UsageDetail />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

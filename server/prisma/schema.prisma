@@ -46,6 +46,7 @@ model InventoryItem {
   bankId        String?
   bank          Bank?               @relation(fields: [bankId], references: [id])
   usedAt        DateTime?
+  usageTicketId String?
   deletedAt     DateTime?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
@@ -58,6 +59,7 @@ model InventoryItem {
   @@index([gtinShort])
   @@index([usedAt])
   @@index([bankId])
+  @@index([usageTicketId])
 }
 
 model AssignmentHistory {
@@ -90,6 +92,22 @@ model Transfer {
 
   @@index([transferId])
   @@index([createdAt])
+}
+
+model UsageTicket {
+  id              String   @id @default(cuid())
+  ticketId        String   @unique
+  distributorId   String?
+  distributorName String
+  note            String?
+  itemCount       Int
+  items           Json
+  recordedBy      String?
+  createdAt       DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@index([distributorId])
 }
 
 model Bank {

@@ -6,6 +6,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.19',
+    date: '2026-06-02',
+    changes: [
+      'New Usage tab: record daily implant usage by picking a distributor and scanning the ticket stickers',
+      'Each item is checked against that distributor\'s inventory before it\'s deducted — items not in stock are flagged, never deducted',
+      'When several identical units exist, the oldest-expiry one is used first (FIFO)',
+      'Every ticket is saved with its own USE-… number under Usage History, with a printable report',
+    ],
+  },
+  {
     version: '3.18',
     date: '2026-06-02',
     changes: [
@@ -36,15 +46,6 @@ export const changelog: ChangelogEntry[] = [
       'Paste QR Code Data: paste or type the full QR/barcode string and tap Add',
       'Enter Item Info Manually: type the Item Number, Lot Number, Expiration Date, and Quantity Received',
       'Quantity lets you receive several identical units at once — each becomes its own inventory record',
-    ],
-  },
-  {
-    version: '3.14',
-    date: '2026-05-14',
-    changes: [
-      'Bulk reassign bar on mobile now fits on screen — no more swiping right to find the Reassign button',
-      'User Guide rewritten with plain-English instructions and a troubleshooting section',
-      'User Guide download button added to the login page',
     ],
   },
 ];
