@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 import { parseGS1, isParseError } from '../utils/parseGS1.js';
-import { parseDateOnly, formatDateOnly } from '../utils/date.js';
+import { parseDateOnly, formatDateOnly, normalizeToUtcMidnight } from '../utils/date.js';
 import {
   getProductLabel,
   getItemNumber,
@@ -613,30 +613,24 @@ export async function backfillLabels(_req: Request, res: Response) {
 
 /**
  * POST /api/inventory/backfill-manual-expiry
- * Repairs expiry dates on manually-entered items saved before the local-vs-UTC
- * date fix. Manual entries (whose rawBarcode is a REF code, not a parseable GS1
- * barcode) had expDate stored at UTC midnight, which renders one day early in
- * negative-offset timezones. Rewrite each such value to LOCAL midnight of the
- * same calendar date so it matches the scan path. Idempotent.
+ * Normalizes every stored expiry to the canonical representation: UTC midnight
+ * of its UTC calendar day (see utils/date.ts). This flattens any time-of-day a
+ * scan baked in (e.g. local-midnight-plus-offset) to a clean "T00:00:00.000Z"
+ * without shifting the calendar day, so the UTC display renders the intended
+ * date everywhere. Idempotent — only rows not already at UTC midnight change.
  */
 export async function backfillManualExpiry(_req: Request, res: Response) {
   try {
     const items = await prisma.inventoryItem.findMany({
       where: { deletedAt: null, expDate: { not: null } },
-      select: { id: true, rawBarcode: true, expDate: true },
+      select: { id: true, expDate: true },
     });
 
     let updated = 0;
     for (const item of items) {
       const exp = item.expDate;
       if (!exp) continue;
-      // Only manual entries — skip anything that parses as a real GS1 barcode.
-      if (!isParseError(parseGS1(item.rawBarcode))) continue;
-      // Only the buggy UTC-midnight values need correcting.
-      if (exp.getUTCHours() !== 0 || exp.getUTCMinutes() !== 0 || exp.getUTCSeconds() !== 0) {
-        continue;
-      }
-      const corrected = new Date(exp.getUTCFullYear(), exp.getUTCMonth(), exp.getUTCDate());
+      const corrected = normalizeToUtcMidnight(exp);
       if (corrected.getTime() !== exp.getTime()) {
         await prisma.inventoryItem.update({
           where: { id: item.id },

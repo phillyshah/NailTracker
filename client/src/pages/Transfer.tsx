@@ -16,6 +16,7 @@ import { APP_VERSION } from '../version';
 import { cn } from '../utils/cn';
 import { HelpBanner } from '../components/HelpBanner';
 import type { InventoryItem } from '../types';
+import { formatExpiry } from '../utils/expiry';
 
 export default function Transfer() {
   const queryClient = useQueryClient();
@@ -423,7 +424,7 @@ export default function Transfer() {
                     <td className="py-1 px-1 font-mono">{item.udi}</td>
                     <td className="py-1 px-1">{item.lot}</td>
                     <td className="py-1 px-1 font-mono">{item.gtin}</td>
-                    <td className="py-1 pl-1">{item.expDate ? new Date(item.expDate).toLocaleDateString() : '\u2014'}</td>
+                    <td className="py-1 pl-1">{formatExpiry(item.expDate)}</td>
                   </tr>
                 ))}
               </tbody>

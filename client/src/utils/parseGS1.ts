@@ -87,8 +87,10 @@ export function parseGS1(rawBarcode: string): ParseResult {
     const mm = parseInt(expDateStr.substring(2, 4), 10);
     const dd = parseInt(expDateStr.substring(4, 6), 10);
     const year = yy < 50 ? 2000 + yy : 1900 + yy;
-    const day = dd === 0 ? new Date(year, mm, 0).getDate() : dd;
-    expDate = new Date(year, mm - 1, day);
+    const day = dd === 0 ? new Date(Date.UTC(year, mm, 0)).getUTCDate() : dd;
+    // Calendar dates are stored at UTC midnight so the scanned day renders the
+    // same in every timezone (see utils/expiry.ts).
+    expDate = new Date(Date.UTC(year, mm - 1, day));
   }
 
   // Fallback: detect YYYY-MM-DD date from rawBarcode (hourglass label format)
@@ -99,7 +101,7 @@ export function parseGS1(rawBarcode: string): ParseResult {
       const m = parseInt(isoMatch[2], 10);
       const d = parseInt(isoMatch[3], 10);
       if (y >= 2000 && y <= 2099 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
-        expDate = new Date(y, m - 1, d);
+        expDate = new Date(Date.UTC(y, m - 1, d));
       }
     }
   }
