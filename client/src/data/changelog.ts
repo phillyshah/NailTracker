@@ -11,6 +11,7 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       'Fixed for real: expiration dates now show the exact day you entered or scanned, on every device and timezone (the earlier fix never took effect on the server)',
       'Admins: run Fix Manual Expiry Dates once on the User Management page to clean up any items still stored off by a day',
+      'Fixed: Batch Upload now imports Excel (.xlsx) files correctly on desktop and mobile — previously real Excel files were read as gibberish and found no barcodes',
     ],
   },
   {
