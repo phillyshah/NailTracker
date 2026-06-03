@@ -20,6 +20,15 @@ export default function InventoryDetail() {
   const [note, setNote] = useState('');
   const [editForm, setEditForm] = useState<EditItemPayload>({});
 
+  // Return to the inventory list the user came from (preserving their page,
+  // sort, and search via the previous history entry). Falls back to the list
+  // root if this page was opened directly (no in-app history to go back to).
+  function backToInventory() {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1);
+    else navigate('/inventory');
+  }
+
   // ESC closes the topmost open overlay: image > edit > reassign.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -69,7 +78,7 @@ export default function InventoryDetail() {
     mutationFn: () => deleteItem(id!),
     onSuccess: () => {
       addToast('Item deleted', 'success');
-      navigate('/inventory');
+      backToInventory();
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
@@ -124,7 +133,7 @@ export default function InventoryDetail() {
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       <button
-        onClick={() => navigate('/inventory')}
+        onClick={backToInventory}
         className="mb-4 flex items-center gap-2 text-base text-primary-600 hover:text-primary-700"
       >
         <ArrowLeft size={20} /> Back to Inventory

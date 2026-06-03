@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.24 — 2026-06-03
+- **Inventory list state is preserved across navigation.** Opening an item and tapping **Back to Inventory** previously dropped the user on page 1 — painful with 1,600 items across 60+ pages. The Inventory page now serializes its full state (page, sort, search, and all filters) to the URL query string via `client/src/utils/inventoryUrl.ts` (`filtersToSearchParams` / `searchParamsToFilters`), and the detail page's back button uses `navigate(-1)` (falling back to `/inventory` when opened directly). The view now survives navigation, refresh, bookmarking, and sharing.
+  - New round-trip tests: `client/src/utils/inventoryUrl.test.ts`.
+- Item-number (REF) search shipped in v3.23 and is included here — searching e.g. `SO-SPFN-0380-10L-30` returns the matching scanned items.
+
 ## v3.23 — 2026-06-03
 - **Fixed a serious GS1 barcode-parsing bug that corrupted imported lot numbers and expiry dates.** The raw-stream parser located AI 17 (expiry) with a naive `indexOf('17')`, so any lot containing the digits `17` (e.g. `J260225-L170`, where `L170` contains `17`) was split mid-lot: the lot was truncated to `J260225-L` and `017310` was read as the date — month `73`, which JavaScript's `Date` overflowed into Jan 2007, showing the item as "Expired". (Lots containing `10` had the analogous failure.)
   - Replaced the `indexOf`-based heuristic in both `server/src/utils/parseGS1.ts` and `client/src/utils/parseGS1.ts` with a proper **left-to-right Application Identifier walker**: AI 01/17 are fixed-length; AI 10 (lot) is variable and is terminated by an FNC1 separator when present, otherwise by peeling a trailing, **date-validated** `17YYMMDD` off the end. This fixes the whole class (lot contains `17`/`10`, expiry-before-lot order, FNC1-separated streams, production-date AI 11).

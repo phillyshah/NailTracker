@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Search, Filter, Download, RefreshCw, ChevronLeft, ChevronRight, X, ScanLine } from 'lucide-react';
@@ -11,6 +11,7 @@ import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import { cn } from '../utils/cn';
 import { HelpBanner } from '../components/HelpBanner';
+import { filtersToSearchParams, searchParamsToFilters } from '../utils/inventoryUrl';
 import type { InventoryItem } from '../types';
 
 export default function Inventory() {
@@ -18,22 +19,18 @@ export default function Inventory() {
   const queryClient = useQueryClient();
   const { toasts, addToast, removeToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [filters, setFilters] = useState<InventoryFilters>(() => ({
-    page: 1,
-    limit: 25,
-    sortBy: 'itemNumber',
-    sortDir: 'asc',
-    search: searchParams.get('search') || undefined,
-    distributorId: searchParams.get('distributorId') || undefined,
-    gtinShort: searchParams.get('gtinShort') || undefined,
-    expBefore: searchParams.get('expBefore') || undefined,
-    unassigned: searchParams.get('unassigned') === 'true' || undefined,
-    expired: searchParams.get('expired') === 'true' || undefined,
-    expiringInDays: searchParams.get('expiringInDays')
-      ? parseInt(searchParams.get('expiringInDays')!, 10)
-      : undefined,
-  }));
+  // Initialize from the URL so returning from an item detail (or a refresh)
+  // restores the exact page/sort/search the user was on.
+  const [filters, setFilters] = useState<InventoryFilters>(() =>
+    searchParamsToFilters(searchParams),
+  );
   const [search, setSearch] = useState(searchParams.get('search') || '');
+
+  // Keep the URL in sync with the active filters (replace, so paging/sorting
+  // doesn't pollute history) — this is what lets "Back to Inventory" return here.
+  useEffect(() => {
+    setSearchParams(filtersToSearchParams(filters), { replace: true });
+  }, [filters, setSearchParams]);
   const [showFilters, setShowFilters] = useState(false);
   const [reassigning, setReassigning] = useState<InventoryItem | null>(null);
   const [reassignDistId, setReassignDistId] = useState('');
@@ -112,6 +109,7 @@ export default function Inventory() {
           : null;
 
   function clearSpecialFilter() {
+    // The URL-sync effect mirrors this into the query string.
     setFilters((prev) => ({
       ...prev,
       gtinShort: undefined,
@@ -123,8 +121,6 @@ export default function Inventory() {
       page: 1,
     }));
     setSearch('');
-    const next = new URLSearchParams();
-    setSearchParams(next, { replace: true });
   }
 
   function toggleSelect(id: string) {
