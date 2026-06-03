@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.21',
+    date: '2026-06-03',
+    changes: [
+      'Batch Upload is now part of Receive — pick a distributor at the top, then scan, photograph, or import a CSV/Excel file all in one place',
+      'You can now receive stock directly into any distributor, not just Home Office',
+      'Removed the separate Batch Upload menu item to keep things simple (old links now open Receive)',
+    ],
+  },
+  {
     version: '3.20',
     date: '2026-06-02',
     changes: [
@@ -38,13 +47,6 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-01',
     changes: [
       'Added the admin Fix Manual Expiry Dates button on the User Management page',
-    ],
-  },
-  {
-    version: '3.16',
-    date: '2026-06-01',
-    changes: [
-      'Fixed: after saving a manually-entered item, the "Assign received items to a bank?" prompt now appears as expected (the entry form no longer hides it)',
     ],
   },
 ];

@@ -13,7 +13,6 @@ import MonthlyUsage from './pages/MonthlyUsage';
 import Distributors from './pages/Distributors';
 import DistributorDetail from './pages/DistributorDetail';
 import Users from './pages/Users';
-import BatchUpload from './pages/BatchUpload';
 import Receive from './pages/Receive';
 import Transfer from './pages/Transfer';
 import TransferDetail from './pages/TransferDetail';
@@ -61,7 +60,8 @@ export default function App() {
         <Route path="distributors" element={<Distributors />} />
         <Route path="distributors/:id" element={<DistributorDetail />} />
         <Route path="users" element={<Users />} />
-        <Route path="batch" element={<BatchUpload />} />
+        {/* Batch Upload folded into Receive — redirect old links */}
+        <Route path="batch" element={<Navigate to="/receive" replace />} />
         <Route path="banks" element={<Banks />} />
         <Route path="banks/:id" element={<BankDetail />} />
         <Route path="transfer" element={<Transfer />} />
