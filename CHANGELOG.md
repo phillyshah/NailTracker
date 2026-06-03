@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.22 — 2026-06-03
+- **Fixed distributor detail item count/visibility.** The Distributor Detail page hardcoded `limit: 100` and rendered `Assigned Items ({items.length})`, so a distributor with more than 100 assigned items showed only 100 and an incorrect total (the list-page `_count` badge and the Excel export were already correct — no data was lost).
+  - `client/src/pages/DistributorDetail.tsx` now uses the same server-side paging + sorting as the main Inventory page: the header shows the true `meta.total`, columns sort across the full set, and a **Prev/Next** control pages through everything. No server change — `/api/inventory` already returns `meta.total` and supports `page`/`limit`/`sortBy`/`sortDir`.
+  - Regression guard `server/src/controllers/inventory.list.test.ts`: asserts `meta.total` comes from `count()` (105) and is independent of the returned page length (100), and that the list and count use the same `where` filter so the badge and detail always agree.
+
 ## v3.21 — 2026-06-03
 - **Consolidated Batch Upload into Receive.** The standalone Batch Upload page and its More-menu item are gone; everything it did now lives in the **Receive** screen, which already housed scanning, photo batch upload, and manual entry. This removes the two-places-called-"Batch Upload" confusion.
   - Receive gains a **"Receive into" distributor selector** (defaults to Home Office) — received items, batch photos, and spreadsheet imports all land in the chosen distributor's inventory. Previously Receive was hardcoded to Home Office and only the standalone page could target other distributors.

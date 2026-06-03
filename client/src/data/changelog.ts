@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.22',
+    date: '2026-06-03',
+    changes: [
+      'Fixed: a distributor\'s detail page now shows all of its items and the correct total — previously it stopped at 100 even when more were assigned',
+      'Added Prev/Next paging on the distributor detail page so you can browse the full list',
+    ],
+  },
+  {
     version: '3.21',
     date: '2026-06-03',
     changes: [
@@ -40,13 +48,6 @@ export const changelog: ChangelogEntry[] = [
       'Fixed for real: expiration dates now show the exact day you entered or scanned, on every device and timezone (the earlier fix never took effect on the server)',
       'Admins: run Fix Manual Expiry Dates once on the User Management page to clean up any items still stored off by a day',
       'Fixed: Batch Upload now imports Excel (.xlsx) files correctly on desktop and mobile — previously real Excel files were read as gibberish and found no barcodes',
-    ],
-  },
-  {
-    version: '3.17',
-    date: '2026-06-01',
-    changes: [
-      'Added the admin Fix Manual Expiry Dates button on the User Management page',
     ],
   },
 ];
