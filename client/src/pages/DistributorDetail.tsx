@@ -1,16 +1,26 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Download, Share2 } from 'lucide-react';
+import { ArrowLeft, Download, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getDistributor } from '../api/distributors';
-import { listInventory } from '../api/inventory';
+import { listInventory, type InventoryFilters } from '../api/inventory';
 import { getExportUrl } from '../api/reports';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { SortableTh } from '../components/SortableTh';
-import { useSortable } from '../hooks/useSortable';
 
 export default function DistributorDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  // Server-side paging + sorting so the page shows ALL of a distributor's items,
+  // not just the first 100 (mirrors the main Inventory page).
+  const [filters, setFilters] = useState<InventoryFilters>({
+    page: 1,
+    limit: 100,
+    distributorId: id,
+    sortBy: 'productLabel',
+    sortDir: 'asc',
+  });
 
   const { data: distributor } = useQuery({
     queryKey: ['distributor', id],
@@ -19,23 +29,23 @@ export default function DistributorDetail() {
   });
 
   const { data: inventoryData } = useQuery({
-    queryKey: ['inventory', { distributorId: id }],
-    queryFn: () => listInventory({ distributorId: id, limit: 100 }),
+    queryKey: ['inventory', filters],
+    queryFn: () => listInventory(filters),
     enabled: !!id,
   });
 
   const items = inventoryData?.data ?? [];
+  const meta = inventoryData?.meta;
+  const totalItems = meta?.total ?? items.length;
+  const totalPages = meta ? Math.ceil(meta.total! / meta.limit!) : 1;
 
-  const { sorted: sortedItems, sortKey, sortDir, toggleSort } = useSortable(
-    items,
-    {
-      productLabel: (i) => i.productLabel || '',
-      itemNumber: (i) => i.itemNumber || '',
-      lot: (i) => i.lot,
-      expDate: (i) => i.expDate || null,
-    },
-    'productLabel',
-  );
+  function toggleSort(key: string) {
+    setFilters((prev) =>
+      prev.sortBy === key
+        ? { ...prev, sortDir: prev.sortDir === 'asc' ? 'desc' : 'asc', page: 1 }
+        : { ...prev, sortBy: key, sortDir: 'asc', page: 1 },
+    );
+  }
 
   async function handleShare() {
     if (!distributor) return;
@@ -45,7 +55,7 @@ export default function DistributorDetail() {
       try {
         await navigator.share({
           title: `${distributor.name} Inventory`,
-          text: `Inventory report for ${distributor.name} (${items.length} items)`,
+          text: `Inventory report for ${distributor.name} (${totalItems} items)`,
           url: fullUrl,
         });
       } catch {
@@ -126,7 +136,7 @@ export default function DistributorDetail() {
       {/* Assigned items */}
       <div className="rounded-2xl bg-white p-5 shadow-sm">
         <h3 className="mb-3 text-lg font-bold text-gray-900">
-          Assigned Items ({items.length})
+          Assigned Items ({totalItems})
         </h3>
         {items.length === 0 ? (
           <p className="text-sm text-gray-500">No items assigned to this distributor</p>
@@ -134,7 +144,7 @@ export default function DistributorDetail() {
           <>
             {/* Mobile cards */}
             <div className="space-y-2 lg:hidden">
-              {sortedItems.map((item) => (
+              {items.map((item) => (
                 <div
                   key={item.id}
                   onClick={() => navigate(`/inventory/${encodeURIComponent(item.id)}`)}
@@ -157,14 +167,14 @@ export default function DistributorDetail() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b">
-                    <SortableTh label="Product" sortKey="productLabel" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
-                    <SortableTh label="Item Number" sortKey="itemNumber" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
-                    <SortableTh label="LOT" sortKey="lot" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
-                    <SortableTh label="Expiry" sortKey="expDate" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="px-3 py-2" />
+                    <SortableTh label="Product" sortKey="productLabel" currentKey={filters.sortBy || 'productLabel'} currentDir={filters.sortDir || 'asc'} onSort={toggleSort} className="px-3 py-2" />
+                    <SortableTh label="Item Number" sortKey="itemNumber" currentKey={filters.sortBy || 'productLabel'} currentDir={filters.sortDir || 'asc'} onSort={toggleSort} className="px-3 py-2" />
+                    <SortableTh label="LOT" sortKey="lot" currentKey={filters.sortBy || 'productLabel'} currentDir={filters.sortDir || 'asc'} onSort={toggleSort} className="px-3 py-2" />
+                    <SortableTh label="Expiry" sortKey="expDate" currentKey={filters.sortBy || 'productLabel'} currentDir={filters.sortDir || 'asc'} onSort={toggleSort} className="px-3 py-2" />
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedItems.map((item) => (
+                  {items.map((item) => (
                     <tr
                       key={item.id}
                       onClick={() => navigate(`/inventory/${encodeURIComponent(item.id)}`)}
@@ -179,6 +189,28 @@ export default function DistributorDetail() {
                 </tbody>
               </table>
             </div>
+
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setFilters((p) => ({ ...p, page: Math.max(1, (p.page || 1) - 1) }))}
+                  disabled={!meta || meta.page! <= 1}
+                  className="flex items-center gap-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium disabled:opacity-50 hover:bg-gray-100"
+                >
+                  <ChevronLeft size={18} /> Prev
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {meta?.page} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setFilters((p) => ({ ...p, page: Math.min(totalPages, (p.page || 1) + 1) }))}
+                  disabled={!meta || meta.page! >= totalPages}
+                  className="flex items-center gap-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-medium disabled:opacity-50 hover:bg-gray-100"
+                >
+                  Next <ChevronRight size={18} />
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
