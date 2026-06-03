@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.21 — 2026-06-03
+- **Consolidated Batch Upload into Receive.** The standalone Batch Upload page and its More-menu item are gone; everything it did now lives in the **Receive** screen, which already housed scanning, photo batch upload, and manual entry. This removes the two-places-called-"Batch Upload" confusion.
+  - Receive gains a **"Receive into" distributor selector** (defaults to Home Office) — received items, batch photos, and spreadsheet imports all land in the chosen distributor's inventory. Previously Receive was hardcoded to Home Office and only the standalone page could target other distributors.
+  - Receive gains **Import CSV / Excel** (server-side parsing via the existing `/inventory/parse-spreadsheet`, so `.csv`/`.txt`/`.xlsx` all work on desktop and mobile). Each imported barcode is received immediately, consistent with Receive's scan flow.
+  - Bank-assignment prompt now follows the selected distributor's banks rather than Home Office's.
+  - `/batch` route redirects to `/receive` so existing links/bookmarks keep working; `client/src/pages/BatchUpload.tsx` deleted.
+
 ## v3.20 — 2026-06-02
 - **New usage analytics reports** (Reports → Usage), built on consumption data (`InventoryItem.usedAt`, aggregated in-memory and bucketed by UTC month):
   - **Monthly Usage Report** — pick any month for a full itemized statement of every product consumed, grouped by distributor, with subtotals and a grand total. Item-level (one row per REF), shows each item's category. Excel export.

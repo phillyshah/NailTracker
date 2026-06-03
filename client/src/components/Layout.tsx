@@ -9,7 +9,6 @@ import {
   LogOut,
   Menu,
   X,
-  Images,
   UserCog,
   ArrowRightLeft,
   Boxes,
@@ -42,7 +41,6 @@ const moreGroups = [
     items: [
       { to: '/scan', label: 'Lookup', icon: ScanLine },
       { to: '/transfer', label: 'Transfer', icon: ArrowRightLeft },
-      { to: '/batch', label: 'Batch Upload', icon: Images },
     ],
   },
   {

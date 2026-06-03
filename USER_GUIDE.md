@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.13** | Summa Orthopaedics Inventory Management System
+**Version 3.21** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -48,7 +48,7 @@ Once installed, it opens full-screen just like any other app on your phone.
 
 ### Finding Your Way Around
 
-**On a phone:** You'll see four tabs at the bottom of the screen — **Receive**, **Usage**, **Inventory**, and **Reports**. Tap **More** for everything else, grouped into **Tools** (Lookup, Transfer, Batch Upload), **Organize** (Banks, Distributors), and **Admin** (User Management). All reports and histories — including Usage History and Transfer History — live under **Reports**.
+**On a phone:** You'll see four tabs at the bottom of the screen — **Receive**, **Usage**, **Inventory**, and **Reports**. Tap **More** for everything else, grouped into **Tools** (Lookup, Transfer), **Organize** (Banks, Distributors), and **Admin** (User Management). All reports and histories — including Usage History and Transfer History — live under **Reports**.
 
 **On a computer:** All the pages are listed in the navigation bar at the top.
 
@@ -77,11 +77,13 @@ Near the top-right corner of the screen, there's a **bell icon**. This is one of
 
 **Where to go:** Tap the **Receive** tab (it's the home screen when you open the app)
 
-This is where you bring new items into the system. When a shipment arrives at the Home Office warehouse, you scan each item here. The system automatically records it under "Home Office."
+This is where you bring new items into the system. When a shipment arrives, you scan each item here and the app records it automatically.
+
+**Choosing where items go:** At the top of the Receive screen there's a **"Receive into"** selector. It defaults to **Home Office** — the usual starting point for a new shipment — but you can switch it to any distributor to receive stock directly into their inventory (handy when importing a spreadsheet of a distributor's existing stock). Everything you receive on the screen — scans, photos, and file imports — goes into whichever distributor is selected here.
 
 ---
 
-**The four ways to receive an item:**
+**The ways to receive an item:**
 
 #### Option A — Live Scan *(best for high volume)*
 
@@ -104,16 +106,26 @@ Good for single items or when Live Scan isn't working.
 3. The app will analyze the photo and pull out the product details
 4. You'll see a confirmation card if it was successful, or an error message if it couldn't read the barcode
 
-#### Option C — Batch Upload *(for large shipments)*
+#### Option C — Batch Photos *(for large shipments)*
 
 If you have a lot of items to scan and want to do them all at once using photos already saved on your phone:
 
-1. Tap **Batch Upload**
+1. Tap **Batch Photos**
 2. Select multiple photos from your phone's gallery — you can pick as many as you want
 3. The app will work through each photo and can detect up to **4 barcodes per image**
-4. All successfully scanned items are saved to Home Office automatically
+4. All successfully scanned items are saved automatically into the selected distributor
 
-#### Option D — Manual Entry
+#### Option D — Import CSV / Excel *(for spreadsheets of barcodes)*
+
+If you have a list of barcodes in a spreadsheet — for example a stock list from a distributor:
+
+1. Tap **Import CSV / Excel**
+2. Choose a `.csv`, `.txt`, or Excel (`.xlsx`) file containing the barcode strings
+3. The app reads every barcode and receives each one into the selected distributor automatically
+
+> This works the same on desktop and mobile — the file is read on the server, so real Excel files import correctly everywhere.
+
+#### Option E — Manual Entry
 
 Use this when a barcode won't scan (damaged label, no scanner handy, or the details came from paperwork). Tap **Manual Entry**, then choose one of two methods:
 
@@ -396,38 +408,7 @@ A table showing up to 20 items that expire in the next 180 days, sorted by how m
 
 ---
 
-### 9. Batch Upload
-
-**Where to go:** Tap **More** → **Batch Upload**
-
-Use this when you have a large number of items to add to the system and you'd rather upload photos or a spreadsheet than scan them one at a time.
-
----
-
-**Uploading photos:**
-
-1. Tap the upload area and select images from your phone or computer
-2. The app scans each photo automatically — it can find up to **4 barcodes per image**
-3. You'll see results appear one by one showing what was found (or any errors)
-
-**Uploading a CSV/Excel file:**
-
-If your shipping documents come as a spreadsheet with barcode data:
-
-1. Make sure the barcode strings are in the first column
-2. Tap the upload area and select your file
-3. Each row becomes one inventory item — items that share a lot number are each created individually, not skipped
-
-**After uploading:**
-
-1. A grid shows all the items that were found, with a checkmark (success) or X (failed to read)
-2. Select the items you want to keep
-3. Choose a destination distributor from the dropdown
-4. Tap **Assign** to save them
-
----
-
-### 10. Distributors
+### 9. Distributors
 
 **Where to go:** Tap **More** → **Distributors**
 

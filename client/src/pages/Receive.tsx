@@ -5,9 +5,10 @@ import {
   CheckCircle2,
   Plus,
   Images,
+  FileSpreadsheet,
   X,
 } from 'lucide-react';
-import { scanBarcode, scanManual, assignItems } from '../api/inventory';
+import { scanBarcode, scanManual, assignItems, parseSpreadsheet } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { listBanks, addItemsToBank } from '../api/banks';
 import { compressImage } from '../utils/compressImage';
@@ -31,6 +32,8 @@ let nextId = 0;
 export default function Receive() {
   const [receivedItems, setReceivedItems] = useState<ReceivedItem[]>([]);
   const [scanning, setScanning] = useState(true);
+  const [targetDistributorId, setTargetDistributorId] = useState('');
+  const [importing, setImporting] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [manualMode, setManualMode] = useState<'qr' | 'fields'>('qr');
   const [manualBarcode, setManualBarcode] = useState('');
@@ -43,6 +46,7 @@ export default function Receive() {
   const { toasts, addToast, removeToast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const { data: distributors = [] } = useQuery({
     queryKey: ['distributors'],
@@ -53,27 +57,33 @@ export default function Receive() {
     (d) => d.name === 'Home Office' || d.name === 'Home Office (HQ)',
   );
 
+  // The distributor incoming items are received into. Defaults to Home Office;
+  // the user can pick any distributor (e.g. to import a spreadsheet of stock
+  // straight into a distributor's inventory).
+  const effectiveDistId = targetDistributorId || homeOffice?.id || '';
+  const targetDist = distributors.find((d) => d.id === effectiveDistId) ?? homeOffice;
+
   const { data: banks = [] } = useQuery({
     queryKey: ['banks'],
     queryFn: listBanks,
   });
 
-  // Banks at Home Office (for assignment)
-  const homeOfficeBanks = banks.filter(
-    (b) => b.distributorId === homeOffice?.id || !b.distributorId,
+  // Banks at the target distributor (for optional assignment after receiving)
+  const targetBanks = banks.filter(
+    (b) => b.distributorId === effectiveDistId || !b.distributorId,
   );
 
   const scanMutation = useMutation({
     mutationFn: (params: { barcode: string; imageData?: string }) => scanBarcode(params),
   });
 
-  // Receive an already-parsed item: auto-assign to Home Office and add it to
-  // the on-screen list. Shared by barcode scans and manual field entry.
+  // Receive an already-parsed item: auto-assign to the selected distributor and
+  // add it to the on-screen list. Shared by barcode scans and manual field entry.
   async function receiveParsed(parsed: any, imageData: string) {
-    if (homeOffice) {
+    if (targetDist) {
       try {
         const itemData = { ...parsed, imageData };
-        const assignResult = await assignItems([itemData], homeOffice.id);
+        const assignResult = await assignItems([itemData], targetDist.id);
         if (assignResult.created > 0) {
           setReceivedItems((prev) => [
             { id: nextId++, parsed, imageData, status: 'new' },
@@ -92,7 +102,7 @@ export default function Receive() {
         { id: nextId++, parsed, imageData, status: 'new' },
         ...prev,
       ]);
-      addToast('Scanned — set up Home Office distributor to auto-receive', 'error');
+      addToast('Scanned — set up a distributor to auto-receive', 'error');
     }
   }
 
@@ -187,6 +197,30 @@ export default function Receive() {
     }
   }
 
+  async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setImporting(true);
+    try {
+      // Parse server-side (exceljs) so .csv, .txt, and .xlsx all work identically
+      // across desktop and mobile, then receive each barcode like a scan.
+      const barcodes = await parseSpreadsheet(file);
+      if (barcodes.length === 0) {
+        addToast('No barcodes found in file', 'error');
+        return;
+      }
+      for (const barcode of barcodes) {
+        await handleBarcode(barcode, '');
+      }
+      addToast(`Imported ${barcodes.length} barcodes from file`, 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to read file', 'error');
+    } finally {
+      setImporting(false);
+    }
+  }
+
   function handleScanError() {
     setShowManual(true);
   }
@@ -196,6 +230,7 @@ export default function Receive() {
   }
 
   const newCount = receivedItems.filter((i) => i.status === 'new').length;
+  const targetName = targetDist?.name ?? 'Home Office';
 
   return (
     <div className="mx-auto max-w-2xl lg:max-w-4xl">
@@ -208,19 +243,40 @@ export default function Receive() {
         </div>
         <div>
           <h2 className="text-xl font-bold text-gray-900">Receive Inventory</h2>
-          <p className="text-sm text-gray-500">Scan items into Home Office</p>
+          <p className="text-sm text-gray-500">Scan items into {targetName}</p>
         </div>
       </div>
 
       <HelpBanner storageKey="receive">
-        Scan or photograph barcode labels to add new items to Home Office inventory. Items are saved automatically when scanned.
+        Scan or photograph barcode labels, or import a CSV/Excel file, to add new items to {targetName} inventory. Items are saved automatically. Use the selector below to receive into a different distributor.
       </HelpBanner>
 
       {/* Quick scan area — always visible for rapid receiving */}
       {scanning && (
         <div className="rounded-2xl bg-white p-4 shadow-sm mb-4">
+          {/* Receive into — defaults to Home Office, switch to any distributor */}
+          <label className="mb-3 block">
+            <span className="mb-1 block text-xs font-medium text-gray-600">Receive into</span>
+            <select
+              value={effectiveDistId}
+              onChange={(e) => setTargetDistributorId(e.target.value)}
+              className="block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+            >
+              {homeOffice && (
+                <option value={homeOffice.id}>{homeOffice.name}</option>
+              )}
+              {distributors
+                .filter((d) => d.id !== homeOffice?.id)
+                .map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+
           <p className="mb-3 text-sm text-gray-500">
-            Scan items one by one, or upload multiple photos
+            Scan items one by one, upload multiple photos, or import a spreadsheet
           </p>
           <BarcodeScanner
             onResult={(barcode, imageData) => {
@@ -236,21 +292,36 @@ export default function Receive() {
               className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
             >
               <Images size={18} />
-              Batch Upload
+              Batch Photos
             </button>
             <button
-              onClick={() => setShowManual(!showManual)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              onClick={() => csvInputRef.current?.click()}
+              disabled={importing}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
-              Manual Entry
+              <FileSpreadsheet size={18} />
+              {importing ? 'Importing…' : 'Import CSV / Excel'}
             </button>
           </div>
+          <button
+            onClick={() => setShowManual(!showManual)}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Manual Entry
+          </button>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
             multiple
             onChange={handleBatchFiles}
+            className="hidden"
+          />
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls,.txt"
+            onChange={handleCsvImport}
             className="hidden"
           />
 
@@ -426,7 +497,7 @@ export default function Receive() {
           </div>
 
           {/* Bank assignment option */}
-          {newCount > 0 && homeOfficeBanks.length > 0 && !showBankAssign && (
+          {newCount > 0 && targetBanks.length > 0 && !showBankAssign && (
             <button
               onClick={() => setShowBankAssign(true)}
               className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-primary-300 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700 hover:bg-primary-100"
@@ -444,7 +515,7 @@ export default function Receive() {
                 className="mb-3 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base bg-white focus:border-primary-500 focus:outline-none"
               >
                 <option value="">Select a bank...</option>
-                {homeOfficeBanks.map((b) => (
+                {targetBanks.map((b) => (
                   <option key={b.id} value={b.id}>{b.name} ({b._count?.items ?? 0} items)</option>
                 ))}
               </select>
