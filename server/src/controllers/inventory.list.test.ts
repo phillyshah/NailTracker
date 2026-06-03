@@ -78,3 +78,34 @@ describe('inventory list — count is the DB total, not the page length', () => 
     expect(countMock.mock.calls[0][0].where).toEqual(expectedWhere);
   });
 });
+
+describe('inventory list — searching by item number (REF code)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    findManyMock.mockResolvedValue([]);
+    countMock.mockResolvedValue(0);
+  });
+
+  it('resolves a REF search to the matching gtinShort and searches rawBarcode', async () => {
+    // SO-SPFN-0380-10L-30 maps to gtinShort 9459940 in the catalog. Scanned
+    // items store only the gtinShort, so the search must translate the REF.
+    const { promise } = callList({ search: 'SO-SPFN-0380-10L-30' });
+    await promise;
+
+    const or = findManyMock.mock.calls[0][0].where.OR as Record<string, unknown>[];
+    // rawBarcode is now searched (covers manual REF entries + raw GS1).
+    expect(or).toContainEqual({ rawBarcode: { contains: 'SO-SPFN-0380-10L-30', mode: 'insensitive' } });
+    // ...and the REF resolves to its gtinShort for scanned items.
+    expect(or).toContainEqual({ gtinShort: { in: ['9459940'] } });
+  });
+
+  it('omits the gtinShort "in" clause for a free-text search with no REF match', async () => {
+    const { promise } = callList({ search: 'zzz-not-a-ref' });
+    await promise;
+
+    const or = findManyMock.mock.calls[0][0].where.OR as Record<string, unknown>[];
+    expect(or.some((c) => 'gtinShort' in c && (c.gtinShort as { in?: unknown }).in)).toBe(false);
+    // Plain field searches are still present.
+    expect(or).toContainEqual({ lot: { contains: 'zzz-not-a-ref', mode: 'insensitive' } });
+  });
+});

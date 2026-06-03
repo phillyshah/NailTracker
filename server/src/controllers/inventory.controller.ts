@@ -9,6 +9,7 @@ import {
   getItemNumber,
   refToGtinShort,
   gtinShortToFullGtin,
+  findGtinShortsByItemNumber,
 } from '../utils/gtin-map.js';
 
 /**
@@ -235,12 +236,21 @@ export async function list(req: Request, res: Response) {
 
     const search = str(req.query.search);
     if (search) {
-      where.OR = [
+      const or: Record<string, unknown>[] = [
         { udi: { contains: search, mode: 'insensitive' } },
         { lot: { contains: search, mode: 'insensitive' } },
         { productLabel: { contains: search, mode: 'insensitive' } },
         { gtinShort: { contains: search, mode: 'insensitive' } },
+        // Manual entries store the REF in rawBarcode; this also matches raw GS1.
+        { rawBarcode: { contains: search, mode: 'insensitive' } },
       ];
+      // Item number (REF) search: scanned items store only the gtinShort, so
+      // translate the REF back through the catalog to the matching gtinShorts.
+      const refGtins = findGtinShortsByItemNumber(search);
+      if (refGtins.length > 0) {
+        or.push({ gtinShort: { in: refGtins } });
+      }
+      where.OR = or;
     }
 
     const expBefore = str(req.query.expBefore);
@@ -676,6 +686,57 @@ export async function backfillManualExpiry(_req: Request, res: Response) {
     return success(res, { total: items.length, updated });
   } catch (err) {
     return error(res, 'Manual expiry backfill failed', 500);
+  }
+}
+
+/**
+ * POST /api/inventory/backfill-reparse
+ * Re-derives lot / expiry / GTIN / label from each item's stored rawBarcode
+ * using the current parser, repairing rows imported before the GS1 lot-vs-AI
+ * disambiguation fix (e.g. lots truncated like "J260225-L" with a bogus 2007
+ * expiry). The rawBarcode is the source of truth, so this is safe and
+ * idempotent — only rows whose stored values disagree with a fresh parse change.
+ * Rows whose rawBarcode isn't a parseable GS1 string (e.g. manual REF entries)
+ * are left untouched.
+ */
+export async function backfillReparse(_req: Request, res: Response) {
+  try {
+    const items = await prisma.inventoryItem.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        rawBarcode: true,
+        lot: true,
+        udi: true,
+        gtinShort: true,
+        expDate: true,
+        productLabel: true,
+      },
+    });
+
+    let updated = 0;
+    for (const item of items) {
+      const parsed = parseGS1(item.rawBarcode);
+      if (isParseError(parsed) || !parsed.lot) continue;
+
+      const data: Record<string, unknown> = {};
+      if (parsed.lot !== item.lot) data.lot = parsed.lot;
+      if (parsed.udi !== item.udi) data.udi = parsed.udi;
+      if (parsed.gtinShort !== item.gtinShort) data.gtinShort = parsed.gtinShort;
+      if (parsed.productLabel !== item.productLabel) data.productLabel = parsed.productLabel;
+      const newExp = parsed.expDate ? parsed.expDate.getTime() : null;
+      const oldExp = item.expDate ? item.expDate.getTime() : null;
+      if (newExp !== oldExp) data.expDate = parsed.expDate;
+
+      if (Object.keys(data).length > 0) {
+        await prisma.inventoryItem.update({ where: { id: item.id }, data });
+        updated++;
+      }
+    }
+
+    return success(res, { total: items.length, updated });
+  } catch (err) {
+    return error(res, 'Re-parse backfill failed', 500);
   }
 }
 
