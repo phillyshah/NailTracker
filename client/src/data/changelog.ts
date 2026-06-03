@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.23',
+    date: '2026-06-03',
+    changes: [
+      'Fixed a serious barcode-import bug: lot numbers containing certain digits (like "…-L170") were cut short and given a wrong/expired date. Scanning and spreadsheet import now read the full lot and correct expiry',
+      'Admins: a new Repair Barcodes button (User Management) re-reads existing items’ barcodes and fixes any lot numbers or expiry dates that were imported incorrectly',
+      'Fixed search: you can now find items by their item number (REF code) again, e.g. "SO-SPFN-0380-10L-30"',
+    ],
+  },
+  {
     version: '3.22',
     date: '2026-06-03',
     changes: [
@@ -39,15 +48,6 @@ export const changelog: ChangelogEntry[] = [
       'Each item is checked against that distributor\'s inventory before it\'s deducted — items not in stock are flagged, never deducted',
       'When several identical units exist, the oldest-expiry one is used first (FIFO)',
       'Every ticket is saved with its own USE-… number under Usage History, with a printable report',
-    ],
-  },
-  {
-    version: '3.18',
-    date: '2026-06-02',
-    changes: [
-      'Fixed for real: expiration dates now show the exact day you entered or scanned, on every device and timezone (the earlier fix never took effect on the server)',
-      'Admins: run Fix Manual Expiry Dates once on the User Management page to clean up any items still stored off by a day',
-      'Fixed: Batch Upload now imports Excel (.xlsx) files correctly on desktop and mobile — previously real Excel files were read as gibberish and found no barcodes',
     ],
   },
 ];

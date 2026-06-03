@@ -154,3 +154,15 @@ export async function backfillManualExpiry() {
     { method: 'POST' },
   );
 }
+
+/**
+ * Admin maintenance: re-read each item's stored barcode and repair the lot
+ * number / expiry / label for rows imported before the GS1 lot-parsing fix
+ * (e.g. lots truncated like "J260225-L" with a bogus 2007 expiry). Idempotent.
+ */
+export async function backfillReparse() {
+  return api<ApiResponse<{ total: number; updated: number }>>(
+    '/inventory/backfill-reparse',
+    { method: 'POST' },
+  );
+}

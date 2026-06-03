@@ -450,6 +450,10 @@ This page shows your full list of distributors — the sales reps, hospitals, or
 
 At the bottom of the User Management page (admins only) is a **Fix Manual Expiry Dates** button. Older manually-entered items could be saved with an expiration date that displayed one day early. Tap this button once to correct any affected items across the whole system. It's safe to run anytime — it only changes items that still need fixing, and reports how many it corrected.
 
+**Maintenance — Repair Barcodes (Lot & Expiry):**
+
+Also on the User Management page (admins only) is a **Repair Barcodes** button. Some items imported from a spreadsheet before a parsing fix had their lot number cut short (for example showing "…-L" instead of the full "…-L170") and an incorrect expiry date. Tap this button once and the app re-reads each item's original barcode and restores the correct lot number and expiration date. It's safe to run anytime — it only changes items that need it, leaves manually-entered items alone, and reports how many it repaired.
+
 ---
 
 ## Barcode Format Reference

@@ -282,6 +282,22 @@ export function gtinShortToFullGtin(gtinShort: string): string {
 }
 
 /**
+ * Resolve an item-number (REF) search term to the gtinShort codes whose catalog
+ * REF contains it (case-insensitive). Scanned items store only the gtinShort, so
+ * an item-number search has to be translated back through the catalog — this is
+ * what lets "SO-SPFN-0380-10L-30" (or a partial like "0380-10L") find them.
+ */
+export function findGtinShortsByItemNumber(query: string): string[] {
+  const q = query.trim().toUpperCase();
+  if (!q) return [];
+  const out = new Set<string>();
+  for (const [gtinShort, ref] of Object.entries(gtinToRef)) {
+    if (ref.toUpperCase().includes(q)) out.add(gtinShort);
+  }
+  return [...out];
+}
+
+/**
  * Extract a Summa item number (REF code) from raw barcode/label text.
  * Returns the full REF code if found, else null.
  */
