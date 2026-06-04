@@ -49,6 +49,9 @@ const reassignSchema = z.object({
   distributorId: z.string().nullable().optional(),
   note: z.string().optional(),
   skipTransferRecord: z.boolean().optional(),
+  // Optional source-distributor guard. When set, the server returns 409 if the
+  // item is no longer at this distributor — race-safe for batch transfer.
+  expectedFromDistributorId: z.string().nullable().optional(),
 });
 
 const editSchema = z.object({

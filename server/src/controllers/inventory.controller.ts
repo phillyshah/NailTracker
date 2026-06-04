@@ -350,10 +350,11 @@ async function nextTransferId(): Promise<string> {
 
 export async function reassign(req: Request, res: Response) {
   try {
-    const { distributorId, note, skipTransferRecord } = req.body as {
+    const { distributorId, note, skipTransferRecord, expectedFromDistributorId } = req.body as {
       distributorId?: string | null;
       note?: string;
       skipTransferRecord?: boolean;
+      expectedFromDistributorId?: string | null;
     };
     const id = str(req.params.id);
 
@@ -364,6 +365,15 @@ export async function reassign(req: Request, res: Response) {
 
     if (!item || item.deletedAt) {
       return error(res, 'Item not found', 404);
+    }
+
+    // Optional source guard for batch transfer: bail (409) if the item has
+    // moved since the user previewed it, rather than silently relocating it.
+    if (
+      expectedFromDistributorId !== undefined &&
+      item.distributorId !== expectedFromDistributorId
+    ) {
+      return error(res, 'Item is no longer at the expected source distributor', 409);
     }
 
     let newDistributor = null;

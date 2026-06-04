@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.25 — 2026-06-03
+- **Batch transfer from an Excel/CSV file** on the Transfer page. A new **"Pick from list / Import from Excel"** mode toggle lets users move many items between distributors at once. Upload a spreadsheet of barcodes → the server resolves each one against the **source distributor's** stock (gtinShort + lot, FIFO, with within-batch dedup so two identical stickers each claim a distinct unit) → the page shows a per-row preview with **Available / Not in stock / Error** badges.
+  - **Per-row missing-item handling:** every *Not in stock* row has inline **"Add to source"** and **"Skip"** buttons. A single **"Add all missing to source & include"** shortcut is shown when any are flagged. Both reuse the existing `assignItems()` Receive path (creates the row at source, then re-runs the preview to refresh matched IDs).
+  - **Race-safe commit:** each item is moved via `reassignItem(..., { expectedFromDistributorId })`. The server `reassign` controller gained an optional `expectedFromDistributorId` guard — if the item is no longer at source (someone else moved it between preview and commit), it returns **409** and the commit reports the row as skipped in the success screen rather than silently relocating it. Transfers never create stock — that's the missing-item affordance's job.
+  - New server endpoint `POST /api/transfers/preview-batch` (mirrors the Usage Tickets preview pattern); new helpers `client/src/utils/transferBatch.ts` (pure, unit-tested); reuses `parseSpreadsheet`, `parseGS1`, `pickFifo`, `assignItems`, `reassignItem`, `createTransfer`.
+  - New tests: `server/src/controllers/transfer.controller.test.ts` (preview match / not-in-stock / within-batch dedup / parse error / 404, plus the 409 source guard on reassign); `client/src/utils/transferBatch.test.ts` (status counts, include/exclude, commit payload).
+- Pick-mode Transfer flow is unchanged (the existing UI is wrapped by the new mode toggle but behaves identically).
+
 ## v3.24 — 2026-06-03
 - **Inventory list state is preserved across navigation.** Opening an item and tapping **Back to Inventory** previously dropped the user on page 1 — painful with 1,600 items across 60+ pages. The Inventory page now serializes its full state (page, sort, search, and all filters) to the URL query string via `client/src/utils/inventoryUrl.ts` (`filtersToSearchParams` / `searchParamsToFilters`), and the detail page's back button uses `navigate(-1)` (falling back to `/inventory` when opened directly). The view now survives navigation, refresh, bookmarking, and sharing.
   - New round-trip tests: `client/src/utils/inventoryUrl.test.ts`.

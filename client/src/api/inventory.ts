@@ -106,13 +106,18 @@ export async function reassignItem(
   id: string,
   distributorId: string | null,
   note?: string,
-  options: { skipTransferRecord?: boolean } = {},
+  options: { skipTransferRecord?: boolean; expectedFromDistributorId?: string | null } = {},
 ) {
   return api<ApiResponse<{ message: string; transferId?: string | null }>>(
     `/inventory/${encodeURIComponent(id)}/reassign`,
     {
       method: 'PATCH',
-      body: { distributorId, note, skipTransferRecord: options.skipTransferRecord },
+      body: {
+        distributorId,
+        note,
+        skipTransferRecord: options.skipTransferRecord,
+        expectedFromDistributorId: options.expectedFromDistributorId,
+      },
     },
   );
 }
