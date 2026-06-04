@@ -171,3 +171,26 @@ export async function backfillReparse() {
     { method: 'POST' },
   );
 }
+
+export interface ReparseCandidate {
+  id: string;
+  rawBarcode: string;
+  before: { lot: string; expDate: string | null; productLabel: string | null; itemNumber: string | null };
+  after: { lot: string; expDate: string | null; productLabel: string | null; itemNumber: string | null };
+}
+
+/** Admin maintenance: list the items whose stored fields disagree with a fresh
+ *  parse of their barcode (read-only — for the interactive repair stepper). */
+export async function reparsePreview() {
+  return api<ApiResponse<{ total: number; candidates: ReparseCandidate[] }>>(
+    '/inventory/reparse-preview',
+  );
+}
+
+/** Admin maintenance: repair only the given item ids (re-parsed server-side). */
+export async function reparseApply(ids: string[]) {
+  return api<ApiResponse<{ requested: number; updated: number }>>(
+    '/inventory/reparse-apply',
+    { method: 'POST', body: { ids } },
+  );
+}

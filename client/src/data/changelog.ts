@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.26',
+    date: '2026-06-03',
+    changes: [
+      'Repair Barcodes (admin) now walks you through damaged items one at a time, showing the old vs. corrected lot and expiry — repair or skip each, like Find & Replace',
+      'Includes a "Repair all remaining" shortcut to fix the rest in one tap',
+    ],
+  },
+  {
     version: '3.25',
     date: '2026-06-03',
     changes: [
@@ -37,15 +45,6 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       'Fixed: a distributor\'s detail page now shows all of its items and the correct total — previously it stopped at 100 even when more were assigned',
       'Added Prev/Next paging on the distributor detail page so you can browse the full list',
-    ],
-  },
-  {
-    version: '3.21',
-    date: '2026-06-03',
-    changes: [
-      'Batch Upload is now part of Receive — pick a distributor at the top, then scan, photograph, or import a CSV/Excel file all in one place',
-      'You can now receive stock directly into any distributor, not just Home Office',
-      'Removed the separate Batch Upload menu item to keep things simple (old links now open Receive)',
     ],
   },
 ];

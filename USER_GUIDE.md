@@ -474,7 +474,15 @@ At the bottom of the User Management page (admins only) is a **Fix Manual Expiry
 
 **Maintenance — Repair Barcodes (Lot & Expiry):**
 
-Also on the User Management page (admins only) is a **Repair Barcodes** button. Some items imported from a spreadsheet before a parsing fix had their lot number cut short (for example showing "…-L" instead of the full "…-L170") and an incorrect expiry date. Tap this button once and the app re-reads each item's original barcode and restores the correct lot number and expiration date. It's safe to run anytime — it only changes items that need it, leaves manually-entered items alone, and reports how many it repaired.
+Also on the User Management page (admins only) is a **Repair Barcodes** button. Some items imported from a spreadsheet before a parsing fix had their lot number cut short (for example showing "…-L" instead of the full "…-L170") and an incorrect expiry date.
+
+Tap **Repair Barcodes** and the app finds every item whose stored details don't match its original barcode, then walks you through them **one at a time** — much like Find & Replace in Word or Excel. For each item you'll see the current value crossed out next to the corrected value (lot, expiry, product, and item number), and you can:
+
+- **Repair** — apply the correction to this item and move to the next
+- **Skip** — leave this item as-is and move to the next
+- **Repair all remaining** — fix every remaining item at once
+
+A running count of repaired/skipped is shown, and a summary appears when you reach the end. Nothing changes until you tap Repair (or Repair all remaining), it only ever touches items that need it, and it leaves manually-entered items alone.
 
 ---
 

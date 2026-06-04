@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.26 — 2026-06-03
+- **Interactive "Repair Barcodes" stepper** (admin → User Management → Maintenance). Instead of a single bulk fire-and-forget, the admin now reviews each damaged item one at a time — a Find & Replace–style modal showing the stored vs. re-parsed **lot / expiry / product / item #**, with **Repair**, **Skip**, and **Repair all remaining** actions plus a running repaired/skipped tally.
+  - New read-only endpoint `GET /api/inventory/reparse-preview` (returns before/after for every item whose stored fields disagree with a fresh parse of its barcode) and `POST /api/inventory/reparse-apply` `{ ids }` (repairs only the chosen items, re-parsed server-side from `rawBarcode` — client values are never trusted; idempotent).
+  - Refactored the existing one-shot `backfill-reparse` and the new endpoints onto a shared `reparsePatch` / `reparseCandidate` helper so the diff logic lives in one place.
+  - New client component `RepairBarcodesModal.tsx`; the Maintenance button now opens the stepper.
+  - Tests extended in `server/src/controllers/inventory.reparse.test.ts` (preview lists only drifted rows with before/after; apply repairs chosen ids, 400s on empty, idempotent on already-correct rows).
+
 ## v3.25 — 2026-06-03
 - **Batch transfer from an Excel/CSV file** on the Transfer page. A new **"Pick from list / Import from Excel"** mode toggle lets users move many items between distributors at once. Upload a spreadsheet of barcodes → the server resolves each one against the **source distributor's** stock (gtinShort + lot, FIFO, with within-batch dedup so two identical stickers each claim a distinct unit) → the page shows a per-row preview with **Available / Not in stock / Error** badges.
   - **Per-row missing-item handling:** every *Not in stock* row has inline **"Add to source"** and **"Skip"** buttons. A single **"Add all missing to source & include"** shortcut is shown when any are flagged. Both reuse the existing `assignItems()` Receive path (creates the row at source, then re-runs the preview to refresh matched IDs).
