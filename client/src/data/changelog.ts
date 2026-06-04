@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.25',
+    date: '2026-06-03',
+    changes: [
+      'New Transfer mode: Import from Excel — upload a CSV/Excel file of barcodes and move many items between distributors at once',
+      'Each barcode is checked against the source distributor first; items not in stock are flagged with one-tap "Add to source & include" or "Skip", plus an "Add all missing" shortcut',
+      'Race-safe commit: if an item is moved out of source between preview and confirm, it\'s skipped and reported instead of silently relocated',
+    ],
+  },
+  {
     version: '3.24',
     date: '2026-06-03',
     changes: [
@@ -37,15 +46,6 @@ export const changelog: ChangelogEntry[] = [
       'Batch Upload is now part of Receive — pick a distributor at the top, then scan, photograph, or import a CSV/Excel file all in one place',
       'You can now receive stock directly into any distributor, not just Home Office',
       'Removed the separate Batch Upload menu item to keep things simple (old links now open Receive)',
-    ],
-  },
-  {
-    version: '3.20',
-    date: '2026-06-02',
-    changes: [
-      'New usage reports under Reports → Usage: Monthly Usage Report (any month, by distributor and product), Usage Trends (units per month by product type), and Usage by Distributor',
-      'Reports page reorganized into Stock / Usage / Movement sections; every report and history now lives in one place',
-      'Cleaned up navigation: 4 bottom tabs (Receive · Usage · Inventory · Reports) and a grouped More menu; Lookup is now under More and on the Inventory page',
     ],
   },
 ];

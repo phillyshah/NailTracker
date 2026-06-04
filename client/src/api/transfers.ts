@@ -43,3 +43,50 @@ export async function getTransfer(transferId: string) {
   const res = await api<TransferResponse>(`/transfers/${encodeURIComponent(transferId)}`);
   return res.data!;
 }
+
+/**
+ * Per-line shape returned by the batch-transfer preview. Mirrors UsageLine —
+ * the UI renders a status badge per row and uses `parsed` to offer
+ * "Add to source & include" for not_in_stock rows without re-parsing.
+ */
+export type BatchLineStatus = 'available' | 'not_in_stock' | 'error';
+
+export interface BatchLineParsed {
+  gtin: string;
+  gtinShort: string;
+  lot: string;
+  expDate: string | null;
+  udi: string;
+  rawBarcode: string;
+  productLabel: string;
+}
+
+export interface BatchLine {
+  barcode: string;
+  status: BatchLineStatus;
+  matchedItemId?: string;
+  productLabel?: string;
+  itemNumber?: string | null;
+  lot?: string;
+  expDate?: string | null;
+  availableCount?: number;
+  errorMessage?: string;
+  parsed?: BatchLineParsed;
+}
+
+export interface PreviewBatchResponse {
+  fromDistributorId: string;
+  fromDistributorName: string;
+  lines: BatchLine[];
+}
+
+export async function previewBatchTransfer(data: {
+  fromDistributorId: string;
+  barcodes: string[];
+}) {
+  const res = await api<ApiResponse<PreviewBatchResponse>>('/transfers/preview-batch', {
+    method: 'POST',
+    body: data,
+  });
+  return res.data!;
+}

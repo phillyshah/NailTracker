@@ -317,6 +317,28 @@ If you need a paper record of a transfer:
 
 ---
 
+**Batch transfer from a Spreadsheet:**
+
+When you need to move a lot of items at once (and you have a spreadsheet of barcodes), use the **Import from Excel** mode at the top of the Transfer page instead of ticking items one by one.
+
+1. Pick the **From** and **To** distributors
+2. Tap the **Import from Excel** toggle, then **Choose CSV / Excel file**
+3. The app reads every barcode and checks whether it's actually in the **From** distributor's inventory. You'll see one row per barcode with a coloured badge:
+   - **Ready** (green) — found at the source; will be transferred
+   - **Not in stock** (amber) — the barcode parsed fine, but the source doesn't have that item
+   - **Error** (red) — the barcode itself couldn't be read
+4. For any **Not in stock** row, you have two options:
+   - Tap **Add to source** — the app creates that item in the source distributor and includes it in the transfer (use this when the spreadsheet is the source of truth and the source just hasn't logged the item yet)
+   - Tap **Skip** — the row is dropped from the transfer
+5. If there are several missing rows, tap **Add all missing items to source & include** to handle them all at once
+6. Tap **Review Transfer**, then **Confirm Transfer**
+
+> **Transfers never create new stock by themselves.** The "Add to source" buttons are the *only* way the batch flow adds inventory — everything else is just moving existing items between distributors.
+
+> **Safety net:** if someone else moves one of the previewed items between when you uploaded the file and when you confirmed, the app skips that row (rather than silently relocating it) and lists it in the success screen as "Skipped — moved out of source between preview and confirm".
+
+---
+
 ### 7. Recording Daily Usage (Usage Tickets)
 
 **Where to go:** Tap **Usage** in the bottom navigation
