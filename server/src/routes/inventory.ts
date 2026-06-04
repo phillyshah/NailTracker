@@ -71,6 +71,8 @@ router.post('/backfill-expiry', ctrl.backfillExpiry);
 router.post('/backfill-labels', ctrl.backfillLabels);
 router.post('/backfill-manual-expiry', ctrl.backfillManualExpiry);
 router.post('/backfill-reparse', ctrl.backfillReparse);
+router.get('/reparse-preview', ctrl.reparsePreview);
+router.post('/reparse-apply', ctrl.reparseApply);
 router.get('/', ctrl.list);
 router.get('/:id', ctrl.getOne);
 router.patch('/:id/reassign', validate(reassignSchema), ctrl.reassign);
