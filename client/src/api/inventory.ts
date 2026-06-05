@@ -98,6 +98,25 @@ export async function listInventory(filters: InventoryFilters = {}) {
   return api<ListResponse>('/inventory', { params });
 }
 
+/**
+ * Fetch EVERY matching inventory item by paging through the server's 100-row
+ * cap. Use this for selection lists (Transfer pick-mode, the bank item picker)
+ * where the user must see/select the complete set — never a silent first 100.
+ * For browsing screens prefer the paginated `listInventory` + Prev/Next.
+ */
+export async function listAllInventory(filters: InventoryFilters = {}): Promise<InventoryItem[]> {
+  const pageSize = 100;
+  const first = await listInventory({ ...filters, page: 1, limit: pageSize });
+  const all: InventoryItem[] = [...(first.data ?? [])];
+  const total = first.meta?.total ?? all.length;
+  const pages = Math.ceil(total / pageSize);
+  for (let p = 2; p <= pages; p++) {
+    const res = await listInventory({ ...filters, page: p, limit: pageSize });
+    all.push(...(res.data ?? []));
+  }
+  return all;
+}
+
 export async function getItem(id: string) {
   return api<ItemResponse>(`/inventory/${encodeURIComponent(id)}`);
 }

@@ -13,7 +13,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import {
-  listInventory,
+  listAllInventory,
   reassignItem,
   assignItems,
   parseSpreadsheet,
@@ -76,12 +76,14 @@ export default function Transfer() {
   });
 
   const { data: inventoryData, isLoading: loadingItems } = useQuery({
-    queryKey: ['inventory', { distributorId: fromDistId, limit: 200 }],
-    queryFn: () => listInventory({ distributorId: fromDistId, limit: 200 }),
+    // Fetch ALL of the source distributor's items so Select All and the list
+    // cover everything — not just the server's first 100.
+    queryKey: ['inventory-all', { distributorId: fromDistId }],
+    queryFn: () => listAllInventory({ distributorId: fromDistId }),
     enabled: !!fromDistId && mode === 'pick',
   });
 
-  const items = inventoryData?.data ?? [];
+  const items = inventoryData ?? [];
 
   /** Parse the uploaded spreadsheet → server-side preview against source stock. */
   const previewMutation = useMutation({
