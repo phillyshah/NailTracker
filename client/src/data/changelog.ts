@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.27',
+    date: '2026-06-04',
+    changes: [
+      'Fixed: Transfer (Pick from list) and the bank "add items" picker now show ALL of a distributor\'s items, not just the first 100 — so you can select from the full list even with thousands in stock',
+    ],
+  },
+  {
     version: '3.26',
     date: '2026-06-03',
     changes: [
@@ -37,14 +44,6 @@ export const changelog: ChangelogEntry[] = [
       'Fixed a serious barcode-import bug: lot numbers containing certain digits (like "…-L170") were cut short and given a wrong/expired date. Scanning and spreadsheet import now read the full lot and correct expiry',
       'Admins: a new Repair Barcodes button (User Management) re-reads existing items’ barcodes and fixes any lot numbers or expiry dates that were imported incorrectly',
       'Fixed search: you can now find items by their item number (REF code) again, e.g. "SO-SPFN-0380-10L-30"',
-    ],
-  },
-  {
-    version: '3.22',
-    date: '2026-06-03',
-    changes: [
-      'Fixed: a distributor\'s detail page now shows all of its items and the correct total — previously it stopped at 100 even when more were assigned',
-      'Added Prev/Next paging on the distributor detail page so you can browse the full list',
     ],
   },
 ];

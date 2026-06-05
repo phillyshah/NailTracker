@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.27 — 2026-06-04
+- **Fixed list truncation on the selection screens.** The server caps `/api/inventory` at 100 rows/request, so screens that requested `limit: 200` and rendered the result directly were silently showing only the first 100:
+  - **Transfer → Pick from list** — only the first 100 of a distributor's items were selectable (the reported bug).
+  - **Bank detail → Add items** picker — same cap.
+- Added `listAllInventory(filters)` (`client/src/api/inventory.ts`) which pages through the 100-row cap and returns the complete set; both selection screens now use it, so "Select All" and the on-screen count cover everything even with thousands of items.
+- Audited the other item/record lists: **Inventory**, **Distributor detail**, **Usage History**, and **Transfer History** already paginate correctly (Prev/Next driven by `meta.total`) — no change needed.
+- New test `client/src/api/inventory.listAll.test.ts` (pages through 250 items → 3 requests, single page when it fits, empty result, forwards filters).
+
 ## v3.26 — 2026-06-03
 - **Interactive "Repair Barcodes" stepper** (admin → User Management → Maintenance). Instead of a single bulk fire-and-forget, the admin now reviews each damaged item one at a time — a Find & Replace–style modal showing the stored vs. re-parsed **lot / expiry / product / item #**, with **Repair**, **Skip**, and **Repair all remaining** actions plus a running repaired/skipped tally.
   - New read-only endpoint `GET /api/inventory/reparse-preview` (returns before/after for every item whose stored fields disagree with a fresh parse of its barcode) and `POST /api/inventory/reparse-apply` `{ ids }` (repairs only the chosen items, re-parsed server-side from `rawBarcode` — client values are never trusted; idempotent).

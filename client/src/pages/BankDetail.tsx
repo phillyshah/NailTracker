@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, X, ArrowRightLeft } from 'lucide-react';
 import { getBank, addItemsToBank, removeItemsFromBank, transferBankToDistributor } from '../api/banks';
-import { listInventory } from '../api/inventory';
+import { listAllInventory } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
@@ -28,13 +28,14 @@ export default function BankDetail() {
 
   const { data: distributors = [] } = useQuery({ queryKey: ['distributors'], queryFn: listDistributors });
 
-  // Items at the same distributor, not in any bank (available to add)
+  // Items at the same distributor, not in any bank (available to add). Fetch the
+  // FULL set so the picker isn't silently capped at the server's first 100.
   const { data: availableData } = useQuery({
-    queryKey: ['inventory', { distributorId: bank?.distributorId, limit: 200 }],
-    queryFn: () => listInventory({ distributorId: bank?.distributorId || undefined, limit: 200 }),
+    queryKey: ['inventory-all', { distributorId: bank?.distributorId }],
+    queryFn: () => listAllInventory({ distributorId: bank?.distributorId || undefined }),
     enabled: showAddItems && !!bank,
   });
-  const availableItems = (availableData?.data ?? []).filter((i) => !i.bankId);
+  const availableItems = (availableData ?? []).filter((i) => !i.bankId);
 
   const addMutation = useMutation({
     mutationFn: () => addItemsToBank(id!, [...selectedIds]),
