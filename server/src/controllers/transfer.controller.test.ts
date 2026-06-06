@@ -153,6 +153,21 @@ describe('previewBatch — match against source distributor', () => {
     await promise;
     expect(res.status).toHaveBeenCalledWith(404);
   });
+
+  it('returns a line for EVERY barcode with no hidden 100-row cap (large lists)', async () => {
+    // Regression guard: the Manual Transfer / spreadsheet path can stage 500+
+    // items — the preview must never silently truncate like the old inventory
+    // list bug. Source has no stock, so every line comes back not_in_stock.
+    distributorFindUniqueMock.mockResolvedValue(SOURCE);
+    itemFindManyMock.mockResolvedValue([]);
+    const many = Array.from({ length: 250 }, () => BARCODE);
+
+    const { res, promise } = callPreview({ fromDistributorId: SOURCE.id, barcodes: many });
+    await promise;
+
+    const payload = res.json.mock.calls[0][0] as { data: { lines: unknown[] } };
+    expect(payload.data.lines).toHaveLength(250);
+  });
 });
 
 describe('previewBatch — already-parsed items (Manual Entry fields)', () => {
