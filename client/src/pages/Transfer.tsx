@@ -61,7 +61,7 @@ interface ReviewItem {
   expDate: string | null;
 }
 
-type Mode = 'pick' | 'manual';
+type Mode = 'pick' | 'manual' | 'excel';
 
 export default function Transfer() {
   const queryClient = useQueryClient();
@@ -469,6 +469,15 @@ export default function Transfer() {
             >
               Manual Transfer
             </button>
+            <button
+              onClick={() => setMode('excel')}
+              className={cn(
+                'rounded-lg px-4 py-2 text-sm font-medium',
+                mode === 'excel' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900',
+              )}
+            >
+              Import from Excel
+            </button>
           </div>
         )}
 
@@ -649,22 +658,13 @@ export default function Transfer() {
                       onError={() => setShowManual(true)}
                     />
 
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
-                      >
-                        <Images size={18} />
-                        Batch Photos
-                      </button>
-                      <button
-                        onClick={() => csvInputRef.current?.click()}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
-                      >
-                        <FileSpreadsheet size={18} />
-                        Import CSV / Excel
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      <Images size={18} />
+                      Batch Photos
+                    </button>
                     <button
                       onClick={() => setShowManual(!showManual)}
                       className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
@@ -677,13 +677,6 @@ export default function Transfer() {
                       accept="image/*"
                       multiple
                       onChange={handleBatchFiles}
-                      className="hidden"
-                    />
-                    <input
-                      ref={csvInputRef}
-                      type="file"
-                      accept=".csv,.xlsx,.xls,.txt"
-                      onChange={handleCsvImport}
                       className="hidden"
                     />
 
@@ -798,7 +791,47 @@ export default function Transfer() {
                     )}
                   </div>
                 )}
+              </div>
+            )}
 
+            {/* IMPORT FROM EXCEL MODE — dedicated spreadsheet upload */}
+            {mode === 'excel' && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-white p-4 shadow-sm">
+                  <p className="mb-3 text-sm text-gray-500">
+                    Upload a CSV / Excel file with one barcode per row. Each item
+                    must already be in {fromDist?.name || 'the source distributor'}'s
+                    inventory; we'll flag any that aren't so you can add them or skip.
+                  </p>
+                  <button
+                    onClick={() => csvInputRef.current?.click()}
+                    disabled={!fromDistId || restaging}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-300 bg-primary-50 px-4 py-6 text-base font-semibold text-primary-700 hover:bg-primary-100 disabled:opacity-50"
+                  >
+                    <FileSpreadsheet size={22} />
+                    {restaging
+                      ? 'Reading file…'
+                      : batchLines.length > 0
+                        ? 'Add another CSV / Excel file'
+                        : 'Choose CSV / Excel file'}
+                  </button>
+                  <input
+                    ref={csvInputRef}
+                    type="file"
+                    accept=".csv,.xlsx,.xls,.txt"
+                    onChange={handleCsvImport}
+                    className="hidden"
+                  />
+                  {!fromDistId && (
+                    <p className="mt-2 text-xs text-amber-600">Pick a source distributor first.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SHARED staged preview — both Manual Transfer and Import from Excel */}
+            {(mode === 'manual' || mode === 'excel') && (
+              <div className="space-y-4">
                 {restaging && (
                   <div className="flex items-center justify-center gap-2 py-2 text-sm text-gray-500">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />

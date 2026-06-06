@@ -9,7 +9,8 @@ export const changelog: ChangelogEntry[] = [
     version: '3.28',
     date: '2026-06-06',
     changes: [
-      'Transfer now works like Receive: switch to "Manual Transfer" to scan items one at a time, snap or upload photos, paste a barcode, or type the item number/lot/expiry — great for quick transfers of a few parts without a spreadsheet (CSV/Excel import is still here too)',
+      'Transfer now works like Receive: a new "Manual Transfer" tab lets you scan items one at a time, snap or upload photos, paste a barcode, or type the item number/lot/expiry — great for quick transfers of a few parts',
+      'The Transfer page now has three tabs: Pick from list, Manual Transfer, and Import from Excel (all the original options are still here, just clearer)',
       'Each item is checked against the source site as you add it; anything not in stock there is flagged with one-tap "Add to source" or "Skip" (plus an "Add all missing" shortcut)',
       'Everything you add moves together as a single, race-safe transfer record',
     ],

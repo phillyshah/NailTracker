@@ -293,10 +293,11 @@ Use this when you need to officially move items from one distributor to another 
 
 ---
 
-**Two ways to build a transfer.** At the top of the Transfer page there's a toggle:
+**Three ways to build a transfer.** At the top of the Transfer page there's a toggle:
 
 - **Pick from list** — browse the source distributor's items and tick the ones to move. Best when you can see what you want on screen.
 - **Manual Transfer** — scan, photograph, paste, or type each item, just like the Receive page. Best for quick transfers of a few parts, or when you're working from the physical items rather than a list.
+- **Import from Excel** — upload a CSV/Excel file of barcodes. Best for moving many items at once from a spreadsheet.
 
 ---
 
@@ -324,7 +325,7 @@ If you need a paper record of a transfer:
 
 ---
 
-**Manual Transfer (scan, photo, paste, type, or spreadsheet):**
+**Manual Transfer (scan, photo, paste, or type):**
 
 When you're moving a handful of parts — or working from the physical items instead of a list — switch to **Manual Transfer**. It works exactly like the Receive page, so there's nothing new to learn.
 
@@ -333,7 +334,6 @@ When you're moving a handful of parts — or working from the physical items ins
    - **Live Scan** — point the camera at each barcode in turn
    - **Take Photo / Upload Photo** — snap a label or pick an image from your gallery
    - **Batch Photos** — select several photos at once and the app reads them all
-   - **Import CSV / Excel** — load a spreadsheet of barcodes (the same as before)
    - **Manual Entry** — paste a full QR/barcode string, or type the **Item Number**, **Lot**, **Expiration**, and **Quantity** by hand
 3. As you add items, each one is checked against the **From** distributor's stock and shown as a row with a coloured badge:
    - **Ready** (green) — found at the source; will be transferred
@@ -346,6 +346,20 @@ When you're moving a handful of parts — or working from the physical items ins
 6. Tap **Review Transfer**, then **Confirm Transfer**
 
 > **Tip:** scan the same item twice and the app correctly stages two units — and if the source only has one, the second is flagged "Not in stock" rather than double-counting.
+
+---
+
+**Import from Excel (move many items from a spreadsheet):**
+
+When you have a spreadsheet of barcodes and need to move a lot of items at once, use the **Import from Excel** tab instead of adding them one by one.
+
+1. Pick the **From** and **To** distributors
+2. Tap the **Import from Excel** tab, then **Choose CSV / Excel file**
+3. The app reads every barcode and checks it against the **From** distributor's stock, showing one row per barcode with the same **Ready / Not in stock / Error** badges as Manual Transfer
+4. Handle any **Not in stock** rows with **Add to source**, **Skip**, or **Add all missing items to source & include** — exactly as in Manual Transfer
+5. Tap **Review Transfer**, then **Confirm Transfer**
+
+> **Mix and match:** items you scan or type in Manual Transfer and rows from a spreadsheet feed the same staged list, so you can combine them in one transfer if you like.
 
 > **Transfers never create new stock by themselves.** The "Add to source" buttons are the *only* way this flow adds inventory — everything else is just moving existing items between distributors.
 
