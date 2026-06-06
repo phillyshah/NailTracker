@@ -98,6 +98,25 @@ export async function listInventory(filters: InventoryFilters = {}) {
   return api<ListResponse>('/inventory', { params });
 }
 
+/**
+ * Fetch EVERY matching inventory item by paging through the server's 100-row
+ * cap. Use this for selection lists (Transfer pick-mode, the bank item picker)
+ * where the user must see/select the complete set — never a silent first 100.
+ * For browsing screens prefer the paginated `listInventory` + Prev/Next.
+ */
+export async function listAllInventory(filters: InventoryFilters = {}): Promise<InventoryItem[]> {
+  const pageSize = 100;
+  const first = await listInventory({ ...filters, page: 1, limit: pageSize });
+  const all: InventoryItem[] = [...(first.data ?? [])];
+  const total = first.meta?.total ?? all.length;
+  const pages = Math.ceil(total / pageSize);
+  for (let p = 2; p <= pages; p++) {
+    const res = await listInventory({ ...filters, page: p, limit: pageSize });
+    all.push(...(res.data ?? []));
+  }
+  return all;
+}
+
 export async function getItem(id: string) {
   return api<ItemResponse>(`/inventory/${encodeURIComponent(id)}`);
 }
@@ -106,13 +125,18 @@ export async function reassignItem(
   id: string,
   distributorId: string | null,
   note?: string,
-  options: { skipTransferRecord?: boolean } = {},
+  options: { skipTransferRecord?: boolean; expectedFromDistributorId?: string | null } = {},
 ) {
   return api<ApiResponse<{ message: string; transferId?: string | null }>>(
     `/inventory/${encodeURIComponent(id)}/reassign`,
     {
       method: 'PATCH',
-      body: { distributorId, note, skipTransferRecord: options.skipTransferRecord },
+      body: {
+        distributorId,
+        note,
+        skipTransferRecord: options.skipTransferRecord,
+        expectedFromDistributorId: options.expectedFromDistributorId,
+      },
     },
   );
 }
@@ -152,5 +176,40 @@ export async function backfillManualExpiry() {
   return api<ApiResponse<{ total: number; updated: number }>>(
     '/inventory/backfill-manual-expiry',
     { method: 'POST' },
+  );
+}
+
+/**
+ * Admin maintenance: re-read each item's stored barcode and repair the lot
+ * number / expiry / label for rows imported before the GS1 lot-parsing fix
+ * (e.g. lots truncated like "J260225-L" with a bogus 2007 expiry). Idempotent.
+ */
+export async function backfillReparse() {
+  return api<ApiResponse<{ total: number; updated: number }>>(
+    '/inventory/backfill-reparse',
+    { method: 'POST' },
+  );
+}
+
+export interface ReparseCandidate {
+  id: string;
+  rawBarcode: string;
+  before: { lot: string; expDate: string | null; productLabel: string | null; itemNumber: string | null };
+  after: { lot: string; expDate: string | null; productLabel: string | null; itemNumber: string | null };
+}
+
+/** Admin maintenance: list the items whose stored fields disagree with a fresh
+ *  parse of their barcode (read-only — for the interactive repair stepper). */
+export async function reparsePreview() {
+  return api<ApiResponse<{ total: number; candidates: ReparseCandidate[] }>>(
+    '/inventory/reparse-preview',
+  );
+}
+
+/** Admin maintenance: repair only the given item ids (re-parsed server-side). */
+export async function reparseApply(ids: string[]) {
+  return api<ApiResponse<{ requested: number; updated: number }>>(
+    '/inventory/reparse-apply',
+    { method: 'POST', body: { ids } },
   );
 }

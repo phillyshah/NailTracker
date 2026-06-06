@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Key, Trash2, Shield, ShieldCheck, X, CalendarClock } from 'lucide-react';
+import { Plus, Key, Trash2, Shield, ShieldCheck, X, CalendarClock, ScanLine } from 'lucide-react';
 import { listUsers, createUser, updatePassword, updateRole, deleteUser, type User } from '../api/users';
 import { backfillManualExpiry } from '../api/inventory';
 import { useAuth } from '../context/AuthContext';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
+import RepairBarcodesModal from '../components/RepairBarcodesModal';
 
 export default function Users() {
   const { user: currentUser } = useAuth();
@@ -19,6 +20,7 @@ export default function Users() {
 
   const [changingPwd, setChangingPwd] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [showRepair, setShowRepair] = useState(false);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users'],
@@ -202,7 +204,27 @@ export default function Users() {
             <CalendarClock size={20} />
             {backfillExpiryMutation.isPending ? 'Fixing…' : 'Fix Manual Expiry Dates'}
           </button>
+
+          <p className="text-sm text-gray-500 mt-5 mb-3">
+            Repair items imported before the barcode-parsing fix — re-reads each
+            item's original barcode and restores the correct lot number and
+            expiry (e.g. lots that were cut short like “…-L” with a wrong expiry).
+            You'll review each damaged item one at a time and choose to repair or
+            skip it. Safe to run anytime; it only changes items that need it.
+          </p>
+          <button
+            onClick={() => setShowRepair(true)}
+            className="flex items-center justify-center gap-2 rounded-xl border-2 border-primary-300 px-4 py-3 text-base font-semibold text-primary-700 hover:bg-primary-50"
+          >
+            <ScanLine size={20} />
+            Repair Barcodes (Lot & Expiry)
+          </button>
         </div>
+      )}
+
+      {/* Repair Barcodes stepper */}
+      {showRepair && (
+        <RepairBarcodesModal onClose={() => setShowRepair(false)} onToast={addToast} />
       )}
 
       {/* Add User Panel */}

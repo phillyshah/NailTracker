@@ -1,5 +1,45 @@
 # Changelog
 
+## v3.27 — 2026-06-04
+- **Fixed list truncation on the selection screens.** The server caps `/api/inventory` at 100 rows/request, so screens that requested `limit: 200` and rendered the result directly were silently showing only the first 100:
+  - **Transfer → Pick from list** — only the first 100 of a distributor's items were selectable (the reported bug).
+  - **Bank detail → Add items** picker — same cap.
+- Added `listAllInventory(filters)` (`client/src/api/inventory.ts`) which pages through the 100-row cap and returns the complete set; both selection screens now use it, so "Select All" and the on-screen count cover everything even with thousands of items.
+- Audited the other item/record lists: **Inventory**, **Distributor detail**, **Usage History**, and **Transfer History** already paginate correctly (Prev/Next driven by `meta.total`) — no change needed.
+- New test `client/src/api/inventory.listAll.test.ts` (pages through 250 items → 3 requests, single page when it fits, empty result, forwards filters).
+
+## v3.26 — 2026-06-03
+- **Interactive "Repair Barcodes" stepper** (admin → User Management → Maintenance). Instead of a single bulk fire-and-forget, the admin now reviews each damaged item one at a time — a Find & Replace–style modal showing the stored vs. re-parsed **lot / expiry / product / item #**, with **Repair**, **Skip**, and **Repair all remaining** actions plus a running repaired/skipped tally.
+  - New read-only endpoint `GET /api/inventory/reparse-preview` (returns before/after for every item whose stored fields disagree with a fresh parse of its barcode) and `POST /api/inventory/reparse-apply` `{ ids }` (repairs only the chosen items, re-parsed server-side from `rawBarcode` — client values are never trusted; idempotent).
+  - Refactored the existing one-shot `backfill-reparse` and the new endpoints onto a shared `reparsePatch` / `reparseCandidate` helper so the diff logic lives in one place.
+  - New client component `RepairBarcodesModal.tsx`; the Maintenance button now opens the stepper.
+  - Tests extended in `server/src/controllers/inventory.reparse.test.ts` (preview lists only drifted rows with before/after; apply repairs chosen ids, 400s on empty, idempotent on already-correct rows).
+
+## v3.25 — 2026-06-03
+- **Batch transfer from an Excel/CSV file** on the Transfer page. A new **"Pick from list / Import from Excel"** mode toggle lets users move many items between distributors at once. Upload a spreadsheet of barcodes → the server resolves each one against the **source distributor's** stock (gtinShort + lot, FIFO, with within-batch dedup so two identical stickers each claim a distinct unit) → the page shows a per-row preview with **Available / Not in stock / Error** badges.
+  - **Per-row missing-item handling:** every *Not in stock* row has inline **"Add to source"** and **"Skip"** buttons. A single **"Add all missing to source & include"** shortcut is shown when any are flagged. Both reuse the existing `assignItems()` Receive path (creates the row at source, then re-runs the preview to refresh matched IDs).
+  - **Race-safe commit:** each item is moved via `reassignItem(..., { expectedFromDistributorId })`. The server `reassign` controller gained an optional `expectedFromDistributorId` guard — if the item is no longer at source (someone else moved it between preview and commit), it returns **409** and the commit reports the row as skipped in the success screen rather than silently relocating it. Transfers never create stock — that's the missing-item affordance's job.
+  - New server endpoint `POST /api/transfers/preview-batch` (mirrors the Usage Tickets preview pattern); new helpers `client/src/utils/transferBatch.ts` (pure, unit-tested); reuses `parseSpreadsheet`, `parseGS1`, `pickFifo`, `assignItems`, `reassignItem`, `createTransfer`.
+  - New tests: `server/src/controllers/transfer.controller.test.ts` (preview match / not-in-stock / within-batch dedup / parse error / 404, plus the 409 source guard on reassign); `client/src/utils/transferBatch.test.ts` (status counts, include/exclude, commit payload).
+- Pick-mode Transfer flow is unchanged (the existing UI is wrapped by the new mode toggle but behaves identically).
+
+## v3.24 — 2026-06-03
+- **Inventory list state is preserved across navigation.** Opening an item and tapping **Back to Inventory** previously dropped the user on page 1 — painful with 1,600 items across 60+ pages. The Inventory page now serializes its full state (page, sort, search, and all filters) to the URL query string via `client/src/utils/inventoryUrl.ts` (`filtersToSearchParams` / `searchParamsToFilters`), and the detail page's back button uses `navigate(-1)` (falling back to `/inventory` when opened directly). The view now survives navigation, refresh, bookmarking, and sharing.
+  - New round-trip tests: `client/src/utils/inventoryUrl.test.ts`.
+- Item-number (REF) search shipped in v3.23 and is included here — searching e.g. `SO-SPFN-0380-10L-30` returns the matching scanned items.
+
+## v3.23 — 2026-06-03
+- **Fixed a serious GS1 barcode-parsing bug that corrupted imported lot numbers and expiry dates.** The raw-stream parser located AI 17 (expiry) with a naive `indexOf('17')`, so any lot containing the digits `17` (e.g. `J260225-L170`, where `L170` contains `17`) was split mid-lot: the lot was truncated to `J260225-L` and `017310` was read as the date — month `73`, which JavaScript's `Date` overflowed into Jan 2007, showing the item as "Expired". (Lots containing `10` had the analogous failure.)
+  - Replaced the `indexOf`-based heuristic in both `server/src/utils/parseGS1.ts` and `client/src/utils/parseGS1.ts` with a proper **left-to-right Application Identifier walker**: AI 01/17 are fixed-length; AI 10 (lot) is variable and is terminated by an FNC1 separator when present, otherwise by peeling a trailing, **date-validated** `17YYMMDD` off the end. This fixes the whole class (lot contains `17`/`10`, expiry-before-lot order, FNC1-separated streams, production-date AI 11).
+  - New tests: `server/src/utils/parseGS1.test.ts` (incl. a data-driven pass over every distinct barcode from the real `Lag_Screw_Restocks` file) and `client/src/utils/parseGS1.test.ts`, run under multiple timezones.
+- **Admin "Repair Barcodes" maintenance action** (`POST /api/inventory/backfill-reparse`, button on User Management). Re-derives lot / expiry / GTIN / label from each item's stored `rawBarcode` to repair rows imported before the fix. Idempotent; skips un-parseable manual REF entries. Guarded by `server/src/controllers/inventory.reparse.test.ts`.
+- **Fixed item-number (REF) search.** Inventory search ignored the REF code, so searching `SO-SPFN-0380-10L-30` returned nothing (scanned items store only the gtinShort). Search now also matches `rawBarcode` and resolves a REF (full or partial) back to its gtinShort(s) via the catalog (`findGtinShortsByItemNumber`). Covered in `server/src/controllers/inventory.list.test.ts`.
+
+## v3.22 — 2026-06-03
+- **Fixed distributor detail item count/visibility.** The Distributor Detail page hardcoded `limit: 100` and rendered `Assigned Items ({items.length})`, so a distributor with more than 100 assigned items showed only 100 and an incorrect total (the list-page `_count` badge and the Excel export were already correct — no data was lost).
+  - `client/src/pages/DistributorDetail.tsx` now uses the same server-side paging + sorting as the main Inventory page: the header shows the true `meta.total`, columns sort across the full set, and a **Prev/Next** control pages through everything. No server change — `/api/inventory` already returns `meta.total` and supports `page`/`limit`/`sortBy`/`sortDir`.
+  - Regression guard `server/src/controllers/inventory.list.test.ts`: asserts `meta.total` comes from `count()` (105) and is independent of the returned page length (100), and that the list and count use the same `where` filter so the badge and detail always agree.
+
 ## v3.21 — 2026-06-03
 - **Consolidated Batch Upload into Receive.** The standalone Batch Upload page and its More-menu item are gone; everything it did now lives in the **Receive** screen, which already housed scanning, photo batch upload, and manual entry. This removes the two-places-called-"Batch Upload" confusion.
   - Receive gains a **"Receive into" distributor selector** (defaults to Home Office) — received items, batch photos, and spreadsheet imports all land in the chosen distributor's inventory. Previously Receive was hardcoded to Home Office and only the standalone page could target other distributors.

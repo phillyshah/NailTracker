@@ -6,47 +6,44 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
-    version: '3.21',
+    version: '3.27',
+    date: '2026-06-04',
+    changes: [
+      'Fixed: Transfer (Pick from list) and the bank "add items" picker now show ALL of a distributor\'s items, not just the first 100 — so you can select from the full list even with thousands in stock',
+    ],
+  },
+  {
+    version: '3.26',
     date: '2026-06-03',
     changes: [
-      'Batch Upload is now part of Receive — pick a distributor at the top, then scan, photograph, or import a CSV/Excel file all in one place',
-      'You can now receive stock directly into any distributor, not just Home Office',
-      'Removed the separate Batch Upload menu item to keep things simple (old links now open Receive)',
+      'Repair Barcodes (admin) now walks you through damaged items one at a time, showing the old vs. corrected lot and expiry — repair or skip each, like Find & Replace',
+      'Includes a "Repair all remaining" shortcut to fix the rest in one tap',
     ],
   },
   {
-    version: '3.20',
-    date: '2026-06-02',
+    version: '3.25',
+    date: '2026-06-03',
     changes: [
-      'New usage reports under Reports → Usage: Monthly Usage Report (any month, by distributor and product), Usage Trends (units per month by product type), and Usage by Distributor',
-      'Reports page reorganized into Stock / Usage / Movement sections; every report and history now lives in one place',
-      'Cleaned up navigation: 4 bottom tabs (Receive · Usage · Inventory · Reports) and a grouped More menu; Lookup is now under More and on the Inventory page',
+      'New Transfer mode: Import from Excel — upload a CSV/Excel file of barcodes and move many items between distributors at once',
+      'Each barcode is checked against the source distributor first; items not in stock are flagged with one-tap "Add to source & include" or "Skip", plus an "Add all missing" shortcut',
+      'Race-safe commit: if an item is moved out of source between preview and confirm, it\'s skipped and reported instead of silently relocated',
     ],
   },
   {
-    version: '3.19',
-    date: '2026-06-02',
+    version: '3.24',
+    date: '2026-06-03',
     changes: [
-      'New Usage tab: record daily implant usage by picking a distributor and scanning the ticket stickers',
-      'Each item is checked against that distributor\'s inventory before it\'s deducted — items not in stock are flagged, never deducted',
-      'When several identical units exist, the oldest-expiry one is used first (FIFO)',
-      'Every ticket is saved with its own USE-… number under Usage History, with a printable report',
+      'Inventory now remembers your place: "Back to Inventory" returns you to the same page, sort, and search instead of jumping back to page 1',
+      'Your current Inventory view (page, sort, filters, search) is kept in the address bar, so it survives a refresh and can be bookmarked or shared',
     ],
   },
   {
-    version: '3.18',
-    date: '2026-06-02',
+    version: '3.23',
+    date: '2026-06-03',
     changes: [
-      'Fixed for real: expiration dates now show the exact day you entered or scanned, on every device and timezone (the earlier fix never took effect on the server)',
-      'Admins: run Fix Manual Expiry Dates once on the User Management page to clean up any items still stored off by a day',
-      'Fixed: Batch Upload now imports Excel (.xlsx) files correctly on desktop and mobile — previously real Excel files were read as gibberish and found no barcodes',
-    ],
-  },
-  {
-    version: '3.17',
-    date: '2026-06-01',
-    changes: [
-      'Added the admin Fix Manual Expiry Dates button on the User Management page',
+      'Fixed a serious barcode-import bug: lot numbers containing certain digits (like "…-L170") were cut short and given a wrong/expired date. Scanning and spreadsheet import now read the full lot and correct expiry',
+      'Admins: a new Repair Barcodes button (User Management) re-reads existing items’ barcodes and fixes any lot numbers or expiry dates that were imported incorrectly',
+      'Fixed search: you can now find items by their item number (REF code) again, e.g. "SO-SPFN-0380-10L-30"',
     ],
   },
 ];

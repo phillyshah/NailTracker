@@ -317,6 +317,28 @@ If you need a paper record of a transfer:
 
 ---
 
+**Batch transfer from a Spreadsheet:**
+
+When you need to move a lot of items at once (and you have a spreadsheet of barcodes), use the **Import from Excel** mode at the top of the Transfer page instead of ticking items one by one.
+
+1. Pick the **From** and **To** distributors
+2. Tap the **Import from Excel** toggle, then **Choose CSV / Excel file**
+3. The app reads every barcode and checks whether it's actually in the **From** distributor's inventory. You'll see one row per barcode with a coloured badge:
+   - **Ready** (green) — found at the source; will be transferred
+   - **Not in stock** (amber) — the barcode parsed fine, but the source doesn't have that item
+   - **Error** (red) — the barcode itself couldn't be read
+4. For any **Not in stock** row, you have two options:
+   - Tap **Add to source** — the app creates that item in the source distributor and includes it in the transfer (use this when the spreadsheet is the source of truth and the source just hasn't logged the item yet)
+   - Tap **Skip** — the row is dropped from the transfer
+5. If there are several missing rows, tap **Add all missing items to source & include** to handle them all at once
+6. Tap **Review Transfer**, then **Confirm Transfer**
+
+> **Transfers never create new stock by themselves.** The "Add to source" buttons are the *only* way the batch flow adds inventory — everything else is just moving existing items between distributors.
+
+> **Safety net:** if someone else moves one of the previewed items between when you uploaded the file and when you confirmed, the app skips that row (rather than silently relocating it) and lists it in the success screen as "Skipped — moved out of source between preview and confirm".
+
+---
+
 ### 7. Recording Daily Usage (Usage Tickets)
 
 **Where to go:** Tap **Usage** in the bottom navigation
@@ -449,6 +471,18 @@ This page shows your full list of distributors — the sales reps, hospitals, or
 **Maintenance — Fix Manual Expiry Dates:**
 
 At the bottom of the User Management page (admins only) is a **Fix Manual Expiry Dates** button. Older manually-entered items could be saved with an expiration date that displayed one day early. Tap this button once to correct any affected items across the whole system. It's safe to run anytime — it only changes items that still need fixing, and reports how many it corrected.
+
+**Maintenance — Repair Barcodes (Lot & Expiry):**
+
+Also on the User Management page (admins only) is a **Repair Barcodes** button. Some items imported from a spreadsheet before a parsing fix had their lot number cut short (for example showing "…-L" instead of the full "…-L170") and an incorrect expiry date.
+
+Tap **Repair Barcodes** and the app finds every item whose stored details don't match its original barcode, then walks you through them **one at a time** — much like Find & Replace in Word or Excel. For each item you'll see the current value crossed out next to the corrected value (lot, expiry, product, and item number), and you can:
+
+- **Repair** — apply the correction to this item and move to the next
+- **Skip** — leave this item as-is and move to the next
+- **Repair all remaining** — fix every remaining item at once
+
+A running count of repaired/skipped is shown, and a summary appears when you reach the end. Nothing changes until you tap Repair (or Repair all remaining), it only ever touches items that need it, and it leaves manually-entered items alone.
 
 ---
 

@@ -15,3 +15,33 @@ describe('parseGS1 expiry (client)', () => {
     expect(res.expDate!.toISOString()).toBe('2030-09-28T00:00:00.000Z');
   });
 });
+
+/**
+ * Mirrors the server fix: a raw GS1 stream whose lot contains the digits "17"
+ * (or "10") must not be split there. Keeps the camera/photo scan path correct.
+ */
+describe('parseGS1 raw stream — lot disambiguation (client)', () => {
+  function ok(code: string) {
+    const res = parseGS1(code);
+    if (isParseError(res)) throw new Error(`unexpected parse error: ${res.error}`);
+    return res;
+  }
+
+  it('does not split the lot on a "17" inside the lot (the reported bug)', () => {
+    const res = ok('010880008946147910J260225-L17017310224');
+    expect(res.lot).toBe('J260225-L170');
+    expect(res.expDate!.toISOString().slice(0, 10)).toBe('2031-02-24');
+  });
+
+  it('does not split the lot on a "10" inside the lot', () => {
+    const res = ok('0108800089459148' + '10' + 'X10Y-22' + '17' + '301231');
+    expect(res.lot).toBe('X10Y-22');
+    expect(res.expDate!.toISOString().slice(0, 10)).toBe('2030-12-31');
+  });
+
+  it('parses expiry-before-lot order', () => {
+    const res = ok('0108800089459148' + '17' + '301231' + '10' + 'LOT-9');
+    expect(res.lot).toBe('LOT-9');
+    expect(res.expDate!.toISOString().slice(0, 10)).toBe('2030-12-31');
+  });
+});

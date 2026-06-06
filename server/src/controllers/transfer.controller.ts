@@ -1,6 +1,9 @@
 import type { Request, Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
+import { parseGS1, isParseError } from '../utils/parseGS1.js';
+import { getItemNumber, getProductLabel } from '../utils/gtin-map.js';
+import { pickFifo } from '../utils/usageMatch.js';
 
 /**
  * Generate a transfer ID: TRF-YYYYMMDD-XXXX (sequential per day).
@@ -51,6 +54,139 @@ export async function create(req: Request, res: Response) {
     return success(res, transfer, undefined, 201);
   } catch (err) {
     return error(res, 'Failed to create transfer record', 500);
+  }
+}
+
+/**
+ * Per-line shape returned by previewBatch. Mirrors UsageLine — the client
+ * displays a status badge per row and uses the `parsed` payload to offer
+ * "Add to source & include" for not_in_stock rows without re-parsing.
+ */
+type BatchLineStatus = 'available' | 'not_in_stock' | 'error';
+
+interface BatchLine {
+  barcode: string;
+  status: BatchLineStatus;
+  matchedItemId?: string;
+  productLabel?: string;
+  itemNumber?: string | null;
+  lot?: string;
+  expDate?: string | null;
+  availableCount?: number;
+  errorMessage?: string;
+  // Present for 'available' and 'not_in_stock' so the client can add a missing
+  // item to the source distributor without parsing the barcode again.
+  parsed?: {
+    gtin: string;
+    gtinShort: string;
+    lot: string;
+    expDate: string | null;
+    udi: string;
+    rawBarcode: string;
+    productLabel: string;
+  };
+}
+
+/**
+ * POST /api/transfers/preview-batch
+ * Body: { fromDistributorId, barcodes: string[] }
+ * Read-only — resolves each barcode to an available unit at the SOURCE
+ * distributor (gtinShort + lot, FIFO), with within-batch dedup so two identical
+ * stickers each claim a distinct physical unit. The matching pattern mirrors
+ * the Usage Tickets preview; the commit happens client-side via reassignItem.
+ */
+export async function previewBatch(req: Request, res: Response) {
+  try {
+    const { fromDistributorId, barcodes } = req.body as {
+      fromDistributorId: string;
+      barcodes: string[];
+    };
+
+    if (!fromDistributorId) {
+      return error(res, 'fromDistributorId is required', 400);
+    }
+    if (!Array.isArray(barcodes) || barcodes.length === 0) {
+      return error(res, 'barcodes is required and must be non-empty', 400);
+    }
+
+    const distributor = await prisma.distributor.findUnique({ where: { id: fromDistributorId } });
+    if (!distributor) {
+      return error(res, 'Source distributor not found', 404);
+    }
+    if (!distributor.active) {
+      return error(res, 'Source distributor is inactive — its stock cannot be transferred', 400);
+    }
+
+    const claimed = new Set<string>();
+    const lines: BatchLine[] = [];
+
+    for (const barcode of barcodes) {
+      const parsed = parseGS1(barcode);
+      if (isParseError(parsed)) {
+        lines.push({ barcode, status: 'error', errorMessage: parsed.error });
+        continue;
+      }
+
+      const candidates = await prisma.inventoryItem.findMany({
+        where: {
+          gtinShort: parsed.gtinShort,
+          lot: parsed.lot,
+          distributorId: fromDistributorId,
+          usedAt: null,
+          deletedAt: null,
+        },
+      });
+
+      const unclaimed = candidates.filter((c) => !claimed.has(c.id));
+      const pick = pickFifo(unclaimed);
+
+      const itemNumber = getItemNumber(parsed.gtinShort, parsed.rawBarcode);
+      const productLabel = parsed.productLabel || getProductLabel(parsed.gtinShort, parsed.rawBarcode);
+      const parsedPayload = {
+        gtin: parsed.gtin,
+        gtinShort: parsed.gtinShort,
+        lot: parsed.lot,
+        expDate: parsed.expDate?.toISOString() ?? null,
+        udi: parsed.udi,
+        rawBarcode: parsed.rawBarcode,
+        productLabel: productLabel,
+      };
+
+      if (!pick) {
+        lines.push({
+          barcode,
+          status: 'not_in_stock',
+          productLabel,
+          itemNumber,
+          lot: parsed.lot,
+          expDate: parsed.expDate?.toISOString() ?? null,
+          availableCount: 0,
+          parsed: parsedPayload,
+        });
+        continue;
+      }
+
+      claimed.add(pick.id);
+      lines.push({
+        barcode,
+        status: 'available',
+        matchedItemId: pick.id,
+        productLabel: pick.productLabel || productLabel,
+        itemNumber: getItemNumber(pick.gtinShort, pick.rawBarcode) ?? itemNumber,
+        lot: pick.lot,
+        expDate: pick.expDate?.toISOString() ?? null,
+        availableCount: unclaimed.length,
+        parsed: parsedPayload,
+      });
+    }
+
+    return success(res, {
+      fromDistributorId,
+      fromDistributorName: distributor.name,
+      lines,
+    });
+  } catch (err) {
+    return error(res, 'Failed to preview batch transfer', 500);
   }
 }
 
