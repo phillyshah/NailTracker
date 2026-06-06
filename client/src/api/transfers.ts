@@ -82,7 +82,11 @@ export interface PreviewBatchResponse {
 
 export async function previewBatchTransfer(data: {
   fromDistributorId: string;
-  barcodes: string[];
+  /** Raw barcode strings (scanned, photographed, pasted, or from a spreadsheet). */
+  barcodes?: string[];
+  /** Already-parsed items (Manual Entry "fields" submode), which can't be
+   *  re-parsed because their rawBarcode is a REF code rather than a GS1 string. */
+  items?: BatchLineParsed[];
 }) {
   const res = await api<ApiResponse<PreviewBatchResponse>>('/transfers/preview-batch', {
     method: 'POST',

@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.21** | Summa Orthopaedics Inventory Management System
+**Version 3.28** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -293,13 +293,20 @@ Use this when you need to officially move items from one distributor to another 
 
 ---
 
-**Creating a transfer:**
+**Two ways to build a transfer.** At the top of the Transfer page there's a toggle:
+
+- **Pick from list** — browse the source distributor's items and tick the ones to move. Best when you can see what you want on screen.
+- **Manual Transfer** — scan, photograph, paste, or type each item, just like the Receive page. Best for quick transfers of a few parts, or when you're working from the physical items rather than a list.
+
+---
+
+**Creating a transfer (Pick from list):**
 
 1. Under **From**, choose where the items are coming from
 2. Under **To**, choose where they're going
 3. Check the boxes next to the items you want to move. Tap **Select All** if you want everything.
 4. Add an optional note (e.g., "Returning expired stock" or "Filling new rep order")
-5. Tap **Confirm Transfer**
+5. Tap **Review Transfer**, then **Confirm Transfer**
 
 The system creates a transfer record and updates every item's location automatically.
 
@@ -317,25 +324,32 @@ If you need a paper record of a transfer:
 
 ---
 
-**Batch transfer from a Spreadsheet:**
+**Manual Transfer (scan, photo, paste, type, or spreadsheet):**
 
-When you need to move a lot of items at once (and you have a spreadsheet of barcodes), use the **Import from Excel** mode at the top of the Transfer page instead of ticking items one by one.
+When you're moving a handful of parts — or working from the physical items instead of a list — switch to **Manual Transfer**. It works exactly like the Receive page, so there's nothing new to learn.
 
 1. Pick the **From** and **To** distributors
-2. Tap the **Import from Excel** toggle, then **Choose CSV / Excel file**
-3. The app reads every barcode and checks whether it's actually in the **From** distributor's inventory. You'll see one row per barcode with a coloured badge:
+2. Tap the **Manual Transfer** toggle, then add items using whichever method suits you:
+   - **Live Scan** — point the camera at each barcode in turn
+   - **Take Photo / Upload Photo** — snap a label or pick an image from your gallery
+   - **Batch Photos** — select several photos at once and the app reads them all
+   - **Import CSV / Excel** — load a spreadsheet of barcodes (the same as before)
+   - **Manual Entry** — paste a full QR/barcode string, or type the **Item Number**, **Lot**, **Expiration**, and **Quantity** by hand
+3. As you add items, each one is checked against the **From** distributor's stock and shown as a row with a coloured badge:
    - **Ready** (green) — found at the source; will be transferred
-   - **Not in stock** (amber) — the barcode parsed fine, but the source doesn't have that item
-   - **Error** (red) — the barcode itself couldn't be read
+   - **Not in stock** (amber) — the item parsed fine, but the source doesn't have it
+   - **Error** (red) — the barcode/label couldn't be read
 4. For any **Not in stock** row, you have two options:
-   - Tap **Add to source** — the app creates that item in the source distributor and includes it in the transfer (use this when the spreadsheet is the source of truth and the source just hasn't logged the item yet)
+   - Tap **Add to source** — the app creates that item in the source distributor and includes it in the transfer (use this when you *know* the item is physically there and the source just hasn't logged it yet)
    - Tap **Skip** — the row is dropped from the transfer
 5. If there are several missing rows, tap **Add all missing items to source & include** to handle them all at once
 6. Tap **Review Transfer**, then **Confirm Transfer**
 
-> **Transfers never create new stock by themselves.** The "Add to source" buttons are the *only* way the batch flow adds inventory — everything else is just moving existing items between distributors.
+> **Tip:** scan the same item twice and the app correctly stages two units — and if the source only has one, the second is flagged "Not in stock" rather than double-counting.
 
-> **Safety net:** if someone else moves one of the previewed items between when you uploaded the file and when you confirmed, the app skips that row (rather than silently relocating it) and lists it in the success screen as "Skipped — moved out of source between preview and confirm".
+> **Transfers never create new stock by themselves.** The "Add to source" buttons are the *only* way this flow adds inventory — everything else is just moving existing items between distributors.
+
+> **Safety net:** if someone else moves one of the staged items between when you added it and when you confirmed, the app skips that row (rather than silently relocating it) and lists it in the success screen as "Skipped — moved out of source between preview and confirm".
 
 ---
 
