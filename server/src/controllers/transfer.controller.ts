@@ -87,26 +87,93 @@ interface BatchLine {
   };
 }
 
+/** Already-parsed item supplied by the client (Manual Entry "fields" submode),
+ *  which can't go through parseGS1 because its rawBarcode is a REF code. */
+interface ParsedItemInput {
+  gtin?: string;
+  gtinShort?: string;
+  lot?: string;
+  expDate?: string | null;
+  udi?: string;
+  rawBarcode?: string;
+  productLabel?: string;
+}
+
+type ParsedPayload = NonNullable<BatchLine['parsed']>;
+
+/**
+ * Resolve one parsed item to an available unit at the source distributor
+ * (gtinShort + lot, FIFO), honouring the per-request `claimed` set so identical
+ * inputs each take a distinct physical unit. Shared by the barcode and the
+ * already-parsed (manual fields) inputs so both dedup against the same set.
+ */
+async function matchAtSource(
+  identifier: string,
+  parsed: ParsedPayload,
+  fromDistributorId: string,
+  claimed: Set<string>,
+): Promise<BatchLine> {
+  const candidates = await prisma.inventoryItem.findMany({
+    where: {
+      gtinShort: parsed.gtinShort,
+      lot: parsed.lot,
+      distributorId: fromDistributorId,
+      usedAt: null,
+      deletedAt: null,
+    },
+  });
+
+  const unclaimed = candidates.filter((c) => !claimed.has(c.id));
+  const pick = pickFifo(unclaimed);
+  const itemNumber = getItemNumber(parsed.gtinShort, parsed.rawBarcode);
+
+  if (!pick) {
+    return {
+      barcode: identifier,
+      status: 'not_in_stock',
+      productLabel: parsed.productLabel,
+      itemNumber,
+      lot: parsed.lot,
+      expDate: parsed.expDate,
+      availableCount: 0,
+      parsed,
+    };
+  }
+
+  claimed.add(pick.id);
+  return {
+    barcode: identifier,
+    status: 'available',
+    matchedItemId: pick.id,
+    productLabel: pick.productLabel || parsed.productLabel,
+    itemNumber: getItemNumber(pick.gtinShort, pick.rawBarcode) ?? itemNumber,
+    lot: pick.lot,
+    expDate: pick.expDate?.toISOString() ?? null,
+    availableCount: unclaimed.length,
+    parsed,
+  };
+}
+
 /**
  * POST /api/transfers/preview-batch
- * Body: { fromDistributorId, barcodes: string[] }
- * Read-only — resolves each barcode to an available unit at the SOURCE
- * distributor (gtinShort + lot, FIFO), with within-batch dedup so two identical
- * stickers each claim a distinct physical unit. The matching pattern mirrors
- * the Usage Tickets preview; the commit happens client-side via reassignItem.
+ * Body: { fromDistributorId, barcodes?: string[], items?: ParsedItemInput[] }
+ * Read-only — resolves each barcode (and each already-parsed manual item) to an
+ * available unit at the SOURCE distributor (gtinShort + lot, FIFO), with
+ * within-batch dedup so two identical stickers each claim a distinct physical
+ * unit. The matching pattern mirrors the Usage Tickets preview; the commit
+ * happens client-side via reassignItem.
  */
 export async function previewBatch(req: Request, res: Response) {
   try {
-    const { fromDistributorId, barcodes } = req.body as {
-      fromDistributorId: string;
-      barcodes: string[];
-    };
+    const { fromDistributorId } = req.body as { fromDistributorId: string };
+    const barcodes: string[] = Array.isArray(req.body.barcodes) ? req.body.barcodes : [];
+    const items: ParsedItemInput[] = Array.isArray(req.body.items) ? req.body.items : [];
 
     if (!fromDistributorId) {
       return error(res, 'fromDistributorId is required', 400);
     }
-    if (!Array.isArray(barcodes) || barcodes.length === 0) {
-      return error(res, 'barcodes is required and must be non-empty', 400);
+    if (barcodes.length === 0 && items.length === 0) {
+      return error(res, 'barcodes or items is required and must be non-empty', 400);
     }
 
     const distributor = await prisma.distributor.findUnique({ where: { id: fromDistributorId } });
@@ -117,6 +184,8 @@ export async function previewBatch(req: Request, res: Response) {
       return error(res, 'Source distributor is inactive — its stock cannot be transferred', 400);
     }
 
+    // A single claimed set spans BOTH input kinds so a barcode and a manual
+    // item for the same lot can't both grab the same source unit.
     const claimed = new Set<string>();
     const lines: BatchLine[] = [];
 
@@ -126,58 +195,38 @@ export async function previewBatch(req: Request, res: Response) {
         lines.push({ barcode, status: 'error', errorMessage: parsed.error });
         continue;
       }
-
-      const candidates = await prisma.inventoryItem.findMany({
-        where: {
-          gtinShort: parsed.gtinShort,
-          lot: parsed.lot,
-          distributorId: fromDistributorId,
-          usedAt: null,
-          deletedAt: null,
-        },
-      });
-
-      const unclaimed = candidates.filter((c) => !claimed.has(c.id));
-      const pick = pickFifo(unclaimed);
-
-      const itemNumber = getItemNumber(parsed.gtinShort, parsed.rawBarcode);
-      const productLabel = parsed.productLabel || getProductLabel(parsed.gtinShort, parsed.rawBarcode);
-      const parsedPayload = {
+      const parsedPayload: ParsedPayload = {
         gtin: parsed.gtin,
         gtinShort: parsed.gtinShort,
         lot: parsed.lot,
         expDate: parsed.expDate?.toISOString() ?? null,
         udi: parsed.udi,
         rawBarcode: parsed.rawBarcode,
-        productLabel: productLabel,
+        productLabel: parsed.productLabel || getProductLabel(parsed.gtinShort, parsed.rawBarcode),
       };
+      lines.push(await matchAtSource(barcode, parsedPayload, fromDistributorId, claimed));
+    }
 
-      if (!pick) {
-        lines.push({
-          barcode,
-          status: 'not_in_stock',
-          productLabel,
-          itemNumber,
-          lot: parsed.lot,
-          expDate: parsed.expDate?.toISOString() ?? null,
-          availableCount: 0,
-          parsed: parsedPayload,
-        });
+    for (const item of items) {
+      const gtinShort = String(item.gtinShort || '');
+      const lot = String(item.lot || '');
+      const identifier = item.udi || item.rawBarcode || `${gtinShort}-${lot}`;
+      if (!gtinShort || !lot) {
+        lines.push({ barcode: identifier, status: 'error', errorMessage: 'Manual item is missing its GTIN or lot' });
         continue;
       }
-
-      claimed.add(pick.id);
-      lines.push({
-        barcode,
-        status: 'available',
-        matchedItemId: pick.id,
-        productLabel: pick.productLabel || productLabel,
-        itemNumber: getItemNumber(pick.gtinShort, pick.rawBarcode) ?? itemNumber,
-        lot: pick.lot,
-        expDate: pick.expDate?.toISOString() ?? null,
-        availableCount: unclaimed.length,
-        parsed: parsedPayload,
-      });
+      const rawBarcode = item.rawBarcode || '';
+      const parsedPayload: ParsedPayload = {
+        gtin: item.gtin || '',
+        gtinShort,
+        lot,
+        expDate: item.expDate ?? null,
+        udi: item.udi || `${gtinShort}-${lot}`,
+        rawBarcode,
+        // Re-derive the label server-side rather than trusting the client.
+        productLabel: getProductLabel(gtinShort, rawBarcode),
+      };
+      lines.push(await matchAtSource(parsedPayload.udi, parsedPayload, fromDistributorId, claimed));
     }
 
     return success(res, {

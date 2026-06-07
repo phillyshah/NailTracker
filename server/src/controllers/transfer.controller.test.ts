@@ -153,6 +153,80 @@ describe('previewBatch — match against source distributor', () => {
     await promise;
     expect(res.status).toHaveBeenCalledWith(404);
   });
+
+  it('returns a line for EVERY barcode with no hidden 100-row cap (large lists)', async () => {
+    // Regression guard: the Manual Transfer / spreadsheet path can stage 500+
+    // items — the preview must never silently truncate like the old inventory
+    // list bug. Source has no stock, so every line comes back not_in_stock.
+    distributorFindUniqueMock.mockResolvedValue(SOURCE);
+    itemFindManyMock.mockResolvedValue([]);
+    const many = Array.from({ length: 250 }, () => BARCODE);
+
+    const { res, promise } = callPreview({ fromDistributorId: SOURCE.id, barcodes: many });
+    await promise;
+
+    const payload = res.json.mock.calls[0][0] as { data: { lines: unknown[] } };
+    expect(payload.data.lines).toHaveLength(250);
+  });
+});
+
+describe('previewBatch — already-parsed items (Manual Entry fields)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // Manual-fields entry can't be re-parsed (its rawBarcode is a REF code), so
+  // the client sends the parsed payload directly under `items`.
+  const PARSED = { gtin: '08880008946147', gtinShort: '9461479', lot: 'J260225-L170', expDate: null, udi: '9461479-J260225-L170', rawBarcode: 'SO-SPFL-N-120' };
+
+  it('matches a parsed item against source stock → "available"', async () => {
+    distributorFindUniqueMock.mockResolvedValue(SOURCE);
+    itemFindManyMock.mockResolvedValue([
+      { id: 'item-M', gtinShort: '9461479', lot: 'J260225-L170', rawBarcode: 'x', productLabel: 'Lag Screw', expDate: null, createdAt: new Date(2026, 0, 1) },
+    ]);
+
+    const { res, promise } = callPreview({ fromDistributorId: SOURCE.id, items: [PARSED] });
+    await promise;
+
+    const payload = res.json.mock.calls[0][0] as { data: { lines: Array<{ status: string; matchedItemId?: string }> } };
+    expect(payload.data.lines).toHaveLength(1);
+    expect(payload.data.lines[0].status).toBe('available');
+    expect(payload.data.lines[0].matchedItemId).toBe('item-M');
+  });
+
+  it('flags a parsed item with no source match as "not_in_stock" (parsed kept for Add-to-source)', async () => {
+    distributorFindUniqueMock.mockResolvedValue(SOURCE);
+    itemFindManyMock.mockResolvedValue([]);
+
+    const { res, promise } = callPreview({ fromDistributorId: SOURCE.id, items: [PARSED] });
+    await promise;
+
+    const payload = res.json.mock.calls[0][0] as { data: { lines: Array<{ status: string; parsed?: object }> } };
+    expect(payload.data.lines[0].status).toBe('not_in_stock');
+    expect(payload.data.lines[0].parsed).toBeDefined();
+  });
+
+  it('a parsed item missing gtin/lot is an "error" line (no inventory query)', async () => {
+    distributorFindUniqueMock.mockResolvedValue(SOURCE);
+    const { res, promise } = callPreview({ fromDistributorId: SOURCE.id, items: [{ gtinShort: '', lot: '' }] });
+    await promise;
+    const payload = res.json.mock.calls[0][0] as { data: { lines: Array<{ status: string }> } };
+    expect(payload.data.lines[0].status).toBe('error');
+    expect(itemFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it('cross-input dedup: a barcode and a parsed item for the same lot share the claimed set', async () => {
+    distributorFindUniqueMock.mockResolvedValue(SOURCE);
+    // Only ONE matching unit at source for both the barcode and the manual item.
+    itemFindManyMock.mockResolvedValue([
+      { id: 'only1', gtinShort: '9461479', lot: 'J260225-L170', rawBarcode: BARCODE, productLabel: 'L', expDate: new Date(Date.UTC(2031, 1, 24)), createdAt: new Date(2026, 0, 1) },
+    ]);
+
+    const { res, promise } = callPreview({ fromDistributorId: SOURCE.id, barcodes: [BARCODE], items: [PARSED] });
+    await promise;
+
+    const payload = res.json.mock.calls[0][0] as { data: { lines: Array<{ status: string }> } };
+    expect(payload.data.lines.filter((l) => l.status === 'available')).toHaveLength(1);
+    expect(payload.data.lines.filter((l) => l.status === 'not_in_stock')).toHaveLength(1);
+  });
 });
 
 describe('reassign — expectedFromDistributorId source guard', () => {

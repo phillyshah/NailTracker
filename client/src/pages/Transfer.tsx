@@ -11,12 +11,14 @@ import {
   XCircle,
   Plus,
   Trash2,
+  Images,
 } from 'lucide-react';
 import {
   listAllInventory,
   reassignItem,
   assignItems,
   parseSpreadsheet,
+  scanManual,
 } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import {
@@ -24,7 +26,9 @@ import {
   previewBatchTransfer,
   type TransferRecord,
   type BatchLine,
+  type BatchLineParsed,
 } from '../api/transfers';
+import { BarcodeScanner } from '../components/BarcodeScanner';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -32,7 +36,15 @@ import { APP_VERSION } from '../version';
 import { cn } from '../utils/cn';
 import { HelpBanner } from '../components/HelpBanner';
 import { formatExpiry } from '../utils/expiry';
+import { detectBarcodesFromImage } from '../utils/barcodeDetector';
 import { countByStatus, buildTransferItems, isTransferable } from '../utils/transferBatch';
+import {
+  addBarcode,
+  addManual,
+  removeMatchingLine,
+  toPreviewPayload,
+  type StagedInput,
+} from '../utils/transferStaging';
 
 /**
  * Shape of an item entry in the per-row review and the persisted Transfer
@@ -49,7 +61,7 @@ interface ReviewItem {
   expDate: string | null;
 }
 
-type Mode = 'pick' | 'excel';
+type Mode = 'pick' | 'manual' | 'excel';
 
 export default function Transfer() {
   const queryClient = useQueryClient();
@@ -63,11 +75,29 @@ export default function Transfer() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [savedTransfer, setSavedTransfer] = useState<TransferRecord | null>(null);
 
-  // Excel mode state — preview lines, the user's per-row exclusions, the file
-  // input ref, and any rows the commit step had to skip (the source-guard race).
+  // Manual Transfer mode — every input (scan / photo / paste / typed fields /
+  // spreadsheet) becomes a StagedInput; `stagedInputs` is the source of truth we
+  // re-preview against source stock on every change. `batchLines` is the derived
+  // preview result (Available / Not in stock / Error). A ref mirrors the staged
+  // list so rapid sequential scans don't read a stale closure value.
+  const [stagedInputs, setStagedInputs] = useState<StagedInput[]>([]);
+  const stagedRef = useRef<StagedInput[]>([]);
   const [batchLines, setBatchLines] = useState<BatchLine[]>([]);
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
   const [blockedLines, setBlockedLines] = useState<BatchLine[]>([]);
+  const [restaging, setRestaging] = useState(false);
+  const [addingMissing, setAddingMissing] = useState(false);
+
+  // Manual-entry panel substate (ported from Receive).
+  const [showManual, setShowManual] = useState(false);
+  const [manualMode, setManualMode] = useState<'qr' | 'fields'>('qr');
+  const [manualBarcode, setManualBarcode] = useState('');
+  const [mItemNumber, setMItemNumber] = useState('');
+  const [mLot, setMLot] = useState('');
+  const [mExpDate, setMExpDate] = useState('');
+  const [mQty, setMQty] = useState('1');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   const { data: distributors = [] } = useQuery({
@@ -85,66 +115,72 @@ export default function Transfer() {
 
   const items = inventoryData ?? [];
 
-  /** Parse the uploaded spreadsheet → server-side preview against source stock. */
-  const previewMutation = useMutation({
-    mutationFn: async (file: File) => {
-      if (!fromDistId) throw new Error('Pick a source distributor first');
-      const barcodes = await parseSpreadsheet(file);
-      if (barcodes.length === 0) throw new Error('No barcodes found in file');
-      return previewBatchTransfer({ fromDistributorId: fromDistId, barcodes });
-    },
-    onSuccess: (data) => {
+  /** Update the staged list (state + ref in lockstep). */
+  function setStaged(next: StagedInput[]) {
+    stagedRef.current = next;
+    setStagedInputs(next);
+  }
+
+  /**
+   * Set the staged list and re-preview the WHOLE thing against source stock.
+   * Re-previewing everything (rather than incrementally) lets the server's
+   * per-request dedup resolve duplicate scans to one Available + one Not in
+   * stock. `excludedIds` is preserved — a re-preview must not undo the user's
+   * Skip choices.
+   */
+  async function restage(next: StagedInput[]) {
+    setStaged(next);
+    const payload = toPreviewPayload(next);
+    if (payload.barcodes.length === 0 && payload.items.length === 0) {
+      setBatchLines([]);
+      return;
+    }
+    if (!fromDistId) {
+      addToast('Pick a source distributor first', 'error');
+      return;
+    }
+    setRestaging(true);
+    try {
+      const data = await previewBatchTransfer({ fromDistributorId: fromDistId, ...payload });
       setBatchLines(data.lines);
-      setExcludedIds(new Set());
-      const c = countByStatus(data.lines);
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to check items against source', 'error');
+    } finally {
+      setRestaging(false);
+    }
+  }
+
+  /** Create the given parsed items at the source distributor, then re-preview so
+   *  the formerly not-in-stock rows flip to Available with fresh matched ids. */
+  async function addToSource(parsedList: BatchLineParsed[]) {
+    if (parsedList.length === 0) return;
+    if (!fromDistId) {
+      addToast('Pick a source distributor first', 'error');
+      return;
+    }
+    setAddingMissing(true);
+    try {
+      await assignItems(parsedList, fromDistId);
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      await restage(stagedRef.current);
       addToast(
-        `${c.available} ready · ${c.not_in_stock} not in stock · ${c.error} errors`,
-        c.not_in_stock + c.error === 0 ? 'success' : 'error',
+        parsedList.length === 1
+          ? 'Item added to source — now ready to transfer'
+          : `${parsedList.length} items added to source`,
+        'success',
       );
-    },
-    onError: (err: Error) => addToast(err.message, 'error'),
-  });
-
-  /** Add one missing item to the source distributor and re-preview to refresh ids. */
-  const addOneMissingMutation = useMutation({
-    mutationFn: async (line: BatchLine) => {
-      if (!line.parsed) throw new Error('Cannot add: missing parsed data');
-      if (!fromDistId) throw new Error('Pick a source distributor first');
-      await assignItems([line.parsed], fromDistId);
-      const barcodes = batchLines.map((l) => l.barcode);
-      return previewBatchTransfer({ fromDistributorId: fromDistId, barcodes });
-    },
-    onSuccess: (data) => {
-      setBatchLines(data.lines);
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      addToast('Item added to source — now ready to transfer', 'success');
-    },
-    onError: (err: Error) => addToast(err.message, 'error'),
-  });
-
-  /** Add ALL missing items in one call and re-preview. */
-  const addAllMissingMutation = useMutation({
-    mutationFn: async () => {
-      const missing = batchLines.filter((l) => l.status === 'not_in_stock' && l.parsed);
-      if (missing.length === 0) throw new Error('Nothing to add');
-      if (!fromDistId) throw new Error('Pick a source distributor first');
-      await assignItems(missing.map((l) => l.parsed!), fromDistId);
-      const barcodes = batchLines.map((l) => l.barcode);
-      return previewBatchTransfer({ fromDistributorId: fromDistId, barcodes });
-    },
-    onSuccess: (data) => {
-      setBatchLines(data.lines);
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      addToast('All missing items added to source', 'success');
-    },
-    onError: (err: Error) => addToast(err.message, 'error'),
-  });
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to add to source', 'error');
+    } finally {
+      setAddingMissing(false);
+    }
+  }
 
   /**
    * Commit step — moves the chosen items into the destination. Both modes go
-   * through this. Excel mode additionally passes expectedFromDistributorId so
+   * through this. Manual mode additionally passes expectedFromDistributorId so
    * any item that moved between preview and commit lands in `blockedLines`
-   * instead of being silently relocated.
+   * instead of being silently relocated. Everything commits as one TRF record.
    */
   const transferMutation = useMutation({
     mutationFn: async () => {
@@ -249,15 +285,107 @@ export default function Transfer() {
     });
   }
 
-  function removeBatchLine(barcode: string) {
-    setBatchLines((prev) => prev.filter((l) => l.barcode !== barcode));
+  /** Remove one staged input matching this preview row (drops only one copy of a
+   *  duplicate), then re-preview. */
+  function removeBatchLine(lineBarcode: string) {
+    restage(removeMatchingLine(stagedRef.current, lineBarcode));
   }
 
-  function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  /** Batch Photos — detect barcodes from each image, then stage them all at once. */
+  async function handleBatchFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
     e.target.value = '';
-    previewMutation.mutate(file);
+    if (files.length === 0) return;
+    if (!fromDistId) {
+      addToast('Pick a source distributor first', 'error');
+      return;
+    }
+    setRestaging(true);
+    const collected: string[] = [];
+    for (const file of files) {
+      try {
+        collected.push(...(await detectBarcodesFromImage(file)));
+      } catch {
+        // skip unreadable images
+      }
+    }
+    if (collected.length === 0) {
+      setRestaging(false);
+      addToast('No barcodes detected in those photos', 'error');
+      return;
+    }
+    await restage(collected.reduce((acc, b) => addBarcode(acc, b), stagedRef.current));
+  }
+
+  /** Import CSV/Excel — parse to barcodes server-side, then stage them. */
+  async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!fromDistId) {
+      addToast('Pick a source distributor first', 'error');
+      return;
+    }
+    setRestaging(true);
+    try {
+      const barcodes = await parseSpreadsheet(file);
+      if (barcodes.length === 0) {
+        setRestaging(false);
+        addToast('No barcodes found in file', 'error');
+        return;
+      }
+      await restage(barcodes.reduce((acc, b) => addBarcode(acc, b), stagedRef.current));
+    } catch (err) {
+      setRestaging(false);
+      addToast(err instanceof Error ? err.message : 'Failed to read file', 'error');
+    }
+  }
+
+  /** Manual Entry — paste a full QR/barcode string. */
+  async function handleManualQr() {
+    const trimmed = manualBarcode.trim();
+    if (!trimmed) return;
+    setManualBarcode('');
+    await restage(addBarcode(stagedRef.current, trimmed));
+  }
+
+  /** Manual Entry — type Item Number / Lot / Expiry; resolved via scanManual and
+   *  staged `qty` times (each unit is its own row). */
+  async function handleManualFields() {
+    const itemNumber = mItemNumber.trim();
+    const lot = mLot.trim();
+    const expDate = mExpDate.trim();
+    const qty = parseInt(mQty, 10);
+    if (!itemNumber || !lot || !expDate) {
+      addToast('Item Number, Lot Number, and Expiration Date are all required', 'error');
+      return;
+    }
+    if (!qty || qty < 1) {
+      addToast('Quantity must be at least 1', 'error');
+      return;
+    }
+    try {
+      const { parsed } = await scanManual({ itemNumber, lot, expDate });
+      const manualParsed: BatchLineParsed = {
+        gtin: parsed.gtin,
+        gtinShort: parsed.gtinShort,
+        lot: parsed.lot,
+        expDate: (parsed.expDate as unknown as string) ?? null,
+        udi: parsed.udi,
+        rawBarcode: parsed.rawBarcode,
+        productLabel: parsed.productLabel ?? '',
+      };
+      let next = stagedRef.current;
+      for (let i = 0; i < qty; i++) next = addManual(next, manualParsed);
+      setMItemNumber('');
+      setMLot('');
+      setMExpDate('');
+      setMQty('1');
+      setShowManual(false);
+      await restage(next);
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to add item', 'error');
+    }
   }
 
   function resetAll() {
@@ -267,9 +395,11 @@ export default function Transfer() {
     setNote('');
     setSelectedIds(new Set());
     setSavedTransfer(null);
+    setStaged([]);
     setBatchLines([]);
     setExcludedIds(new Set());
     setBlockedLines([]);
+    setShowManual(false);
   }
 
   function handlePrint() {
@@ -302,10 +432,10 @@ export default function Transfer() {
 
   const batchCounts = countByStatus(batchLines);
   const hasMissing = batchCounts.not_in_stock > 0;
-  const includedExcelCount = batchLines.filter((l) => isTransferable(l, excludedIds)).length;
+  const includedCount = batchLines.filter((l) => isTransferable(l, excludedIds)).length;
   const canReview =
-    (mode === 'pick' && selectedIds.size > 0 && toDistId) ||
-    (mode === 'excel' && includedExcelCount > 0 && toDistId);
+    (mode === 'pick' && selectedIds.size > 0 && !!toDistId) ||
+    (mode === 'manual' && includedCount > 0 && !!toDistId);
 
   return (
     <div className="mx-auto max-w-4xl lg:max-w-7xl">
@@ -315,7 +445,7 @@ export default function Transfer() {
         <h2 className="mb-4 text-xl font-bold text-gray-900">Transfer Inventory</h2>
 
         <HelpBanner storageKey="transfer">
-          Move multiple items between distributors in one batch. Select a source distributor, choose the items to move, then pick a destination.
+          Move items between distributors. Pick a source and destination, then either choose items from the list or — for a quick transfer — scan, photograph, paste, or type the items to move. Anything not in the source's stock is flagged so you can add it or skip it.
         </HelpBanner>
 
         {/* Mode toggle — only relevant on the select step. */}
@@ -329,6 +459,15 @@ export default function Transfer() {
               )}
             >
               Pick from list
+            </button>
+            <button
+              onClick={() => setMode('manual')}
+              className={cn(
+                'rounded-lg px-4 py-2 text-sm font-medium',
+                mode === 'manual' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900',
+              )}
+            >
+              Manual Transfer
             </button>
             <button
               onClick={() => setMode('excel')}
@@ -352,8 +491,11 @@ export default function Transfer() {
                   <select
                     value={fromDistId}
                     onChange={(e) => {
+                      // Source change invalidates matched ids — clear everything
+                      // that was resolved against the old source.
                       setFromDistId(e.target.value);
                       setSelectedIds(new Set());
+                      setStaged([]);
                       setBatchLines([]);
                       setExcludedIds(new Set());
                     }}
@@ -496,25 +638,181 @@ export default function Transfer() {
               </>
             )}
 
-            {/* EXCEL MODE — upload + per-row preview */}
+            {/* MANUAL TRANSFER MODE — Receive-style inputs feeding one staged list */}
+            {mode === 'manual' && (
+              <div className="space-y-4">
+                {!fromDistId ? (
+                  <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
+                    <p className="text-gray-500">Pick a source distributor to start adding items.</p>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl bg-white p-4 shadow-sm">
+                    <p className="mb-3 text-sm text-gray-500">
+                      Scan, photograph, paste, or type each item to move. Every item
+                      is checked against {fromDist?.name}'s stock — anything not there
+                      is flagged so you can add it to source or skip it.
+                    </p>
+
+                    <BarcodeScanner
+                      onResult={(barcode) => restage(addBarcode(stagedRef.current, barcode))}
+                      onError={() => setShowManual(true)}
+                    />
+
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      <Images size={18} />
+                      Batch Photos
+                    </button>
+                    <button
+                      onClick={() => setShowManual(!showManual)}
+                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      Manual Entry
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleBatchFiles}
+                      className="hidden"
+                    />
+
+                    {showManual && (
+                      <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <div className="mb-3 flex gap-2">
+                          <button
+                            onClick={() => setManualMode('qr')}
+                            className={cn(
+                              'flex-1 rounded-lg px-3 py-2 text-sm font-medium',
+                              manualMode === 'qr'
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-100',
+                            )}
+                          >
+                            Paste QR Code Data
+                          </button>
+                          <button
+                            onClick={() => setManualMode('fields')}
+                            className={cn(
+                              'flex-1 rounded-lg px-3 py-2 text-sm font-medium',
+                              manualMode === 'fields'
+                                ? 'bg-primary-600 text-white'
+                                : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-100',
+                            )}
+                          >
+                            Enter Item Info Manually
+                          </button>
+                        </div>
+
+                        {manualMode === 'qr' ? (
+                          <>
+                            <label className="mb-1 block text-xs font-medium text-gray-600">
+                              Paste or type the full QR / barcode string
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={manualBarcode}
+                                onChange={(e) => setManualBarcode(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleManualQr()}
+                                placeholder="(01)08880089459148(10)..."
+                                className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:border-primary-500 focus:outline-none"
+                              />
+                              <button
+                                onClick={handleManualQr}
+                                disabled={!manualBarcode.trim()}
+                                className="rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-gray-600">
+                                Item Number <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={mItemNumber}
+                                onChange={(e) => setMItemNumber(e.target.value)}
+                                placeholder="e.g. SO-SPFN-0180-10-25"
+                                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:border-primary-500 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-gray-600">
+                                Lot Number <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={mLot}
+                                onChange={(e) => setMLot(e.target.value)}
+                                placeholder="e.g. J250929-L021"
+                                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:border-primary-500 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-gray-600">
+                                Expiration Date <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="date"
+                                value={mExpDate}
+                                onChange={(e) => setMExpDate(e.target.value)}
+                                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-primary-500 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-gray-600">
+                                Quantity <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={mQty}
+                                onChange={(e) => setMQty(e.target.value)}
+                                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-primary-500 focus:outline-none"
+                              />
+                            </div>
+                            <button
+                              onClick={handleManualFields}
+                              className="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-700"
+                            >
+                              Add to Transfer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* IMPORT FROM EXCEL MODE — dedicated spreadsheet upload */}
             {mode === 'excel' && (
               <div className="space-y-4">
                 <div className="rounded-2xl bg-white p-4 shadow-sm">
                   <p className="mb-3 text-sm text-gray-500">
-                    Upload a CSV / Excel file with one barcode per row. Each item must
-                    already be in the source distributor's inventory; we'll flag any
-                    that aren't so you can add them or skip them.
+                    Upload a CSV / Excel file with one barcode per row. Each item
+                    must already be in {fromDist?.name || 'the source distributor'}'s
+                    inventory; we'll flag any that aren't so you can add them or skip.
                   </p>
                   <button
                     onClick={() => csvInputRef.current?.click()}
-                    disabled={!fromDistId || previewMutation.isPending}
+                    disabled={!fromDistId || restaging}
                     className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary-300 bg-primary-50 px-4 py-6 text-base font-semibold text-primary-700 hover:bg-primary-100 disabled:opacity-50"
                   >
                     <FileSpreadsheet size={22} />
-                    {previewMutation.isPending
+                    {restaging
                       ? 'Reading file…'
                       : batchLines.length > 0
-                        ? 'Upload a different file'
+                        ? 'Add another CSV / Excel file'
                         : 'Choose CSV / Excel file'}
                   </button>
                   <input
@@ -528,6 +826,18 @@ export default function Transfer() {
                     <p className="mt-2 text-xs text-amber-600">Pick a source distributor first.</p>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* SHARED staged preview — both Manual Transfer and Import from Excel */}
+            {(mode === 'manual' || mode === 'excel') && (
+              <div className="space-y-4">
+                {restaging && (
+                  <div className="flex items-center justify-center gap-2 py-2 text-sm text-gray-500">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
+                    Checking items against source…
+                  </div>
+                )}
 
                 {batchLines.length > 0 && (
                   <>
@@ -540,12 +850,18 @@ export default function Transfer() {
 
                     {hasMissing && (
                       <button
-                        onClick={() => addAllMissingMutation.mutate()}
-                        disabled={addAllMissingMutation.isPending}
+                        onClick={() =>
+                          addToSource(
+                            batchLines
+                              .filter((l) => l.status === 'not_in_stock' && l.parsed)
+                              .map((l) => l.parsed!),
+                          )
+                        }
+                        disabled={addingMissing}
                         className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
                       >
                         <Plus size={18} />
-                        {addAllMissingMutation.isPending
+                        {addingMissing
                           ? 'Adding…'
                           : `Add all ${batchCounts.not_in_stock} missing items to source & include`}
                       </button>
@@ -553,15 +869,15 @@ export default function Transfer() {
 
                     {/* Per-row list */}
                     <div className="space-y-2">
-                      {batchLines.map((line) => (
+                      {batchLines.map((line, i) => (
                         <BatchRow
-                          key={`${line.barcode}-${line.matchedItemId ?? 'x'}`}
+                          key={`${i}-${line.matchedItemId ?? line.barcode}`}
                           line={line}
                           excluded={!!line.matchedItemId && excludedIds.has(line.matchedItemId)}
                           onToggle={() => line.matchedItemId && toggleExclude(line.matchedItemId)}
-                          onAddMissing={() => addOneMissingMutation.mutate(line)}
+                          onAddMissing={() => line.parsed && addToSource([line.parsed])}
                           onRemove={() => removeBatchLine(line.barcode)}
-                          addPending={addOneMissingMutation.isPending}
+                          addPending={addingMissing}
                         />
                       ))}
                     </div>
@@ -577,7 +893,7 @@ export default function Transfer() {
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-4 text-base font-semibold text-white shadow-lg hover:bg-primary-700 transition-colors"
                 >
                   <ArrowRightLeft size={20} />
-                  Review Transfer ({mode === 'pick' ? selectedIds.size : includedExcelCount} items)
+                  Review Transfer ({mode === 'pick' ? selectedIds.size : includedCount} items)
                   <ChevronRight size={20} />
                 </button>
               </div>

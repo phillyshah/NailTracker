@@ -1,5 +1,14 @@
 # Changelog
 
+## v3.28 — 2026-06-06
+- **Transfer page redesigned to mirror the Receive experience, with a new "Manual Transfer" mode.** The mode toggle above the From/To selectors is now three tabs: **Pick from list | Manual Transfer | Import from Excel**. Pick-from-list and Import-from-Excel are unchanged (Excel keeps its own dedicated tab). Manual Transfer brings the Receive-style input cards to transfers — **Live Scan**, **Take Photo**, **Upload Photo**, **Batch Photos**, and **Manual Entry** (paste a QR/barcode string, or type Item Number / Lot / Expiry + quantity) — purpose-built for quick transfers of a few parts without a spreadsheet.
+  - **One unified staging list.** Every input (scan/photo/paste/typed fields/spreadsheet) becomes a staged entry; the whole list is re-checked against the **source** site's stock on every change and rendered as **Available / Not in stock / Error** rows. Re-previewing the full list (rather than incrementally) lets the server's per-request dedup resolve two identical scans to one Available + one Not-in-stock instead of both claiming the same unit.
+  - **Missing-item handling reused from Excel mode:** each *Not in stock* row has inline **"Add to source"** / **"Skip"**, plus an **"Add all missing to source & include"** shortcut. Removing a row drops only one copy of a duplicate.
+  - **One race-safe TRF record** for the whole staged batch, committed via `reassignItem(..., { expectedFromDistributorId })` — anything moved out of source between preview and commit is reported as skipped, never silently relocated.
+  - **Server:** `POST /api/transfers/preview-batch` now also accepts already-parsed `items[]` (for Manual Entry "fields", whose `rawBarcode` is a REF code that can't go through `parseGS1`); barcode and item inputs share one `claimed` set so they dedup against each other. Shared `matchAtSource` helper for both paths.
+  - **Client:** new pure, unit-tested `client/src/utils/transferStaging.ts` (`addBarcode` / `addManual` / `removeByKey` / `removeMatchingLine` / `toPreviewPayload`); `Transfer.tsx` select step rebuilt around it while the confirm/done steps, printed report, and `transferBatch` commit helpers are unchanged.
+  - New tests: `client/src/utils/transferStaging.test.ts`; extended `server/src/controllers/transfer.controller.test.ts` (parsed-item match / not-in-stock / missing-field error / cross-input dedup).
+
 ## v3.27 — 2026-06-04
 - **Fixed list truncation on the selection screens.** The server caps `/api/inventory` at 100 rows/request, so screens that requested `limit: 200` and rendered the result directly were silently showing only the first 100:
   - **Transfer → Pick from list** — only the first 100 of a distributor's items were selectable (the reported bug).
