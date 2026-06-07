@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router';
-import { Search, Filter, Download, RefreshCw, ChevronLeft, ChevronRight, X, ScanLine } from 'lucide-react';
+import { Download, RefreshCw, ChevronLeft, ChevronRight, X, ScanLine } from 'lucide-react';
 import { listInventory, reassignItem, type InventoryFilters } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { getExportUrl } from '../api/reports';
 import { ExpiryBadge } from '../components/ExpiryBadge';
+import { SearchBar } from '../components/SearchBar';
 import { SortableTh } from '../components/SortableTh';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -175,28 +176,20 @@ export default function Inventory() {
       </HelpBanner>
 
       {/* Search bar */}
-      <div className="mb-3 flex gap-2">
-        <div className="relative flex-1">
-          <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="Search item number, lot, or product..."
-            className="w-full rounded-xl border border-gray-300 py-3 pl-10 pr-4 text-base focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
-          />
-        </div>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={cn(
-            'rounded-xl border px-3 py-2.5',
-            showFilters ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-300 text-gray-600 hover:bg-gray-100',
-          )}
-        >
-          <Filter size={20} />
-        </button>
-      </div>
+      <SearchBar
+        className="mb-3"
+        value={search}
+        onChange={setSearch}
+        onSubmit={handleSearch}
+        onClear={() => {
+          setSearch('');
+          setFilters((prev) => ({ ...prev, search: undefined, page: 1 }));
+        }}
+        placeholder="Search item number, lot, or product..."
+        showFilterButton
+        filterActive={showFilters}
+        onToggleFilter={() => setShowFilters(!showFilters)}
+      />
 
       {/* Filters panel */}
       {showFilters && (

@@ -6,6 +6,8 @@ import { getDistributor } from '../api/distributors';
 import { listInventory, type InventoryFilters } from '../api/inventory';
 import { getExportUrl } from '../api/reports';
 import { ExpiryBadge } from '../components/ExpiryBadge';
+import { HelpBanner } from '../components/HelpBanner';
+import { SearchBar } from '../components/SearchBar';
 import { SortableTh } from '../components/SortableTh';
 
 export default function DistributorDetail() {
@@ -21,6 +23,9 @@ export default function DistributorDetail() {
     sortBy: 'productLabel',
     sortDir: 'asc',
   });
+  // Search box text (committed to filters on Enter — server-side, scoped to this
+  // distributor, mirroring the Inventory page).
+  const [search, setSearch] = useState('');
 
   const { data: distributor } = useQuery({
     queryKey: ['distributor', id],
@@ -84,6 +89,10 @@ export default function DistributorDetail() {
         <ArrowLeft size={20} /> Back
       </button>
 
+      <HelpBanner storageKey="distributor-detail">
+        This distributor's assigned stock. Use the search box to find an item by item number, lot, or product, tap a column header to sort, or Download Excel for a full export.
+      </HelpBanner>
+
       {/* Distributor info */}
       <div className="rounded-2xl bg-white p-5 shadow-sm mb-4">
         <h2 className="text-xl font-bold text-gray-900">{distributor.name}</h2>
@@ -138,8 +147,23 @@ export default function DistributorDetail() {
         <h3 className="mb-3 text-lg font-bold text-gray-900">
           Assigned Items ({totalItems})
         </h3>
+
+        <SearchBar
+          className="mb-3"
+          value={search}
+          onChange={setSearch}
+          onSubmit={() => setFilters((p) => ({ ...p, search: search.trim() || undefined, page: 1 }))}
+          onClear={() => {
+            setSearch('');
+            setFilters((p) => ({ ...p, search: undefined, page: 1 }));
+          }}
+          placeholder="Search item number, lot, or product..."
+        />
+
         {items.length === 0 ? (
-          <p className="text-sm text-gray-500">No items assigned to this distributor</p>
+          <p className="text-sm text-gray-500">
+            {filters.search ? `No items match "${filters.search}"` : 'No items assigned to this distributor'}
+          </p>
         ) : (
           <>
             {/* Mobile cards */}

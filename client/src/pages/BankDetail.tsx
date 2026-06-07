@@ -6,9 +6,12 @@ import { getBank, addItemsToBank, removeItemsFromBank, transferBankToDistributor
 import { listAllInventory } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { ExpiryBadge } from '../components/ExpiryBadge';
+import { HelpBanner } from '../components/HelpBanner';
+import { SearchBar } from '../components/SearchBar';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import { cn } from '../utils/cn';
+import { matchesItemSearch } from '../utils/itemSearch';
 
 export default function BankDetail() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +20,7 @@ export default function BankDetail() {
   const { toasts, addToast, removeToast } = useToast();
   const [showAddItems, setShowAddItems] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pickerSearch, setPickerSearch] = useState('');
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferDistId, setTransferDistId] = useState('');
 
@@ -36,6 +40,7 @@ export default function BankDetail() {
     enabled: showAddItems && !!bank,
   });
   const availableItems = (availableData ?? []).filter((i) => !i.bankId);
+  const visibleAvailable = availableItems.filter((i) => matchesItemSearch(i, pickerSearch));
 
   const addMutation = useMutation({
     mutationFn: () => addItemsToBank(id!, [...selectedIds]),
@@ -43,6 +48,7 @@ export default function BankDetail() {
       addToast(`${data.updated} items added to bank`, 'success');
       setShowAddItems(false);
       setSelectedIds(new Set());
+      setPickerSearch('');
       queryClient.invalidateQueries({ queryKey: ['bank', id] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
@@ -93,6 +99,10 @@ export default function BankDetail() {
       <button onClick={() => navigate('/banks')} className="mb-4 flex items-center gap-2 text-base text-primary-600 hover:text-primary-700">
         <ArrowLeft size={20} /> Back to Banks
       </button>
+
+      <HelpBanner storageKey="bank-detail">
+        A bank is a named group of items at this distributor. Use <strong>Add Items</strong> to put stock into the bank, or <strong>Move Bank</strong> to transfer the whole group to another distributor at once.
+      </HelpBanner>
 
       {/* Bank header */}
       <div className="rounded-2xl bg-white p-5 shadow-sm mb-4">
@@ -156,16 +166,38 @@ export default function BankDetail() {
 
       {/* Add items modal */}
       {showAddItems && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => setShowAddItems(false)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => { setShowAddItems(false); setPickerSearch(''); }}>
           <div className="w-full sm:max-w-lg max-h-[80vh] rounded-t-3xl sm:rounded-2xl bg-white p-5 shadow-xl overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-gray-900 mb-3">Add Items to {bank.name}</h3>
-            <p className="text-sm text-gray-500 mb-3">Select items to add ({selectedIds.size} selected)</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Add Items to {bank.name}</h3>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm text-gray-500">{selectedIds.size} selected</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedIds((prev) => new Set([...prev, ...visibleAvailable.map((i) => i.id)]))}
+                  className="text-sm text-primary-600 hover:underline"
+                >
+                  Select All
+                </button>
+                <button onClick={() => setSelectedIds(new Set())} className="text-sm text-gray-500 hover:underline">Clear</button>
+              </div>
+            </div>
+
+            {availableItems.length > 0 && (
+              <SearchBar
+                className="mb-3"
+                value={pickerSearch}
+                onChange={setPickerSearch}
+                placeholder="Search item number, lot, or product..."
+              />
+            )}
 
             <div className="flex-1 overflow-y-auto space-y-2 mb-3">
               {availableItems.length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-4">All items are already in a bank</p>
+              ) : visibleAvailable.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">No items match "{pickerSearch}"</p>
               ) : (
-                availableItems.map((item) => (
+                visibleAvailable.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => {
@@ -189,7 +221,7 @@ export default function BankDetail() {
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => setShowAddItems(false)} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100">Cancel</button>
+              <button onClick={() => { setShowAddItems(false); setPickerSearch(''); }} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100">Cancel</button>
               <button
                 onClick={() => addMutation.mutate()}
                 disabled={selectedIds.size === 0 || addMutation.isPending}
