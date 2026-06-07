@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.29 — 2026-06-07
+- **Consistent quick-search across the item-selection surfaces.** Lifted the Inventory search box into a shared `client/src/components/SearchBar.tsx` and rolled it out to: Transfer **Pick from list**, the **Manual Transfer** staged list, the Bank **Add Items** picker (instant in-browser filtering of the already-loaded full sets), and **Distributor detail** (server-side, reusing the existing `/inventory` `search` param, scoped to the distributor). Inventory now uses the same shared component (single source of truth; added an inline clear button).
+- **Pure, unit-tested matcher** `client/src/utils/itemSearch.ts` (`textMatch`, `matchesItemSearch`) covers item number/REF, lot, product, UDI, gtinShort — matching the fields the server search covers — with `itemSearch.test.ts` (11 cases). Follows the repo's pure-helper test convention (no React-component test infra exists).
+- **Pick/Bank Select-All semantics:** "Select All" now selects the *currently visible (filtered)* rows and merges into the existing selection, so you can search → select → search → select; "Clear" clears all. Added Select All/Clear to the Bank picker.
+- **Consistency:** added the dismissible `HelpBanner` to Bank detail, Distributor detail, and the Distributors list (the pages that were missing it).
+- Counters and "Add all missing" in Manual Transfer continue to act on the full staged set; search only narrows what's displayed.
+
 ## v3.28 — 2026-06-06
 - **Transfer page redesigned to mirror the Receive experience, with a new "Manual Transfer" mode.** The mode toggle above the From/To selectors is now three tabs: **Pick from list | Manual Transfer | Import from Excel**. Pick-from-list and Import-from-Excel are unchanged (Excel keeps its own dedicated tab). Manual Transfer brings the Receive-style input cards to transfers — **Live Scan**, **Take Photo**, **Upload Photo**, **Batch Photos**, and **Manual Entry** (paste a QR/barcode string, or type Item Number / Lot / Expiry + quantity) — purpose-built for quick transfers of a few parts without a spreadsheet.
   - **One unified staging list.** Every input (scan/photo/paste/typed fields/spreadsheet) becomes a staged entry; the whole list is re-checked against the **source** site's stock on every change and rendered as **Available / Not in stock / Error** rows. Re-previewing the full list (rather than incrementally) lets the server's per-request dedup resolve two identical scans to one Available + one Not-in-stock instead of both claiming the same unit.

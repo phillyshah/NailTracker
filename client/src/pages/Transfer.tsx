@@ -30,6 +30,7 @@ import {
 } from '../api/transfers';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { ExpiryBadge } from '../components/ExpiryBadge';
+import { SearchBar } from '../components/SearchBar';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import { APP_VERSION } from '../version';
@@ -38,6 +39,7 @@ import { HelpBanner } from '../components/HelpBanner';
 import { formatExpiry } from '../utils/expiry';
 import { detectBarcodesFromImage } from '../utils/barcodeDetector';
 import { countByStatus, buildTransferItems, isTransferable } from '../utils/transferBatch';
+import { matchesItemSearch } from '../utils/itemSearch';
 import {
   addBarcode,
   addManual,
@@ -97,6 +99,10 @@ export default function Transfer() {
   const [mExpDate, setMExpDate] = useState('');
   const [mQty, setMQty] = useState('1');
 
+  // Quick-find within the (often long) pick-from-list and the staged list.
+  const [pickSearch, setPickSearch] = useState('');
+  const [stageSearch, setStageSearch] = useState('');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
 
@@ -114,6 +120,8 @@ export default function Transfer() {
   });
 
   const items = inventoryData ?? [];
+  // Pick-mode list narrowed by the search box (instant, in-browser).
+  const visiblePickItems = items.filter((i) => matchesItemSearch(i, pickSearch));
 
   /** Update the staged list (state + ref in lockstep). */
   function setStaged(next: StagedInput[]) {
@@ -269,7 +277,17 @@ export default function Transfer() {
   }
 
   function selectAll() {
-    setSelectedIds(new Set(items.map((i) => i.id)));
+    // Select the currently visible (filtered) items, merged into any existing
+    // selection — so users can search → select → search again → select more.
+    setSelectedIds((prev) => new Set([...prev, ...visiblePickItems.map((i) => i.id)]));
+  }
+
+  function deselectVisible() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const i of visiblePickItems) next.delete(i.id);
+      return next;
+    });
   }
 
   function selectNone() {
@@ -400,6 +418,8 @@ export default function Transfer() {
     setExcludedIds(new Set());
     setBlockedLines([]);
     setShowManual(false);
+    setPickSearch('');
+    setStageSearch('');
   }
 
   function handlePrint() {
@@ -498,6 +518,8 @@ export default function Transfer() {
                       setStaged([]);
                       setBatchLines([]);
                       setExcludedIds(new Set());
+                      setPickSearch('');
+                      setStageSearch('');
                     }}
                     className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base bg-white focus:border-primary-500 focus:outline-none"
                   >
@@ -540,18 +562,27 @@ export default function Transfer() {
               </label>
             </div>
 
-            {/* PICK MODE — unchanged item-list flow */}
+            {/* PICK MODE — item-list flow with quick-find search */}
             {mode === 'pick' && fromDistId && (
               <>
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-semibold text-gray-800">
-                    Items at {fromDist?.name} ({items.length})
+                    Items at {fromDist?.name} ({visiblePickItems.length}
+                    {pickSearch && visiblePickItems.length !== items.length ? ` of ${items.length}` : ''})
                   </h3>
                   <div className="flex gap-2">
                     <button onClick={selectAll} className="text-sm text-primary-600 hover:underline">Select All</button>
                     <button onClick={selectNone} className="text-sm text-gray-500 hover:underline">Clear</button>
                   </div>
                 </div>
+
+                {items.length > 0 && (
+                  <SearchBar
+                    value={pickSearch}
+                    onChange={setPickSearch}
+                    placeholder="Search item number, lot, or product..."
+                  />
+                )}
 
                 {loadingItems ? (
                   <div className="flex justify-center py-8">
@@ -561,10 +592,14 @@ export default function Transfer() {
                   <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
                     <p className="text-gray-500">No items at this distributor</p>
                   </div>
+                ) : visiblePickItems.length === 0 ? (
+                  <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
+                    <p className="text-gray-500">No items match "{pickSearch}"</p>
+                  </div>
                 ) : (
                   <>
                     <div className="space-y-2 lg:hidden">
-                      {items.map((item) => (
+                      {visiblePickItems.map((item) => (
                         <div
                           key={item.id}
                           onClick={() => toggleItem(item.id)}
@@ -600,8 +635,8 @@ export default function Transfer() {
                             <th className="px-4 py-3 w-10">
                               <input
                                 type="checkbox"
-                                checked={selectedIds.size === items.length && items.length > 0}
-                                onChange={(e) => e.target.checked ? selectAll() : selectNone()}
+                                checked={visiblePickItems.length > 0 && visiblePickItems.every((i) => selectedIds.has(i.id))}
+                                onChange={(e) => e.target.checked ? selectAll() : deselectVisible()}
                                 className="h-4 w-4 rounded border-gray-300"
                               />
                             </th>
@@ -612,7 +647,7 @@ export default function Transfer() {
                           </tr>
                         </thead>
                         <tbody>
-                          {items.map((item) => (
+                          {visiblePickItems.map((item) => (
                             <tr
                               key={item.id}
                               onClick={() => toggleItem(item.id)}
@@ -867,19 +902,41 @@ export default function Transfer() {
                       </button>
                     )}
 
+                    {/* Quick-find within the staged list (counters above stay
+                        on the full set; this only narrows what's shown). */}
+                    {batchLines.length > 5 && (
+                      <SearchBar
+                        value={stageSearch}
+                        onChange={setStageSearch}
+                        placeholder="Search staged items..."
+                      />
+                    )}
+
                     {/* Per-row list */}
                     <div className="space-y-2">
-                      {batchLines.map((line, i) => (
-                        <BatchRow
-                          key={`${i}-${line.matchedItemId ?? line.barcode}`}
-                          line={line}
-                          excluded={!!line.matchedItemId && excludedIds.has(line.matchedItemId)}
-                          onToggle={() => line.matchedItemId && toggleExclude(line.matchedItemId)}
-                          onAddMissing={() => line.parsed && addToSource([line.parsed])}
-                          onRemove={() => removeBatchLine(line.barcode)}
-                          addPending={addingMissing}
-                        />
-                      ))}
+                      {batchLines
+                        .filter((line) =>
+                          matchesItemSearch(
+                            {
+                              itemNumber: line.itemNumber,
+                              lot: line.lot,
+                              productLabel: line.productLabel,
+                              udi: line.barcode,
+                            },
+                            stageSearch,
+                          ),
+                        )
+                        .map((line, i) => (
+                          <BatchRow
+                            key={`${i}-${line.matchedItemId ?? line.barcode}`}
+                            line={line}
+                            excluded={!!line.matchedItemId && excludedIds.has(line.matchedItemId)}
+                            onToggle={() => line.matchedItemId && toggleExclude(line.matchedItemId)}
+                            onAddMissing={() => line.parsed && addToSource([line.parsed])}
+                            onRemove={() => removeBatchLine(line.barcode)}
+                            addPending={addingMissing}
+                          />
+                        ))}
                     </div>
                   </>
                 )}

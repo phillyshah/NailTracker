@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.29',
+    date: '2026-06-07',
+    changes: [
+      'Quick-search is now everywhere you pick items: Transfer "Pick from list", the Manual Transfer staged list, and the Bank "Add Items" picker all have the same search box — type an item number, lot, or product to narrow a long list instantly',
+      'Distributor detail pages now have a search box too, so you can find an item within a site without paging through everything',
+      'Added the dismissible help banner to the Bank, Distributor detail, and Distributors pages for consistent guidance',
+    ],
+  },
+  {
     version: '3.28',
     date: '2026-06-06',
     changes: [
@@ -37,14 +46,6 @@ export const changelog: ChangelogEntry[] = [
       'New Transfer mode: Import from Excel — upload a CSV/Excel file of barcodes and move many items between distributors at once',
       'Each barcode is checked against the source distributor first; items not in stock are flagged with one-tap "Add to source & include" or "Skip", plus an "Add all missing" shortcut',
       'Race-safe commit: if an item is moved out of source between preview and confirm, it\'s skipped and reported instead of silently relocated',
-    ],
-  },
-  {
-    version: '3.24',
-    date: '2026-06-03',
-    changes: [
-      'Inventory now remembers your place: "Back to Inventory" returns you to the same page, sort, and search instead of jumping back to page 1',
-      'Your current Inventory view (page, sort, filters, search) is kept in the address bar, so it survives a refresh and can be bookmarked or shared',
     ],
   },
 ];

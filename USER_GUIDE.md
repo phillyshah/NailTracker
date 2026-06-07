@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.28** | Summa Orthopaedics Inventory Management System
+**Version 3.29** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -305,11 +305,13 @@ Use this when you need to officially move items from one distributor to another 
 
 1. Under **From**, choose where the items are coming from
 2. Under **To**, choose where they're going
-3. Check the boxes next to the items you want to move. Tap **Select All** if you want everything.
+3. Use the **search box** to quickly narrow the list by item number, lot, or product name, then check the boxes next to the items you want to move. Tap **Select All** to select everything currently shown.
 4. Add an optional note (e.g., "Returning expired stock" or "Filling new rep order")
 5. Tap **Review Transfer**, then **Confirm Transfer**
 
 The system creates a transfer record and updates every item's location automatically.
+
+> **Quick-find everywhere:** the same search box appears wherever you pick items — the Manual Transfer staged list, the Bank "Add Items" picker, and each Distributor's detail page — so you can always type a few characters to jump to what you need.
 
 > **Single-item reassignment also counts:** If you move one item from its detail page using the Reassign button, a transfer record is created for that too — so every move is always tracked.
 
