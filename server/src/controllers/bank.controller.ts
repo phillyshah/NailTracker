@@ -74,11 +74,16 @@ export async function update(req: Request, res: Response) {
   try {
     const id = str(req.params.id);
     const { name, description, distributorId } = req.body;
+    // A rename can't blank out the name — reject an empty/whitespace name
+    // rather than persisting an unnamed bank.
+    if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+      return error(res, 'Bank name is required');
+    }
     const bank = await prisma.bank.update({
       where: { id },
       data: {
         ...(name !== undefined && { name: name.trim() }),
-        ...(description !== undefined && { description }),
+        ...(description !== undefined && { description: description?.trim() || null }),
         ...(distributorId !== undefined && { distributorId: distributorId || null }),
       },
     });

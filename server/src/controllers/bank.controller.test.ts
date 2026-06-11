@@ -42,7 +42,7 @@ vi.mock('../utils/prisma.js', () => ({
   },
 }));
 
-import { transferBank, addItems } from './bank.controller.js';
+import { transferBank, addItems, update } from './bank.controller.js';
 
 function makeRes() {
   const res: Record<string, ReturnType<typeof vi.fn>> = {};
@@ -197,5 +197,55 @@ describe('addItems', () => {
     const { res, promise } = call(addItems, 'bank-1', {});
     await promise;
     expect(res.status).toHaveBeenCalledWith(400);
+  });
+});
+
+describe('update (rename / edit description)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('renames a bank and updates its description', async () => {
+    bankUpdateMock.mockResolvedValue({ id: 'bank-1', name: 'Trauma Cart A', description: 'Left OR' });
+
+    const { res, promise } = call(update, 'bank-1', { name: '  Trauma Cart A  ', description: '  Left OR  ' });
+    await promise;
+
+    expect(bankUpdateMock).toHaveBeenCalledTimes(1);
+    const args = bankUpdateMock.mock.calls[0][0];
+    expect(args.where.id).toBe('bank-1');
+    expect(args.data.name).toBe('Trauma Cart A'); // trimmed
+    expect(args.data.description).toBe('Left OR'); // trimmed
+  });
+
+  it('clears the description when sent blank', async () => {
+    bankUpdateMock.mockResolvedValue({ id: 'bank-1', name: 'Bank', description: null });
+
+    const { promise } = call(update, 'bank-1', { name: 'Bank', description: '   ' });
+    await promise;
+
+    expect(bankUpdateMock.mock.calls[0][0].data.description).toBeNull();
+  });
+
+  it('rejects an empty/whitespace name without touching the DB', async () => {
+    const { res, promise } = call(update, 'bank-1', { name: '   ' });
+    await promise;
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(bankUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it('404s on a missing bank', async () => {
+    bankUpdateMock.mockRejectedValue({ code: 'P2025' });
+    const { res, promise } = call(update, 'nope', { name: 'X' });
+    await promise;
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it('rejects a duplicate name (unique constraint)', async () => {
+    bankUpdateMock.mockRejectedValue({ code: 'P2002' });
+    const { res, promise } = call(update, 'bank-1', { name: 'Existing' });
+    await promise;
+    expect(res.status).toHaveBeenCalledWith(400);
+    const payload = res.json.mock.calls[0][0] as { error: string };
+    expect(payload.error).toContain('already exists');
   });
 });
