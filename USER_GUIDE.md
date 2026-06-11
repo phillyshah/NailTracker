@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.29** | Summa Orthopaedics Inventory Management System
+**Version 3.31** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -266,6 +266,16 @@ A "bank" is a named group of items that belong together — for example, a kit t
 2. Give it a name (e.g., "Smith - General Hospital Kit") and an optional description
 3. Select which distributor it belongs to
 4. Tap **Create**
+
+**Renaming a bank or editing its description:**
+
+You can change a bank's name and description at any time so they match the terminology you use in real life.
+
+1. Tap **Edit** — either on the bank's card in the Banks list, or in the header on the bank's own page
+2. Update the name and/or description
+3. Tap **Save Changes**
+
+The new name appears everywhere immediately. (Renaming only changes the label — the items in the bank are unaffected.)
 
 **Adding items to a bank:**
 

@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.31',
+    date: '2026-06-11',
+    changes: [
+      'You can now rename a bank and edit its description at any time — tap "Edit" on a bank (in the Banks list or on the bank\'s page) to match the names you use in real life',
+    ],
+  },
+  {
     version: '3.30',
     date: '2026-06-08',
     changes: [
@@ -39,14 +46,6 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-04',
     changes: [
       'Fixed: Transfer (Pick from list) and the bank "add items" picker now show ALL of a distributor\'s items, not just the first 100 — so you can select from the full list even with thousands in stock',
-    ],
-  },
-  {
-    version: '3.26',
-    date: '2026-06-03',
-    changes: [
-      'Repair Barcodes (admin) now walks you through damaged items one at a time, showing the old vs. corrected lot and expiry — repair or skip each, like Find & Replace',
-      'Includes a "Repair all remaining" shortcut to fix the rest in one tap',
     ],
   },
 ];

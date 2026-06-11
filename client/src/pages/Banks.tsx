@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { Plus, Boxes, Trash2, ArrowRightLeft, ChevronRight } from 'lucide-react';
-import { listBanks, createBank, deleteBank, transferBankToDistributor } from '../api/banks';
+import { Plus, Boxes, Trash2, ArrowRightLeft, ChevronRight, Pencil } from 'lucide-react';
+import { listBanks, createBank, updateBank, deleteBank, transferBankToDistributor } from '../api/banks';
 import { listDistributors } from '../api/distributors';
 import { HelpBanner } from '../components/HelpBanner';
 import { ToastContainer } from '../components/Toast';
@@ -18,6 +18,9 @@ export default function Banks() {
   const [newDistId, setNewDistId] = useState('');
   const [transferBankId, setTransferBankId] = useState('');
   const [transferDistId, setTransferDistId] = useState('');
+  const [editBankId, setEditBankId] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
 
   const { data: banks = [], isLoading } = useQuery({ queryKey: ['banks'], queryFn: listBanks });
   const { data: distributors = [] } = useQuery({ queryKey: ['distributors'], queryFn: listDistributors });
@@ -39,6 +42,16 @@ export default function Banks() {
     mutationFn: (id: string) => deleteBank(id),
     onSuccess: () => {
       addToast('Bank deleted', 'success');
+      queryClient.invalidateQueries({ queryKey: ['banks'] });
+    },
+    onError: (err: Error) => addToast(err.message, 'error'),
+  });
+
+  const editMutation = useMutation({
+    mutationFn: () => updateBank(editBankId, { name: editName.trim(), description: editDesc.trim() || undefined }),
+    onSuccess: () => {
+      addToast('Bank updated', 'success');
+      setEditBankId('');
       queryClient.invalidateQueries({ queryKey: ['banks'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
@@ -174,6 +187,17 @@ export default function Banks() {
                   <ArrowRightLeft size={16} /> Move Bank
                 </button>
                 <button
+                  onClick={() => {
+                    setEditBankId(bank.id);
+                    setEditName(bank.name);
+                    setEditDesc(bank.description || '');
+                  }}
+                  className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  title="Rename or edit description"
+                >
+                  <Pencil size={16} /> Edit
+                </button>
+                <button
                   onClick={() => navigate(`/banks/${bank.id}`)}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary-600 px-3 py-2 text-sm font-semibold text-white hover:bg-primary-700"
                 >
@@ -192,6 +216,42 @@ export default function Banks() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Edit bank modal */}
+      {editBankId && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => setEditBankId('')}>
+          <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Edit Bank</h3>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Bank name (e.g., Trauma Cart A, Case 47)"
+              className="mb-3 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+              autoFocus
+            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <input
+              type="text"
+              value={editDesc}
+              onChange={(e) => setEditDesc(e.target.value)}
+              placeholder="Description (optional)"
+              className="mb-4 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setEditBankId('')} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100">Cancel</button>
+              <button
+                onClick={() => editMutation.mutate()}
+                disabled={!editName.trim() || editMutation.isPending}
+                className="flex-1 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {editMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

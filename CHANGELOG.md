@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.31 — 2026-06-11
+Banks can now be renamed and re-described after creation, so their names match the terminology used on the floor.
+
+- **Edit a bank's name and description any time.** Added an **Edit** affordance in two places: each card in the Banks list and the header of a bank's detail page. Both open a modal pre-filled with the current name/description; saving calls the existing `PATCH /api/banks/:id`. Previously name and description could only be set at creation, with no way to correct a typo or adopt a real-world label.
+- **Server `update` hardened.** A rename can no longer blank out the name (empty/whitespace → **400 "Bank name is required"**, matching `create`); descriptions are trimmed and an all-whitespace description is stored as `null` (clears it). Existing duplicate-name (P2002 → 400) and missing-bank (P2025 → 404) handling unchanged.
+- Both edit mutations invalidate `banks` (and `bank` on the detail page) so the new name shows immediately everywhere.
+- New tests in `server/src/controllers/bank.controller.test.ts` (5): rename trims name + description; blank description clears to null; empty name → 400 with no DB write; missing bank → 404; duplicate name → 400. Server suite now 123 tests.
+
 ## v3.30 — 2026-06-08
 Production bug-fix release for the Banks feature (reported: "Move Bank says items are moving but they don't move"; "Add Items shows nothing selectable").
 
