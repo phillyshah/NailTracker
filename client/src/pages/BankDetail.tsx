@@ -43,7 +43,7 @@ export default function BankDetail() {
   const visibleAvailable = availableItems.filter((i) => matchesItemSearch(i, pickerSearch));
 
   const addMutation = useMutation({
-    mutationFn: () => addItemsToBank(id!, [...selectedIds]),
+    mutationFn: () => addItemsToBank(id!, { itemIds: [...selectedIds] }),
     onSuccess: (data) => {
       addToast(`${data.updated} items added to bank`, 'success');
       setShowAddItems(false);
@@ -66,10 +66,16 @@ export default function BankDetail() {
   const transferMutation = useMutation({
     mutationFn: () => transferBankToDistributor(id!, transferDistId),
     onSuccess: (data) => {
-      addToast(`${data.transferred} items moved`, 'success');
+      addToast(
+        `${data.transferred} items moved to ${data.toDistributorName}${data.transferId ? ` — ${data.transferId}` : ''}`,
+        'success',
+      );
       setShowTransfer(false);
+      setTransferDistId('');
       queryClient.invalidateQueries({ queryKey: ['bank', id] });
+      queryClient.invalidateQueries({ queryKey: ['banks'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-all'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
@@ -125,7 +131,9 @@ export default function BankDetail() {
           <button
             onClick={() => {
               setShowTransfer(true);
-              setTransferDistId(bank.distributorId || '');
+              // Start empty — never preselect the current distributor, so the
+              // user must actively choose a real destination.
+              setTransferDistId('');
             }}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50"
           >
@@ -193,7 +201,11 @@ export default function BankDetail() {
 
             <div className="flex-1 overflow-y-auto space-y-2 mb-3">
               {availableItems.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">All items are already in a bank</p>
+                <p className="text-sm text-gray-500 text-center py-4">
+                  {bank.distributorId
+                    ? `No items available to add — every item at ${bank.distributor?.name} is already in a bank. Receive or transfer stock into ${bank.distributor?.name} first, then add it here.`
+                    : 'No items available to add — every item is already in a bank.'}
+                </p>
               ) : visibleAvailable.length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-4">No items match "{pickerSearch}"</p>
               ) : (
@@ -239,16 +251,21 @@ export default function BankDetail() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => setShowTransfer(false)}>
           <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900 mb-3">Move Bank to Distributor</h3>
-            <p className="text-sm text-gray-500 mb-3">All {bankItems.length} items will be moved.</p>
+            <p className="text-sm text-gray-500 mb-3">
+              All {bankItems.length} items will move from{' '}
+              <strong>{bank.distributor?.name || 'Unassigned'}</strong> to the destination you pick.
+            </p>
             <select
               value={transferDistId}
               onChange={(e) => setTransferDistId(e.target.value)}
               className="mb-4 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base bg-white focus:border-primary-500 focus:outline-none"
             >
-              <option value="">Select distributor...</option>
-              {distributors.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
+              <option value="">Select destination...</option>
+              {distributors
+                .filter((d) => d.id !== bank.distributorId)
+                .map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
             </select>
             <div className="flex gap-3">
               <button onClick={() => setShowTransfer(false)} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100">Cancel</button>
