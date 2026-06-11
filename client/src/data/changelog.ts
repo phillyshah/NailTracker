@@ -6,6 +6,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.30',
+    date: '2026-06-08',
+    changes: [
+      'Fixed: Move Bank could silently do nothing — the destination dropdown preselected the bank\'s CURRENT site, so "moving" it there reported success without moving anything. The dropdown now starts empty and only offers OTHER sites, and the server rejects same-site moves',
+      'Bank moves are now all-or-nothing (no more half-moved banks) and create a transfer record (TRF-…) you can verify under Reports → Transfer History',
+      'Fixed: "Assign received items to a bank" on the Receive page was silently assigning 0 items',
+      'The Bank "Add Items" picker now explains when it\'s empty (e.g. every item at that site is already in a bank) instead of showing a blank list',
+    ],
+  },
+  {
     version: '3.29',
     date: '2026-06-07',
     changes: [
@@ -37,15 +47,6 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       'Repair Barcodes (admin) now walks you through damaged items one at a time, showing the old vs. corrected lot and expiry — repair or skip each, like Find & Replace',
       'Includes a "Repair all remaining" shortcut to fix the rest in one tap',
-    ],
-  },
-  {
-    version: '3.25',
-    date: '2026-06-03',
-    changes: [
-      'New Transfer mode: Import from Excel — upload a CSV/Excel file of barcodes and move many items between distributors at once',
-      'Each barcode is checked against the source distributor first; items not in stock are flagged with one-tap "Add to source & include" or "Skip", plus an "Add all missing" shortcut',
-      'Race-safe commit: if an item is moved out of source between preview and confirm, it\'s skipped and reported instead of silently relocated',
     ],
   },
 ];

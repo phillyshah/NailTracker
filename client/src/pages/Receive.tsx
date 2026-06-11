@@ -526,7 +526,7 @@ export default function Receive() {
                     const udis = receivedItems.filter((i) => i.status === 'new' && i.parsed).map((i) => i.parsed.udi);
                     if (udis.length === 0) return;
                     try {
-                      const result = await addItemsToBank(selectedBankId, udis);
+                      const result = await addItemsToBank(selectedBankId, { udis });
                       addToast(`${result.updated} items added to bank`, 'success');
                       setShowBankAssign(false);
                       setSelectedBankId('');

@@ -7,8 +7,9 @@ import { pickFifo } from '../utils/usageMatch.js';
 
 /**
  * Generate a transfer ID: TRF-YYYYMMDD-XXXX (sequential per day).
+ * Exported for reuse by bank moves so they get the same audit trail.
  */
-async function generateTransferId(): Promise<string> {
+export async function generateTransferId(): Promise<string> {
   const today = new Date();
   const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
   const prefix = `TRF-${dateStr}`;
