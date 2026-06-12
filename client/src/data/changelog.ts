@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.36',
+    date: '2026-06-12',
+    changes: [
+      'Usage now reads implant stickers that have no barcode: use Take Photo or Upload Photo and the app reads the item number, lot, and expiry off the printed label — and you can capture several stickers in one photo',
+      'If a label won\'t read, the manual entry now takes the item number, lot, and expiry straight off the sticker instead of asking for a barcode',
+    ],
+  },
+  {
     version: '3.35',
     date: '2026-06-12',
     changes: [
@@ -34,13 +42,6 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-12',
     changes: [
       'New TrackerLabs section (admins only) — a clearly-labeled space for features that are still in testing. The first experiments, Par Levels & Reorder and Cycle Count, are arriving here shortly',
-    ],
-  },
-  {
-    version: '3.31',
-    date: '2026-06-11',
-    changes: [
-      'You can now rename a bank and edit its description at any time — tap "Edit" on a bank (in the Banks list or on the bank\'s page) to match the names you use in real life',
     ],
   },
 ];

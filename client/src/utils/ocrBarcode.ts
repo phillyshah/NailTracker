@@ -1,44 +1,77 @@
 import Tesseract from 'tesseract.js';
+import { refToGtinShort, gtinShortToFullGtin } from './gtin-map';
 
 /**
  * Extract GS1-128 barcode text from an image using OCR.
  * Preprocesses the image for higher contrast, then runs Tesseract OCR
  * and tries multiple parsing strategies on the result.
+ *
+ * Returns the FIRST barcode found (back-compat). Use extractAllBarcodesText
+ * when an image may contain several labels.
  */
 export async function extractBarcodeText(imageSource: File | Blob | string): Promise<string | null> {
+  const all = await extractAllBarcodesText(imageSource);
+  return all[0] ?? null;
+}
+
+/**
+ * Extract EVERY label found in an image via OCR. Implant stickers on a case
+ * usage sheet have no scannable barcode — only printed text (REF / LOT / expiry)
+ * — and a single photo often holds several stickers, so we read all of them.
+ */
+export async function extractAllBarcodesText(
+  imageSource: File | Blob | string,
+): Promise<string[]> {
   try {
-    // Preprocess image for better OCR accuracy
-    const processed = imageSource instanceof Blob ? await preprocessForOCR(imageSource) : imageSource;
+    const text = await runOCR(imageSource);
+    if (!text) return [];
 
-    // Run OCR with a timeout
-    const result = await Promise.race([
-      Tesseract.recognize(processed, 'eng', {
-        logger: () => {},
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('OCR timeout')), 15000),
-      ),
-    ]);
-
-    const text = result.data.text;
-    console.log('[OCR] Raw text extracted:', JSON.stringify(text));
-
-    if (!text || text.trim().length < 5) {
-      console.warn('[OCR] Extracted text too short or empty');
-      return null;
+    // Preferred: Summa REF codes (alphanumeric, e.g. SO-S50I-SO-044-T), one per
+    // sticker, mapped to their GTIN — handles the multi-label usage sheets.
+    const labels = parseLabelsFromText(text);
+    if (labels.length > 0) {
+      console.log(`[OCR] Parsed ${labels.length} label(s) from REF codes:`, labels);
+      return labels;
     }
 
-    const barcode = parseGS1FromOCR(text);
-    if (barcode) {
-      console.log('[OCR] Parsed barcode:', barcode);
-    } else {
-      console.warn('[OCR] Could not parse GS1 data from OCR text');
+    // Fallback: a single label printed with a numeric GTIN / GS1 stream.
+    const single = parseGS1FromOCR(text);
+    if (single) {
+      console.log('[OCR] Parsed barcode (numeric):', single);
+      return [single];
     }
-    return barcode;
+
+    console.warn('[OCR] Could not parse any label from OCR text');
+    return [];
   } catch (err) {
     console.warn('[OCR] Failed:', err);
+    return [];
+  }
+}
+
+/** Run Tesseract OCR over an image and return the raw text (or null). */
+async function runOCR(imageSource: File | Blob | string): Promise<string | null> {
+  // Preprocess image for better OCR accuracy
+  const processed = imageSource instanceof Blob ? await preprocessForOCR(imageSource) : imageSource;
+
+  // Run OCR with a timeout
+  const result = await Promise.race([
+    Tesseract.recognize(processed, 'eng', {
+      logger: () => {},
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('OCR timeout')), 20000),
+    ),
+  ]);
+
+  const text = result.data.text;
+  console.log('[OCR] Raw text extracted:', JSON.stringify(text));
+
+  if (!text || text.trim().length < 5) {
+    console.warn('[OCR] Extracted text too short or empty');
     return null;
   }
+  return text;
 }
 
 /**
@@ -84,6 +117,159 @@ function fixOCRDigits(text: string): string {
     .replace(/[Ss]/g, '5')
     .replace(/[Bb]/g, '8')
     .replace(/[Zz]/g, '2');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REF-code label parsing (the implant stickers on case usage sheets)
+//
+// These labels carry no barcode — just printed REF / LOT / expiry text, and a
+// photo usually has several. We locate each Summa REF code, map it to its GTIN
+// via the catalog, pair it with the nearest LOT + expiry, and emit a GS1 string
+// that parseGS1 already understands: (01)<gtin>(10)<lot>(17)<yymmdd>.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Normalize a token for fuzzy matching against the catalog: upper-case, drop
+ * separators, and fold the digit/letter pairs OCR most often confuses. The same
+ * transform is applied to both sides, so e.g. "S0-S5OI-SO-O44-T" still matches
+ * the catalogued "SO-S50I-SO-044-T".
+ */
+function normRef(s: string): string {
+  return s
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .replace(/[OQ]/g, '0')
+    .replace(/I/g, '1')
+    .replace(/S/g, '5')
+    .replace(/B/g, '8')
+    .replace(/Z/g, '2');
+}
+
+// Catalog REF codes, pre-normalized, longest-first so prefix matching prefers
+// the most specific code.
+const NORMALIZED_CATALOG: { norm: string; ref: string; gtinShort: string }[] = Object.entries(
+  refToGtinShort,
+)
+  .map(([ref, gtinShort]) => ({ norm: normRef(ref), ref, gtinShort }))
+  .sort((a, b) => b.norm.length - a.norm.length);
+
+interface Hit {
+  index: number;
+}
+interface RefHit extends Hit {
+  ref: string;
+  gtinShort: string;
+}
+
+/** Find every catalogued REF code in the OCR text (fuzzy, OCR-error tolerant). */
+function findRefs(text: string): RefHit[] {
+  const out: RefHit[] = [];
+  // Candidate tokens begin with an "SO" that OCR may have mangled into S/5 + O/0.
+  const re = /[S5][O0Q][-\s]?[A-Z0-9][A-Z0-9\-\s]{4,24}/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const candNorm = normRef(m[0]);
+    const hit = NORMALIZED_CATALOG.find((c) => candNorm.startsWith(c.norm));
+    if (hit) out.push({ ref: hit.ref, gtinShort: hit.gtinShort, index: m.index });
+    // Don't skip a REF that starts within this (greedy) candidate.
+    re.lastIndex = m.index + 2;
+  }
+  return out;
+}
+
+/** Find LOT values. Prefers a "LOT"-labeled value, falls back to the J######-#### shape. */
+function findLots(text: string): (Hit & { lot: string })[] {
+  const out: (Hit & { lot: string })[] = [];
+  const labeled = /(?:LOT|BATCH)[:\s#]*([A-Z0-9][A-Z0-9\-]{3,24})/gi;
+  let m: RegExpExecArray | null;
+  while ((m = labeled.exec(text)) !== null) {
+    const lot = cleanLot(m[1]);
+    if (lot) out.push({ lot, index: m.index });
+  }
+  if (out.length === 0) {
+    // Unlabeled fallback: lot codes look like "J251021-L015".
+    const shape = /\b[A-Z][0-9]{5,7}-[A-Z]?[0-9]{2,4}\b/gi;
+    while ((m = shape.exec(text)) !== null) {
+      const lot = cleanLot(m[0]);
+      if (lot) out.push({ lot, index: m.index });
+    }
+  }
+  return out;
+}
+
+function cleanLot(raw: string): string | null {
+  const lot = raw
+    .replace(/\s+/g, '')
+    .replace(/(EXP|USE|STERILE|QTY|SN|REF|DESCRIPTION|MANUFACTURED|SUMMA).*$/i, '')
+    .trim();
+  return lot.length >= 3 ? lot : null;
+}
+
+/** Find expiry dates as YYMMDD. Handles "2030-10-20" and a labeled 6-digit form. */
+function findExps(text: string): (Hit & { exp: string })[] {
+  const out: (Hit & { exp: string })[] = [];
+  let m: RegExpExecArray | null;
+  const iso = /(\d{4})-(\d{2})-(\d{2})/g; // hourglass date e.g. 2030-10-20
+  while ((m = iso.exec(text)) !== null) {
+    out.push({ exp: m[1].slice(2) + m[2] + m[3], index: m.index });
+  }
+  const labeled = /(?:EXP|EXPIRY|EXPIRATION|USE\s*BY)[:\s]*(\d{6})/gi;
+  while ((m = labeled.exec(text)) !== null) {
+    out.push({ exp: m[1], index: m.index });
+  }
+  return out;
+}
+
+/**
+ * Parse all implant labels out of a block of OCR text. On these stickers the REF
+ * code is the heading, with LOT and expiry printed below it, so each LOT/expiry
+ * is attributed to the REF that most recently precedes it. Each REF becomes one
+ * GS1 string that parseGS1 understands. Exported for unit testing.
+ */
+export function parseLabelsFromText(text: string): string[] {
+  const refs = findRefs(text).sort((a, b) => a.index - b.index);
+  if (refs.length === 0) return [];
+
+  const lots = findLots(text).sort((a, b) => a.index - b.index);
+  const exps = findExps(text).sort((a, b) => a.index - b.index);
+
+  // Index of the REF heading a field belongs to: the last REF at or before it
+  // (fields above the first REF fall to the first label).
+  const ownerOf = (idx: number): number => {
+    let owner = 0;
+    for (let i = 0; i < refs.length; i++) {
+      if (refs[i].index <= idx) owner = i;
+      else break;
+    }
+    return owner;
+  };
+
+  // Keep the first (nearest-below) LOT / expiry seen under each REF.
+  const lotByRef: (string | undefined)[] = new Array(refs.length);
+  for (const l of lots) {
+    const r = ownerOf(l.index);
+    if (lotByRef[r] === undefined) lotByRef[r] = l.lot;
+  }
+  const expByRef: (string | undefined)[] = new Array(refs.length);
+  for (const e of exps) {
+    const r = ownerOf(e.index);
+    if (expByRef[r] === undefined) expByRef[r] = e.exp;
+  }
+
+  const seen = new Set<string>();
+  const results: string[] = [];
+  for (let i = 0; i < refs.length; i++) {
+    const lot = lotByRef[i];
+    if (!lot) continue; // a unit needs a lot to be matched in inventory
+    let gs1 = `(01)${gtinShortToFullGtin(refs[i].gtinShort)}(10)${lot}`;
+    if (expByRef[i]) gs1 += `(17)${expByRef[i]}`;
+    if (!seen.has(gs1)) {
+      seen.add(gs1);
+      results.push(gs1);
+    }
+  }
+
+  return results;
 }
 
 /**

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { listDistributors } from '../api/distributors';
 import { previewUsage, commitUsage, type UsageLine, type UsageCommitResult } from '../api/usage';
+import { buildBarcodeFromFields } from '../utils/parseGS1';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
@@ -28,7 +29,9 @@ export default function Usage() {
   const [distributorName, setDistributorName] = useState('');
   const [barcodes, setBarcodes] = useState<string[]>([]);
   const [lines, setLines] = useState<UsageLine[]>([]);
-  const [manualEntry, setManualEntry] = useState('');
+  const [manualRef, setManualRef] = useState('');
+  const [manualLot, setManualLot] = useState('');
+  const [manualExp, setManualExp] = useState('');
   const [showManual, setShowManual] = useState(false);
   const [note, setNote] = useState('');
   const [step, setStep] = useState<'scan' | 'confirm' | 'done'>('scan');
@@ -74,6 +77,28 @@ export default function Usage() {
     const next = [...barcodes, barcode];
     setBarcodes(next);
     refreshPreview(next);
+  }
+
+  // Manual fallback: the user reads REF / lot / expiry off the sticker. A pasted
+  // full barcode (containing AIs) is passed through unchanged.
+  function addManual() {
+    const ref = manualRef.trim();
+    if (ref.includes('(') || /^01\d/.test(ref)) {
+      addBarcode(ref);
+    } else {
+      const built = buildBarcodeFromFields(ref, manualLot, manualExp);
+      if (!built) {
+        addToast(
+          manualLot.trim() ? `Item number "${ref}" not recognized` : 'Enter an item number and lot',
+          'error',
+        );
+        return;
+      }
+      addBarcode(built);
+    }
+    setManualRef('');
+    setManualLot('');
+    setManualExp('');
   }
 
   function removeLine(index: number) {
@@ -232,9 +257,11 @@ export default function Usage() {
       </div>
 
       <HelpBanner storageKey="usage">
-        Pick the distributor, then scan each product sticker from the usage ticket. We check every
-        item against that distributor's inventory before deducting it. Each sticker consumes one
-        unit (oldest expiry first).
+        Pick the distributor, then capture each product sticker from the usage ticket. If a sticker
+        has a barcode, use <strong>Live Scan</strong>; if it's text only, use <strong>Take Photo</strong>
+        {' '}or <strong>Upload Photo</strong> and the app reads the REF, lot, and expiry off the label
+        {' '}— you can fit several stickers in one photo. We check every item against that
+        distributor's inventory before deducting it (one unit each, oldest expiry first).
       </HelpBanner>
 
       {/* Distributor */}
@@ -281,29 +308,48 @@ export default function Usage() {
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium text-gray-600 hover:bg-gray-50"
           >
             <Keyboard size={20} />
-            Enter barcode manually
+            Enter from the label
           </button>
           {showManual && (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                addBarcode(manualEntry);
-                setManualEntry('');
+                addManual();
               }}
-              className="mt-3 flex gap-2"
+              className="mt-3 space-y-2"
             >
+              <p className="text-xs text-gray-500">
+                Type what's printed on the sticker. Item number and lot are required; expiry is
+                optional. (You can also paste a full barcode in the item-number box.)
+              </p>
               <input
                 type="text"
-                value={manualEntry}
-                onChange={(e) => setManualEntry(e.target.value)}
-                placeholder="Paste or type the barcode"
-                className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+                value={manualRef}
+                onChange={(e) => setManualRef(e.target.value)}
+                placeholder="Item number / REF — e.g. SO-S50I-SO-044-T"
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
               />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={manualLot}
+                  onChange={(e) => setManualLot(e.target.value)}
+                  placeholder="Lot — e.g. J251021-L015"
+                  className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+                />
+                <input
+                  type="text"
+                  value={manualExp}
+                  onChange={(e) => setManualExp(e.target.value)}
+                  placeholder="Expiry — 2030-10-20"
+                  className="w-40 rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+                />
+              </div>
               <button
                 type="submit"
-                className="rounded-xl bg-primary-600 px-5 py-3 text-base font-semibold text-white hover:bg-primary-700"
+                className="w-full rounded-xl bg-primary-600 px-5 py-3 text-base font-semibold text-white hover:bg-primary-700"
               >
-                Add
+                Add item
               </button>
             </form>
           )}
