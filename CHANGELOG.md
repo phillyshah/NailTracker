@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.37 — 2026-06-12
+A diagnostic aid for the new label OCR.
+
+- **OCR debug toggle.** Under the photo scanner (Usage / Receive / Transfer) there's now a small **OCR debug** switch. When on, after each Take Photo / Upload Photo it shows the exact raw text Tesseract read, how many labels were parsed from it, and a **Copy** button — so an unreadable sticker can be reported with the actual OCR output to tune the patterns. The setting persists in `localStorage` (`ocrDebug`). `ocrBarcode` exposes `getLastOcrText()` for the panel.
+
 ## v3.36 — 2026-06-12
 Usage can now read implant stickers that have **no barcode** — only printed REF / lot / expiry text.
 

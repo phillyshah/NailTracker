@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.36** | Summa Orthopaedics Inventory Management System
+**Version 3.37** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -621,6 +621,11 @@ All 105 Summa Orthopaedics products are in the database. If an item shows up as 
 - Make sure there's good lighting — shadows on the barcode cause read failures
 - Hold the phone steady and make sure the whole barcode is in the frame
 - Try **Manual Entry** if the label is damaged or the barcode is smudged
+
+**A text-only sticker won't read?**
+- Take a sharper, well-lit photo of just that one label, then try again
+- Use **Enter from the label** (on the Usage page) to type the item number, lot, and expiry directly
+- To help us improve reading, turn on the small **OCR debug** switch beneath the photo buttons, retake the photo, and tap **Copy** — that copies the exact text the app read off the label so you can send it to your administrator
 
 **Item shows up as "Unknown" product?**
 - The product code may not be in the database yet
