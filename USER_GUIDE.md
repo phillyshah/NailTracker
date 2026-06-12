@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.31** | Summa Orthopaedics Inventory Management System
+**Version 3.32** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -48,7 +48,7 @@ Once installed, it opens full-screen just like any other app on your phone.
 
 ### Finding Your Way Around
 
-**On a phone:** You'll see four tabs at the bottom of the screen — **Receive**, **Usage**, **Inventory**, and **Reports**. Tap **More** for everything else, grouped into **Tools** (Lookup, Transfer), **Organize** (Banks, Distributors), and **Admin** (User Management). All reports and histories — including Usage History and Transfer History — live under **Reports**.
+**On a phone:** You'll see four tabs at the bottom of the screen — **Receive**, **Usage**, **Inventory**, and **Reports**. Tap **More** for everything else, grouped into **Tools** (Lookup, Transfer), **Organize** (Banks, Distributors), and **Admin** (User Management). Admins also see a **TrackerLabs** group for features in testing. All reports and histories — including Usage History and Transfer History — live under **Reports**.
 
 **On a computer:** All the pages are listed in the navigation bar at the top.
 
@@ -523,6 +523,18 @@ Tap **Repair Barcodes** and the app finds every item whose stored details don't 
 - **Repair all remaining** — fix every remaining item at once
 
 A running count of repaired/skipped is shown, and a summary appears when you reach the end. Nothing changes until you tap Repair (or Repair all remaining), it only ever touches items that need it, and it leaves manually-entered items alone.
+
+---
+
+### TrackerLabs (Beta — Admins Only)
+
+**Where to go:** Tap **More** → **TrackerLabs** *(only visible to admins)*
+
+TrackerLabs is a dedicated space for **new features that are still being tested**. Features here are marked with a **Beta** badge, are only visible to admins, and may change as we refine them based on your feedback. When a feature is solid, it graduates out of TrackerLabs into the main menu.
+
+Open TrackerLabs to see the current experiments. Each one has its own help banner explaining how it works. The first experiments arriving here are **Par Levels & Reorder** (set minimum stock levels and get a reorder report) and **Cycle Count** (scan a distributor's shelf and reconcile it against the system).
+
+> Because TrackerLabs features are in testing, try them on real data with a little caution and let us know what's working or what feels off — that feedback is exactly what shapes the final version.
 
 ---
 
