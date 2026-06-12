@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.34 — 2026-06-12
+Second TrackerLabs feature: **Cycle Count / Physical Audit** (admin-only, Beta).
+
+- **Cycle Count** (`TrackerLabs → Cycle Count`). Pick a distributor, scan everything physically on the shelf, then tap **Review** to reconcile against the system into three buckets: **matched** (scan found a unit), **missing** (in the system but not scanned), and **extra** (scanned but not in the system). Resolve in one step — check which extras to add as stock and which missing units to remove — then **Finish** saves it as an audit.
+- **One-tap fixes are atomic.** Commit creates the chosen extras as new stock at the distributor (with assignment history) and soft-deletes the chosen missing units, all in a single `$transaction` (the same all-or-nothing pattern as bank moves). Missing removals are re-scoped at commit time to units still present, so a unit moved/used between Review and Finish is never wrongly deleted.
+- **Audit History** (`TrackerLabs → … → Audit History`). Every count is saved as an `AuditSession` (`AUD-YYYYMMDD-NNNN`) with matched/missing/extra counts and a snapshot — backed by `prisma/migrations/0008_add_audit_session`.
+- **Server:** `audit.controller.ts` (`preview` / `commit` / `list` + `generateAuditId`) + `routes/audits.ts` at `/api/audits`, behind `authMiddleware` + `adminOnly`. Reconciliation is a pure helper `utils/auditReconcile.ts` (FIFO match, per-request claim) with 6 unit tests; commit has 6 controller tests (atomic add/remove, re-scoped missing, failure rolls back, audit-only, id sequencing). Reuses `parseGS1`, `BarcodeScanner`, and the Usage preview/commit shape.
+
 ## v3.33 — 2026-06-12
 First TrackerLabs feature: **Par Levels & Reorder** (admin-only, Beta).
 
