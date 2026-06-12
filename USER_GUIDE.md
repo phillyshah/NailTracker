@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.32** | Summa Orthopaedics Inventory Management System
+**Version 3.33** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -532,9 +532,22 @@ A running count of repaired/skipped is shown, and a summary appears when you rea
 
 TrackerLabs is a dedicated space for **new features that are still being tested**. Features here are marked with a **Beta** badge, are only visible to admins, and may change as we refine them based on your feedback. When a feature is solid, it graduates out of TrackerLabs into the main menu.
 
-Open TrackerLabs to see the current experiments. Each one has its own help banner explaining how it works. The first experiments arriving here are **Par Levels & Reorder** (set minimum stock levels and get a reorder report) and **Cycle Count** (scan a distributor's shelf and reconcile it against the system).
+Open TrackerLabs to see the current experiments. Each one has its own help banner explaining how it works.
 
 > Because TrackerLabs features are in testing, try them on real data with a little caution and let us know what's working or what feels off — that feedback is exactly what shapes the final version.
+
+**Par Levels & Reorder (Beta):**
+
+This experiment helps you answer "what do I need to order?" instead of just "what do I have?"
+
+1. From TrackerLabs, open **Par Levels**
+2. For each item, set a **Global** minimum — the stock level you want to keep at every distributor
+3. To fine-tune a specific site, expand the item and set a **per-distributor override** (a site that needs more or fewer than the global). Leave a field blank or 0 to clear it — values save automatically as you move off each field
+4. Open the **Reorder Report** to see every item that's below its par, grouped by distributor
+
+The Reorder Report shows, for each low item: how many are **on hand**, the **par** level, a **suggested order** quantity (how many to bring it back up to par), and the recent **usage per month** for context. You can search, filter to one distributor, and **download the report as an Excel file** to use as an order sheet.
+
+> Par levels apply to distributors (the field sites you replenish), not to Home Office — Home Office is the warehouse you reorder into.
 
 ---
 

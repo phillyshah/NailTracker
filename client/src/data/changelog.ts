@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.33',
+    date: '2026-06-12',
+    changes: [
+      'TrackerLabs (admins): new Par Levels & Reorder. Set a minimum stock level per item — a Global value for every distributor, with optional per-distributor overrides',
+      'The Reorder Report lists everything below par by distributor, with a suggested order quantity and recent monthly usage for context, and exports to Excel',
+    ],
+  },
+  {
     version: '3.32',
     date: '2026-06-12',
     changes: [
@@ -36,16 +44,6 @@ export const changelog: ChangelogEntry[] = [
       'Quick-search is now everywhere you pick items: Transfer "Pick from list", the Manual Transfer staged list, and the Bank "Add Items" picker all have the same search box — type an item number, lot, or product to narrow a long list instantly',
       'Distributor detail pages now have a search box too, so you can find an item within a site without paging through everything',
       'Added the dismissible help banner to the Bank, Distributor detail, and Distributors pages for consistent guidance',
-    ],
-  },
-  {
-    version: '3.28',
-    date: '2026-06-06',
-    changes: [
-      'Transfer now works like Receive: a new "Manual Transfer" tab lets you scan items one at a time, snap or upload photos, paste a barcode, or type the item number/lot/expiry — great for quick transfers of a few parts',
-      'The Transfer page now has three tabs: Pick from list, Manual Transfer, and Import from Excel (all the original options are still here, just clearer)',
-      'Each item is checked against the source site as you add it; anything not in stock there is flagged with one-tap "Add to source" or "Skip" (plus an "Add all missing" shortcut)',
-      'Everything you add moves together as a single, race-safe transfer record',
     ],
   },
 ];

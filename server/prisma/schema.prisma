@@ -123,3 +123,16 @@ model Bank {
 
   @@index([distributorId])
 }
+
+model ParLevel {
+  id            String   @id @default(cuid())
+  itemNumber    String
+  gtinShort     String
+  distributorId String? // null = global default; otherwise a per-distributor override
+  minStock      Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([itemNumber, distributorId])
+  @@index([itemNumber])
+}
