@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.34** | Summa Orthopaedics Inventory Management System
+**Version 3.35** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -540,10 +540,13 @@ Open TrackerLabs to see the current experiments. Each one has its own help banne
 
 This experiment helps you answer "what do I need to order?" instead of just "what do I have?"
 
-1. From TrackerLabs, open **Par Levels**
-2. For each item, set a **Global** minimum — the stock level you want to keep at every distributor
-3. To fine-tune a specific site, expand the item and set a **per-distributor override** (a site that needs more or fewer than the global). Leave a field blank or 0 to clear it — values save automatically as you move off each field
-4. Open the **Reorder Report** to see every item that's below its par, grouped by distributor
+1. From TrackerLabs, open **Par Levels**. Items are organized into **product groups** — Proximal Femur Nail, Lag Screw, Interlocking Screw, Cap Screw, and Set Screw
+2. The fastest way to set pars is a **Group par**: one number on the group's header row that applies to *every size* in that group (e.g. set "3" on Interlocking Screw and every interlocking size now has a par of 3)
+3. To fine-tune, expand a group and set a value on an **individual item** — that overrides the group par for that one item. The item's box shows the inherited group number as a faint placeholder so you can see what it would be otherwise
+4. To fine-tune one site, expand an item and set a **per-distributor override**. Leave any field blank or 0 to clear it and fall back to the level above it — values save automatically as you move off each field
+5. Open the **Reorder Report** to see every item that's below its par, grouped by distributor
+
+So pars resolve from most specific to least: a per-distributor item value wins, then the item's own value, then the group par. Set a group par once and only touch the items that are exceptions.
 
 The Reorder Report shows, for each low item: how many are **on hand**, the **par** level, a **suggested order** quantity (how many to bring it back up to par), and the recent **usage per month** for context. You can search, filter to one distributor, and **download the report as an Excel file** to use as an order sheet.
 

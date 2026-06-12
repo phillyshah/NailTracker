@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.35',
+    date: '2026-06-12',
+    changes: [
+      'TrackerLabs Par Levels: set a par by product group (e.g. all Interlocking Screws) in one step — the number applies to every size in the group',
+      'Need an exception? Expand a group to set an individual item\'s par, which overrides the group, and expand an item for a per-distributor value. Most specific wins',
+    ],
+  },
+  {
     version: '3.34',
     date: '2026-06-12',
     changes: [
@@ -33,16 +41,6 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-11',
     changes: [
       'You can now rename a bank and edit its description at any time — tap "Edit" on a bank (in the Banks list or on the bank\'s page) to match the names you use in real life',
-    ],
-  },
-  {
-    version: '3.30',
-    date: '2026-06-08',
-    changes: [
-      'Fixed: Move Bank could silently do nothing — the destination dropdown preselected the bank\'s CURRENT site, so "moving" it there reported success without moving anything. The dropdown now starts empty and only offers OTHER sites, and the server rejects same-site moves',
-      'Bank moves are now all-or-nothing (no more half-moved banks) and create a transfer record (TRF-…) you can verify under Reports → Transfer History',
-      'Fixed: "Assign received items to a bank" on the Receive page was silently assigning 0 items',
-      'The Bank "Add Items" picker now explains when it\'s empty (e.g. every item at that site is already in a bank) instead of showing a blank list',
     ],
   },
 ];

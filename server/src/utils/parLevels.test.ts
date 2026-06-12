@@ -1,46 +1,68 @@
 import { describe, it, expect } from 'vitest';
-import { effectivePar, buildReorderRows, type ParLevelRow } from './parLevels.js';
+import { effectivePar, buildReorderRows, type ParLevelRow, type ReorderItem } from './parLevels.js';
 
 const DISTS = [
   { id: 'd1', name: 'Berwyn' },
   { id: 'd2', name: 'Joslin' },
 ];
 
-const labels = {
-  'SO-SPFN-0180-10-25': { gtinShort: '9459148', productLabel: 'Short Nail 180/10' },
-};
+const item = (over: Partial<ParLevelRow>): ParLevelRow => ({
+  scope: 'item',
+  itemNumber: 'A',
+  category: 'Interlocking Screw',
+  gtinShort: 'g',
+  distributorId: null,
+  minStock: 0,
+  ...over,
+});
+
+const group = (category: string, minStock: number): ParLevelRow => ({
+  scope: 'category',
+  itemNumber: null,
+  category,
+  gtinShort: null,
+  distributorId: null,
+  minStock,
+});
 
 describe('effectivePar', () => {
-  const levels: ParLevelRow[] = [
-    { itemNumber: 'A', gtinShort: 'g', distributorId: null, minStock: 5 },
-    { itemNumber: 'A', gtinShort: 'g', distributorId: 'd2', minStock: 10 },
-  ];
-
-  it('uses the per-distributor override when present', () => {
-    expect(effectivePar('A', 'd2', levels)).toBe(10);
+  it('uses the per-distributor SKU override when present', () => {
+    const levels = [item({ minStock: 5 }), item({ distributorId: 'd2', minStock: 10 })];
+    expect(effectivePar('A', 'Interlocking Screw', 'd2', levels)).toBe(10);
   });
 
-  it('falls back to the global default when no override', () => {
-    expect(effectivePar('A', 'd1', levels)).toBe(5);
+  it('falls back to the SKU global default when no override', () => {
+    const levels = [item({ minStock: 5 }), item({ distributorId: 'd2', minStock: 10 })];
+    expect(effectivePar('A', 'Interlocking Screw', 'd1', levels)).toBe(5);
   });
 
-  it('returns null when neither override nor global exists', () => {
-    expect(effectivePar('B', 'd1', levels)).toBeNull();
+  it('falls back to the group par when no SKU par exists', () => {
+    const levels = [group('Interlocking Screw', 3)];
+    expect(effectivePar('A', 'Interlocking Screw', 'd1', levels)).toBe(3);
+  });
+
+  it('prefers a SKU par over the group par', () => {
+    const levels = [group('Interlocking Screw', 3), item({ minStock: 8 })];
+    expect(effectivePar('A', 'Interlocking Screw', 'd1', levels)).toBe(8);
+  });
+
+  it('returns null when no SKU or group par applies', () => {
+    expect(effectivePar('B', 'Cap Screw', 'd1', [group('Interlocking Screw', 3)])).toBeNull();
   });
 });
 
+const items: ReorderItem[] = [
+  { itemNumber: 'A', gtinShort: 'g', productLabel: 'Screw A', group: 'Interlocking Screw' },
+];
+
 describe('buildReorderRows', () => {
   it('flags only items below par, with shortage = par - current', () => {
-    const levels: ParLevelRow[] = [
-      { itemNumber: 'SO-SPFN-0180-10-25', gtinShort: '9459148', distributorId: null, minStock: 5 },
-    ];
     const rows = buildReorderRows({
       distributors: DISTS,
-      levels,
-      current: { 'SO-SPFN-0180-10-25|d1': 2 }, // d1 below par, d2 has none (0)
-      labels,
+      levels: [item({ minStock: 5 })],
+      current: { 'A|d1': 2 }, // d1 below par, d2 has none (0)
+      items,
     });
-    // d1: 2 < 5 → shortage 3; d2: 0 < 5 → shortage 5
     expect(rows).toHaveLength(2);
     const d1 = rows.find((r) => r.distributorId === 'd1')!;
     expect(d1.current).toBe(2);
@@ -51,29 +73,54 @@ describe('buildReorderRows', () => {
     expect(d2.shortage).toBe(5);
   });
 
-  it('excludes items at or above par', () => {
-    const levels: ParLevelRow[] = [
-      { itemNumber: 'A', gtinShort: 'g', distributorId: null, minStock: 3 },
+  it('applies a group par to every SKU in the group', () => {
+    const groupItems: ReorderItem[] = [
+      { itemNumber: 'A', gtinShort: 'g', productLabel: 'Screw A', group: 'Interlocking Screw' },
+      { itemNumber: 'B', gtinShort: 'h', productLabel: 'Screw B', group: 'Interlocking Screw' },
     ];
     const rows = buildReorderRows({
       distributors: [{ id: 'd1', name: 'Berwyn' }],
-      levels,
+      levels: [group('Interlocking Screw', 4)],
+      current: { 'A|d1': 1 }, // A short by 3, B short by 4
+      items: groupItems,
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.itemNumber === 'A')!.shortage).toBe(3);
+    expect(rows.find((r) => r.itemNumber === 'B')!.shortage).toBe(4);
+  });
+
+  it('lets a SKU par override the group par for that item', () => {
+    const groupItems: ReorderItem[] = [
+      { itemNumber: 'A', gtinShort: 'g', productLabel: 'Screw A', group: 'Interlocking Screw' },
+      { itemNumber: 'B', gtinShort: 'h', productLabel: 'Screw B', group: 'Interlocking Screw' },
+    ];
+    const rows = buildReorderRows({
+      distributors: [{ id: 'd1', name: 'Berwyn' }],
+      levels: [group('Interlocking Screw', 4), item({ itemNumber: 'A', minStock: 1 })],
+      current: { 'A|d1': 1, 'B|d1': 1 }, // A meets its SKU par of 1; B below group par of 4
+      items: groupItems,
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].itemNumber).toBe('B');
+    expect(rows[0].shortage).toBe(3);
+  });
+
+  it('excludes items at or above par', () => {
+    const rows = buildReorderRows({
+      distributors: [{ id: 'd1', name: 'Berwyn' }],
+      levels: [item({ minStock: 3 })],
       current: { 'A|d1': 3 }, // exactly at par → not low
-      labels: { A: { gtinShort: 'g', productLabel: 'A' } },
+      items,
     });
     expect(rows).toHaveLength(0);
   });
 
   it('per-distributor override wins over the global default', () => {
-    const levels: ParLevelRow[] = [
-      { itemNumber: 'A', gtinShort: 'g', distributorId: null, minStock: 2 },
-      { itemNumber: 'A', gtinShort: 'g', distributorId: 'd2', minStock: 8 },
-    ];
     const rows = buildReorderRows({
       distributors: DISTS,
-      levels,
+      levels: [item({ minStock: 2 }), item({ distributorId: 'd2', minStock: 8 })],
       current: { 'A|d1': 2, 'A|d2': 4 }, // d1 meets global(2); d2 below override(8)
-      labels: { A: { gtinShort: 'g', productLabel: 'A' } },
+      items,
     });
     expect(rows).toHaveLength(1);
     expect(rows[0].distributorId).toBe('d2');
@@ -82,27 +129,21 @@ describe('buildReorderRows', () => {
   });
 
   it('ignores a zero/negative par', () => {
-    const levels: ParLevelRow[] = [
-      { itemNumber: 'A', gtinShort: 'g', distributorId: null, minStock: 0 },
-    ];
     const rows = buildReorderRows({
       distributors: [{ id: 'd1', name: 'Berwyn' }],
-      levels,
+      levels: [item({ minStock: 0 })],
       current: {},
-      labels: { A: { gtinShort: 'g', productLabel: 'A' } },
+      items,
     });
     expect(rows).toHaveLength(0);
   });
 
   it('carries the usage/month context onto each row', () => {
-    const levels: ParLevelRow[] = [
-      { itemNumber: 'A', gtinShort: 'g', distributorId: null, minStock: 5 },
-    ];
     const rows = buildReorderRows({
       distributors: [{ id: 'd1', name: 'Berwyn' }],
-      levels,
+      levels: [item({ minStock: 5 })],
       current: { 'A|d1': 1 },
-      labels: { A: { gtinShort: 'g', productLabel: 'A' } },
+      items,
       usage: { 'A|d1': 2.5 },
     });
     expect(rows[0].usagePerMonth).toBe(2.5);

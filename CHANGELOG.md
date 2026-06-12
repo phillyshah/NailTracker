@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.35 — 2026-06-12
+Par Levels gains **product-group pars** (admin-only, Beta).
+
+- **Group pars.** The Par Levels editor now organizes items into product groups (Proximal Femur Nail, Lag Screw, Interlocking Screw, Cap Screw, Set Screw). Setting a **Group par** on a group's header applies that minimum to *every* SKU in the group — so an admin can cover the whole catalog with five numbers instead of one per item.
+- **Three-level resolution.** Effective par resolves most-specific-first: a per-distributor item override → the item's own (global) par → the group par. Individual item boxes show the inherited group value as a placeholder. Clearing a field falls back to the level above it. The nail family (Short + Long) is intentionally one group, matching how it's reordered.
+- **Schema:** `ParLevel` gains `scope` (`item` | `category`) and a nullable `category`; `itemNumber`/`gtinShort` are now nullable so a group row can omit them (`prisma/migrations/0009_add_par_category`). The old `(itemNumber, distributorId)` unique is dropped — dedup is handled in the controller (the same find-then-write pattern already in use).
+- **Server:** `getParGroup` + a server `productCatalog` in `gtin-map.ts` (nails merged); `parLevels.ts` `effectivePar` is now 3-tier and `buildReorderRows` iterates the full catalog so a group par reaches every SKU. `parlevel.controller.ts` `upsert` branches on scope. Helper tests expanded to 12 (group fallback, SKU-beats-group, group applied per-SKU). Both build + both test suites green.
+
 ## v3.34 — 2026-06-12
 Second TrackerLabs feature: **Cycle Count / Physical Audit** (admin-only, Beta).
 

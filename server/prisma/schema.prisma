@@ -126,15 +126,18 @@ model Bank {
 
 model ParLevel {
   id            String   @id @default(cuid())
-  itemNumber    String
-  gtinShort     String
-  distributorId String? // null = global default; otherwise a per-distributor override
+  scope         String   @default("item") // "item" (SKU) or "category" (group)
+  itemNumber    String? // set when scope = "item"
+  category      String? // group name; set when scope = "category" (and on item rows for reference)
+  gtinShort     String?
+  distributorId String? // null = global default; otherwise a per-distributor override (item scope only)
   minStock      Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  @@unique([itemNumber, distributorId])
   @@index([itemNumber])
+  @@index([scope])
+  @@index([category])
 }
 
 model AuditSession {
