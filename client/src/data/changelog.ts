@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.37',
+    date: '2026-06-12',
+    changes: [
+      'Added an "OCR debug" toggle under the photo scanner: turn it on to see the exact text the app read off a label, with a Copy button — handy for reporting a sticker that won\'t scan',
+    ],
+  },
+  {
     version: '3.36',
     date: '2026-06-12',
     changes: [
@@ -35,13 +42,6 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       'TrackerLabs (admins): new Par Levels & Reorder. Set a minimum stock level per item — a Global value for every distributor, with optional per-distributor overrides',
       'The Reorder Report lists everything below par by distributor, with a suggested order quantity and recent monthly usage for context, and exports to Excel',
-    ],
-  },
-  {
-    version: '3.32',
-    date: '2026-06-12',
-    changes: [
-      'New TrackerLabs section (admins only) — a clearly-labeled space for features that are still in testing. The first experiments, Par Levels & Reorder and Cycle Count, are arriving here shortly',
     ],
   },
 ];

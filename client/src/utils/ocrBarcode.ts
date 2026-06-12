@@ -1,6 +1,13 @@
 import Tesseract from 'tesseract.js';
 import { refToGtinShort, gtinShortToFullGtin } from './gtin-map';
 
+// Raw text from the most recent OCR pass, surfaced by the scanner's debug
+// toggle so unreadable labels can be diagnosed/tuned.
+let lastOcrText: string | null = null;
+export function getLastOcrText(): string | null {
+  return lastOcrText;
+}
+
 /**
  * Extract GS1-128 barcode text from an image using OCR.
  * Preprocesses the image for higher contrast, then runs Tesseract OCR
@@ -66,6 +73,7 @@ async function runOCR(imageSource: File | Blob | string): Promise<string | null>
 
   const text = result.data.text;
   console.log('[OCR] Raw text extracted:', JSON.stringify(text));
+  lastOcrText = text ?? null;
 
   if (!text || text.trim().length < 5) {
     console.warn('[OCR] Extracted text too short or empty');
