@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.33** | Summa Orthopaedics Inventory Management System
+**Version 3.34** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -548,6 +548,24 @@ This experiment helps you answer "what do I need to order?" instead of just "wha
 The Reorder Report shows, for each low item: how many are **on hand**, the **par** level, a **suggested order** quantity (how many to bring it back up to par), and the recent **usage per month** for context. You can search, filter to one distributor, and **download the report as an Excel file** to use as an order sheet.
 
 > Par levels apply to distributors (the field sites you replenish), not to Home Office — Home Office is the warehouse you reorder into.
+
+**Cycle Count (Beta):**
+
+This experiment lets you verify the system against the physical shelf, so the numbers in Nail Tracker stay honest.
+
+1. From TrackerLabs, open **Cycle Count**
+2. Choose the **distributor** you're counting
+3. **Scan everything physically on the shelf** (use the camera, or type/paste barcodes for anything that won't scan)
+4. Tap **Review count**. The app reconciles your scans against what the system says that distributor has, and sorts everything into three groups:
+   - **Matched** — scanned items the system already knew about (nothing to do)
+   - **Missing** — items the system has at this site but that you didn't scan (maybe they're gone)
+   - **Extra** — items you scanned that the system doesn't have here (untracked stock)
+5. Resolve the differences: check the **Extra** items you want to **add** as stock at this distributor, and check the **Missing** items you want to **remove** from inventory
+6. Tap **Finish**. Your fixes are applied together, and the count is saved as an audit record
+
+You can review every past count under **Audit History**, each with its own ID (AUD-…) and a breakdown of how many items were matched, added, and removed.
+
+> Removing a "missing" item doesn't delete its history — the record of where it had been is kept. And if a unit gets used or moved between Review and Finish, the app won't remove it by mistake.
 
 ---
 

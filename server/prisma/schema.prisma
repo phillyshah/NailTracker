@@ -136,3 +136,20 @@ model ParLevel {
   @@unique([itemNumber, distributorId])
   @@index([itemNumber])
 }
+
+model AuditSession {
+  id              String   @id @default(cuid())
+  auditId         String   @unique
+  distributorId   String?
+  distributorName String
+  matchedCount    Int
+  missingCount    Int
+  extraCount      Int
+  items           Json
+  note            String?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+
+  @@index([auditId])
+  @@index([createdAt])
+}

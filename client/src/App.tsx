@@ -22,9 +22,10 @@ import Usage from './pages/Usage';
 import UsageHistory from './pages/UsageHistory';
 import UsageDetail from './pages/UsageDetail';
 import Labs from './pages/Labs';
-import ComingSoon from './pages/labs/ComingSoon';
 import ParLevels from './pages/labs/ParLevels';
 import ReorderReport from './pages/labs/ReorderReport';
+import CycleCount from './pages/labs/CycleCount';
+import AuditHistory from './pages/labs/AuditHistory';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -86,7 +87,8 @@ export default function App() {
         <Route path="labs" element={<AdminRoute><Labs /></AdminRoute>} />
         <Route path="labs/par-levels" element={<AdminRoute><ParLevels /></AdminRoute>} />
         <Route path="labs/reorder" element={<AdminRoute><ReorderReport /></AdminRoute>} />
-        <Route path="labs/cycle-count" element={<AdminRoute><ComingSoon title="Cycle Count" /></AdminRoute>} />
+        <Route path="labs/cycle-count" element={<AdminRoute><CycleCount /></AdminRoute>} />
+        <Route path="labs/audits" element={<AdminRoute><AuditHistory /></AdminRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

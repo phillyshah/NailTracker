@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.34',
+    date: '2026-06-12',
+    changes: [
+      'TrackerLabs (admins): new Cycle Count. Pick a distributor, scan everything on the shelf, and the app reconciles it against the system — showing what matches, what\'s missing, and what\'s extra',
+      'Fix discrepancies in one step: add the extra items as stock and remove the missing ones, all saved as an audit record (AUD-…) you can review under Audit History',
+    ],
+  },
+  {
     version: '3.33',
     date: '2026-06-12',
     changes: [
@@ -35,15 +43,6 @@ export const changelog: ChangelogEntry[] = [
       'Bank moves are now all-or-nothing (no more half-moved banks) and create a transfer record (TRF-…) you can verify under Reports → Transfer History',
       'Fixed: "Assign received items to a bank" on the Receive page was silently assigning 0 items',
       'The Bank "Add Items" picker now explains when it\'s empty (e.g. every item at that site is already in a bank) instead of showing a blank list',
-    ],
-  },
-  {
-    version: '3.29',
-    date: '2026-06-07',
-    changes: [
-      'Quick-search is now everywhere you pick items: Transfer "Pick from list", the Manual Transfer staged list, and the Bank "Add Items" picker all have the same search box — type an item number, lot, or product to narrow a long list instantly',
-      'Distributor detail pages now have a search box too, so you can find an item within a site without paging through everything',
-      'Added the dismissible help banner to the Bank, Distributor detail, and Distributors pages for consistent guidance',
     ],
   },
 ];
