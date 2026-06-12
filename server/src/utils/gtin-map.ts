@@ -523,3 +523,54 @@ export function getProductCategory(gtinShort: string, rawBarcode?: string): Prod
   if (/set screw/i.test(label)) return 'Set Screw';
   return 'Other';
 }
+
+/**
+ * Coarser product GROUPS used by Par Levels — Short and Long nails collapse into
+ * one "Proximal Femur Nail" group so an admin can set one par for the whole nail
+ * family. A group par is the default for every SKU it contains; an individual
+ * SKU par (or a per-distributor override) takes precedence over it.
+ */
+export const PAR_GROUPS = [
+  'Proximal Femur Nail',
+  'Lag Screw',
+  'Interlocking Screw',
+  'Cap Screw',
+  'Set Screw',
+] as const;
+
+export type ParGroup = (typeof PAR_GROUPS)[number] | 'Other';
+
+/** Map an item to its Par Levels group (nails merged into one family). */
+export function getParGroup(gtinShort: string, rawBarcode?: string): ParGroup {
+  const c = getProductCategory(gtinShort, rawBarcode);
+  if (c === 'Short Nail' || c === 'Long Nail') return 'Proximal Femur Nail';
+  if (c === 'Other') return 'Other';
+  return c;
+}
+
+export interface CatalogItem {
+  itemNumber: string; // REF code
+  gtinShort: string;
+  productLabel: string;
+  group: ParGroup;
+}
+
+/**
+ * The full product catalog (one entry per item number), derived from the GTIN
+ * maps. Used by the reorder calculation so a group par can be applied to every
+ * SKU in that group, not just the ones with an explicit par row.
+ */
+export const productCatalog: CatalogItem[] = (() => {
+  const byItem = new Map<string, CatalogItem>();
+  for (const [gtinShort, itemNumber] of Object.entries(gtinToRef)) {
+    if (!byItem.has(itemNumber)) {
+      byItem.set(itemNumber, {
+        itemNumber,
+        gtinShort,
+        productLabel: gtinMap[gtinShort] || itemNumber,
+        group: getParGroup(gtinShort),
+      });
+    }
+  }
+  return Array.from(byItem.values()).sort((a, b) => a.itemNumber.localeCompare(b.itemNumber));
+})();

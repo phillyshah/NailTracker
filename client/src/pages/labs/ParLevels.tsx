@@ -4,22 +4,26 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ChevronDown, ChevronRight, PackageCheck } from 'lucide-react';
 import { listParLevels, setParLevel, type ParLevel } from '../../api/parlevels';
 import { listDistributors } from '../../api/distributors';
-import { productCatalog } from '../../utils/catalog';
+import { catalogByGroup } from '../../utils/catalog';
 import { matchesItemSearch } from '../../utils/itemSearch';
 import { HelpBanner } from '../../components/HelpBanner';
 import { SearchBar } from '../../components/SearchBar';
 import { ToastContainer } from '../../components/Toast';
 import { useToast } from '../../hooks/useToast';
 
-const keyOf = (itemNumber: string, distId: string | null) => `${itemNumber}|${distId ?? 'global'}`;
+// Local edit keys. Group par: `cat:<group>`. SKU par: `item:<itemNumber>:<dist|global>`.
+const catKey = (group: string) => `cat:${group}`;
+const itemKey = (itemNumber: string, distId: string | null) =>
+  `item:${itemNumber}:${distId ?? 'global'}`;
 
 export default function ParLevels() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toasts, addToast, removeToast } = useToast();
   const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  // Local input values keyed by `${itemNumber}|${distId|global}`.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [openItems, setOpenItems] = useState<Set<string>>(new Set());
+  // Local input values keyed as above.
   const [edits, setEdits] = useState<Record<string, string>>({});
 
   const { data: levels = [] } = useQuery({ queryKey: ['par-levels'], queryFn: listParLevels });
@@ -28,46 +32,85 @@ export default function ParLevels() {
   // Server par values, indexed for quick lookup.
   const serverValues = useMemo(() => {
     const m: Record<string, number> = {};
-    for (const l of levels as ParLevel[]) m[keyOf(l.itemNumber, l.distributorId)] = l.minStock;
+    for (const l of levels as ParLevel[]) {
+      if (l.scope === 'category' && l.category) m[catKey(l.category)] = l.minStock;
+      else if (l.itemNumber) m[itemKey(l.itemNumber, l.distributorId)] = l.minStock;
+    }
     return m;
   }, [levels]);
 
   const saveMutation = useMutation({
-    mutationFn: (input: { itemNumber: string; gtinShort: string; distributorId: string | null; minStock: number }) =>
-      setParLevel(input),
+    mutationFn: setParLevel,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['par-levels'] }),
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
-  function valueFor(itemNumber: string, distId: string | null): string {
-    const k = keyOf(itemNumber, distId);
-    if (k in edits) return edits[k];
-    const v = serverValues[k];
+  function numAt(key: string): number | undefined {
+    if (key in edits) {
+      const raw = edits[key].trim();
+      return raw === '' ? 0 : Number(raw);
+    }
+    return serverValues[key];
+  }
+
+  function valueFor(key: string): string {
+    if (key in edits) return edits[key];
+    const v = serverValues[key];
     return v == null ? '' : String(v);
   }
 
-  function commit(itemNumber: string, gtinShort: string, distId: string | null) {
-    const k = keyOf(itemNumber, distId);
-    if (!(k in edits)) return; // untouched
-    const raw = edits[k].trim();
+  function parseNext(key: string): number | null {
+    const raw = (edits[key] ?? '').trim();
     const next = raw === '' ? 0 : Number(raw);
     if (!Number.isFinite(next) || next < 0) {
       addToast('Par must be 0 or greater', 'error');
-      return;
+      return null;
     }
-    const prev = serverValues[k] ?? 0;
-    if (next !== prev) {
-      saveMutation.mutate({ itemNumber, gtinShort, distributorId: distId, minStock: next });
-    }
+    return next;
+  }
+
+  function clearEdit(key: string) {
     setEdits((e) => {
       const copy = { ...e };
-      delete copy[k];
+      delete copy[key];
       return copy;
     });
   }
 
-  const visible = productCatalog.filter((c) =>
-    matchesItemSearch({ itemNumber: c.itemNumber, productLabel: c.label, gtinShort: c.gtinShort }, search),
+  function commitCategory(group: string) {
+    const k = catKey(group);
+    if (!(k in edits)) return;
+    const next = parseNext(k);
+    if (next == null) return;
+    const prev = serverValues[k] ?? 0;
+    if (next !== prev) saveMutation.mutate({ scope: 'category', category: group, minStock: next });
+    clearEdit(k);
+  }
+
+  function commitItem(itemNumber: string, gtinShort: string, distId: string | null) {
+    const k = itemKey(itemNumber, distId);
+    if (!(k in edits)) return;
+    const next = parseNext(k);
+    if (next == null) return;
+    const prev = serverValues[k] ?? 0;
+    if (next !== prev) {
+      saveMutation.mutate({ scope: 'item', itemNumber, gtinShort, distributorId: distId, minStock: next });
+    }
+    clearEdit(k);
+  }
+
+  // Filter SKUs by the search box; while searching, force groups open.
+  const groups = useMemo(
+    () =>
+      catalogByGroup
+        .map((g) => ({
+          group: g.group,
+          items: g.items.filter((c) =>
+            matchesItemSearch({ itemNumber: c.itemNumber, productLabel: c.label, gtinShort: c.gtinShort }, search),
+          ),
+        }))
+        .filter((g) => (search ? g.items.length > 0 : true)),
+    [search],
   );
 
   return (
@@ -85,10 +128,11 @@ export default function ParLevels() {
       </div>
 
       <HelpBanner storageKey="par-levels">
-        Set the minimum stock you want to keep for each item. The <strong>Global</strong> value
-        applies to every distributor; expand an item to set a <strong>per-distributor override</strong>
-        where a site needs more or fewer. Items below par show up on the <strong>Reorder Report</strong>.
-        Leave a field blank (or 0) to clear it.
+        Set the minimum stock you want to keep. The fastest way is a <strong>Group par</strong> —
+        one number that applies to every size in a product group (e.g. all Interlocking Screws).
+        Expand a group to fine-tune an <strong>individual item</strong>, which overrides the group,
+        and expand an item to set a <strong>per-distributor</strong> value. Items below par show up
+        on the <strong>Reorder Report</strong>. Leave a field blank (or 0) to clear it.
       </HelpBanner>
 
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -107,66 +151,112 @@ export default function ParLevels() {
       </div>
 
       <div className="space-y-2">
-        {visible.map((c) => {
-          const isOpen = expanded.has(c.itemNumber);
+        {groups.map(({ group, items }) => {
+          const groupOpen = !!search || openGroups.has(group);
+          const groupVal = numAt(catKey(group));
           return (
-            <div key={c.itemNumber} className="rounded-2xl bg-white p-4 shadow-sm">
+            <div key={group} className="rounded-2xl bg-white p-4 shadow-sm">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() =>
-                    setExpanded((s) => {
+                    setOpenGroups((s) => {
                       const next = new Set(s);
-                      next.has(c.itemNumber) ? next.delete(c.itemNumber) : next.add(c.itemNumber);
+                      next.has(group) ? next.delete(group) : next.add(group);
                       return next;
                     })
                   }
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  disabled={!!search}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:opacity-100"
                 >
-                  {isOpen ? <ChevronDown size={18} className="shrink-0 text-gray-400" /> : <ChevronRight size={18} className="shrink-0 text-gray-400" />}
+                  {groupOpen ? <ChevronDown size={18} className="shrink-0 text-gray-400" /> : <ChevronRight size={18} className="shrink-0 text-gray-400" />}
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-gray-900">{c.itemNumber}</span>
-                    <span className="block truncate text-xs text-gray-500">{c.label}</span>
+                    <span className="block truncate text-sm font-bold text-gray-900">{group}</span>
+                    <span className="block truncate text-xs text-gray-500">{items.length} item{items.length === 1 ? '' : 's'}</span>
                   </span>
                 </button>
                 <div className="flex shrink-0 items-center gap-2">
-                  <label className="text-xs font-medium text-gray-500">Global</label>
+                  <label className="text-xs font-medium text-gray-500">Group par</label>
                   <input
                     type="number"
                     min={0}
                     inputMode="numeric"
-                    value={valueFor(c.itemNumber, null)}
-                    onChange={(e) => setEdits((ed) => ({ ...ed, [keyOf(c.itemNumber, null)]: e.target.value }))}
-                    onBlur={() => commit(c.itemNumber, c.gtinShort, null)}
+                    value={valueFor(catKey(group))}
+                    onChange={(e) => setEdits((ed) => ({ ...ed, [catKey(group)]: e.target.value }))}
+                    onBlur={() => commitCategory(group)}
                     placeholder="—"
                     className="w-16 rounded-lg border border-gray-300 px-2 py-1.5 text-center text-sm focus:border-primary-500 focus:outline-none"
                   />
                 </div>
               </div>
 
-              {isOpen && (
-                <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Per-distributor overrides</p>
-                  {distributors.map((d) => (
-                    <div key={d.id} className="flex items-center justify-between gap-3">
-                      <span className="truncate text-sm text-gray-700">{d.name}</span>
-                      <input
-                        type="number"
-                        min={0}
-                        inputMode="numeric"
-                        value={valueFor(c.itemNumber, d.id)}
-                        onChange={(e) => setEdits((ed) => ({ ...ed, [keyOf(c.itemNumber, d.id)]: e.target.value }))}
-                        onBlur={() => commit(c.itemNumber, c.gtinShort, d.id)}
-                        placeholder="uses global"
-                        className="w-28 rounded-lg border border-gray-300 px-2 py-1.5 text-center text-sm focus:border-primary-500 focus:outline-none"
-                      />
-                    </div>
-                  ))}
+              {groupOpen && (
+                <div className="mt-3 space-y-1.5 border-t border-gray-100 pt-3">
+                  {items.map((c) => {
+                    const itemOpen = openItems.has(c.itemNumber);
+                    const skuGlobal = numAt(itemKey(c.itemNumber, null));
+                    return (
+                      <div key={c.itemNumber} className="rounded-xl bg-gray-50 px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() =>
+                              setOpenItems((s) => {
+                                const next = new Set(s);
+                                next.has(c.itemNumber) ? next.delete(c.itemNumber) : next.add(c.itemNumber);
+                                return next;
+                              })
+                            }
+                            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                          >
+                            {itemOpen ? <ChevronDown size={14} className="shrink-0 text-gray-400" /> : <ChevronRight size={14} className="shrink-0 text-gray-400" />}
+                            <span className="min-w-0">
+                              <span className="block truncate font-mono text-xs font-semibold text-gray-900">{c.itemNumber}</span>
+                              <span className="block truncate text-xs text-gray-500">{c.label}</span>
+                            </span>
+                          </button>
+                          <input
+                            type="number"
+                            min={0}
+                            inputMode="numeric"
+                            value={valueFor(itemKey(c.itemNumber, null))}
+                            onChange={(e) => setEdits((ed) => ({ ...ed, [itemKey(c.itemNumber, null)]: e.target.value }))}
+                            onBlur={() => commitItem(c.itemNumber, c.gtinShort, null)}
+                            placeholder={groupVal ? String(groupVal) : '—'}
+                            className="w-16 shrink-0 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-center text-sm focus:border-primary-500 focus:outline-none"
+                          />
+                        </div>
+
+                        {itemOpen && (
+                          <div className="mt-2 space-y-1.5 border-t border-gray-200 pt-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Per-distributor overrides</p>
+                            {distributors.map((d) => {
+                              const inherits = skuGlobal ?? groupVal;
+                              return (
+                                <div key={d.id} className="flex items-center justify-between gap-3">
+                                  <span className="truncate text-sm text-gray-700">{d.name}</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    inputMode="numeric"
+                                    value={valueFor(itemKey(c.itemNumber, d.id))}
+                                    onChange={(e) => setEdits((ed) => ({ ...ed, [itemKey(c.itemNumber, d.id)]: e.target.value }))}
+                                    onBlur={() => commitItem(c.itemNumber, c.gtinShort, d.id)}
+                                    placeholder={inherits ? String(inherits) : 'inherits'}
+                                    className="w-28 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-center text-sm focus:border-primary-500 focus:outline-none"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
           );
         })}
-        {visible.length === 0 && (
+        {groups.length === 0 && (
           <p className="py-8 text-center text-sm text-gray-500">No items match "{search}"</p>
         )}
       </div>

@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import ExcelJS from 'exceljs';
 import { prisma } from '../utils/prisma.js';
 import { success, error } from '../utils/response.js';
-import { getItemNumber, getProductLabel } from '../utils/gtin-map.js';
+import { getItemNumber, getParGroup, productCatalog } from '../utils/gtin-map.js';
 import { buildReorderRows, type ParLevelRow } from '../utils/parLevels.js';
 import { windowStart } from '../utils/usageReport.js';
 
@@ -11,7 +11,7 @@ const REORDER_WINDOW_MONTHS = 3;
 /** GET /api/par-levels — every par row (for the editor to hydrate). */
 export async function list(_req: Request, res: Response) {
   try {
-    const levels = await prisma.parLevel.findMany({ orderBy: { itemNumber: 'asc' } });
+    const levels = await prisma.parLevel.findMany({ orderBy: { createdAt: 'asc' } });
     return success(res, levels);
   } catch (err) {
     return error(res, 'Failed to fetch par levels', 500);
@@ -19,38 +19,75 @@ export async function list(_req: Request, res: Response) {
 }
 
 /**
- * PUT /api/par-levels — set (or clear) the par for an item.
- * Body: { itemNumber, gtinShort, distributorId?, minStock }. A non-positive
- * minStock clears the row (no par). distributorId omitted/null = global default.
+ * PUT /api/par-levels — set (or clear) a par.
+ *
+ * Two shapes, distinguished by `scope`:
+ *   - scope 'category': { scope, category, minStock } — a group default that
+ *     applies to every SKU in the group.
+ *   - scope 'item' (default): { itemNumber, gtinShort, distributorId?, minStock }
+ *     — a per-SKU par; with a distributorId it's a per-distributor override.
+ * A non-positive minStock clears the row so it falls back to the next level.
  */
 export async function upsert(req: Request, res: Response) {
   try {
-    const { itemNumber, gtinShort, distributorId, minStock } = req.body as {
+    const { scope, category, itemNumber, gtinShort, distributorId, minStock } = req.body as {
+      scope?: 'item' | 'category';
+      category?: string;
       itemNumber?: string;
       gtinShort?: string;
       distributorId?: string | null;
       minStock?: number;
     };
-    if (!itemNumber || !itemNumber.trim()) return error(res, 'itemNumber is required');
-    if (!gtinShort || !gtinShort.trim()) return error(res, 'gtinShort is required');
     const min = Number(minStock);
     if (!Number.isFinite(min) || min < 0) return error(res, 'minStock must be 0 or greater');
 
+    // ── Group (category) par — always global ──────────────────────────────
+    if (scope === 'category') {
+      if (!category || !category.trim()) return error(res, 'category is required');
+      const existing = await prisma.parLevel.findFirst({
+        where: { scope: 'category', category, distributorId: null },
+      });
+      if (min === 0) {
+        if (existing) await prisma.parLevel.delete({ where: { id: existing.id } });
+        return success(res, { scope: 'category', category, minStock: 0, cleared: true });
+      }
+      const saved = existing
+        ? await prisma.parLevel.update({ where: { id: existing.id }, data: { minStock: min } })
+        : await prisma.parLevel.create({
+            data: { scope: 'category', category, distributorId: null, minStock: min },
+          });
+      return success(res, saved);
+    }
+
+    // ── Item (SKU) par — global or per-distributor override ───────────────
+    if (!itemNumber || !itemNumber.trim()) return error(res, 'itemNumber is required');
+    if (!gtinShort || !gtinShort.trim()) return error(res, 'gtinShort is required');
+
     const distId = distributorId || null;
+    const itemCategory = getParGroup(gtinShort);
     const existing = await prisma.parLevel.findFirst({
-      where: { itemNumber, distributorId: distId },
+      where: { scope: 'item', itemNumber, distributorId: distId },
     });
 
-    // Clearing: a 0/blank par removes any existing row so it falls back to global.
     if (min === 0) {
       if (existing) await prisma.parLevel.delete({ where: { id: existing.id } });
       return success(res, { itemNumber, distributorId: distId, minStock: 0, cleared: true });
     }
 
     const saved = existing
-      ? await prisma.parLevel.update({ where: { id: existing.id }, data: { minStock: min, gtinShort } })
+      ? await prisma.parLevel.update({
+          where: { id: existing.id },
+          data: { minStock: min, gtinShort, category: itemCategory },
+        })
       : await prisma.parLevel.create({
-          data: { itemNumber, gtinShort, distributorId: distId, minStock: min },
+          data: {
+            scope: 'item',
+            itemNumber,
+            gtinShort,
+            category: itemCategory,
+            distributorId: distId,
+            minStock: min,
+          },
         });
     return success(res, saved);
   } catch (err) {
@@ -75,15 +112,8 @@ async function gatherReorderData() {
   ]);
 
   const current: Record<string, number> = {};
-  const labels: Record<string, { gtinShort: string; productLabel: string }> = {};
   for (const it of stock) {
     const itemNumber = getItemNumber(it.gtinShort, it.rawBarcode) || it.gtinShort;
-    if (!labels[itemNumber]) {
-      labels[itemNumber] = {
-        gtinShort: it.gtinShort,
-        productLabel: getProductLabel(it.gtinShort, it.rawBarcode),
-      };
-    }
     const k = `${itemNumber}|${it.distributorId}`;
     current[k] = (current[k] ?? 0) + 1;
   }
@@ -98,27 +128,24 @@ async function gatherReorderData() {
   for (const k of Object.keys(usage)) usage[k] = +(usage[k] / REORDER_WINDOW_MONTHS).toFixed(1);
 
   const levels: ParLevelRow[] = levelRows.map((l) => ({
+    scope: l.scope === 'category' ? 'category' : 'item',
     itemNumber: l.itemNumber,
+    category: l.category,
     gtinShort: l.gtinShort,
     distributorId: l.distributorId,
     minStock: l.minStock,
   }));
 
-  // Items with a par but no current stock still need labels for the report.
-  for (const l of levels) {
-    if (!labels[l.itemNumber]) {
-      labels[l.itemNumber] = {
-        gtinShort: l.gtinShort,
-        productLabel: getProductLabel(l.gtinShort) || 'Unknown',
-      };
-    }
-  }
-
   const rows = buildReorderRows({
     distributors: distributors.map((d) => ({ id: d.id, name: d.name })),
     levels,
     current,
-    labels,
+    items: productCatalog.map((c) => ({
+      itemNumber: c.itemNumber,
+      gtinShort: c.gtinShort,
+      productLabel: c.productLabel,
+      group: c.group,
+    })),
     usage,
   });
   return { rows, windowMonths: REORDER_WINDOW_MONTHS };

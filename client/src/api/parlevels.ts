@@ -3,8 +3,10 @@ import type { ApiResponse } from '../types';
 
 export interface ParLevel {
   id: string;
-  itemNumber: string;
-  gtinShort: string;
+  scope: 'item' | 'category';
+  itemNumber: string | null; // set when scope = 'item'
+  category: string | null; // group name; set when scope = 'category'
+  gtinShort: string | null;
   distributorId: string | null; // null = global default
   minStock: number;
 }
@@ -26,12 +28,17 @@ export async function listParLevels() {
   return res.data!;
 }
 
-export async function setParLevel(input: {
-  itemNumber: string;
-  gtinShort: string;
-  distributorId?: string | null;
-  minStock: number;
-}) {
+export async function setParLevel(
+  input:
+    | { scope: 'category'; category: string; minStock: number }
+    | {
+        scope?: 'item';
+        itemNumber: string;
+        gtinShort: string;
+        distributorId?: string | null;
+        minStock: number;
+      },
+) {
   const res = await api<ApiResponse<unknown>>('/par-levels', { method: 'PUT', body: input });
   return res.data!;
 }
