@@ -1,4 +1,4 @@
-import { getProductLabel } from './gtin-map';
+import { getProductLabel, refToGtinShort, gtinShortToFullGtin } from './gtin-map';
 
 export interface ParsedBarcode {
   gtin: string;
@@ -176,6 +176,43 @@ export function parseGS1(rawBarcode: string): ParseResult {
   const productLabel = getProductLabel(gtinShort, trimmed);
 
   return { gtin, gtinShort, lot, expDate, udi, rawBarcode: trimmed, productLabel };
+}
+
+/** Normalize a typed/printed expiry into GS1 YYMMDD, or '' if unusable. */
+function normalizeExpiry(input?: string): string {
+  const raw = (input || '').trim();
+  if (!raw) return '';
+  const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // 2030-10-20
+  if (iso) return iso[1].slice(2) + iso[2].padStart(2, '0') + iso[3].padStart(2, '0');
+  const slash = raw.match(/^(\d{1,2})[/](\d{1,2})[/](\d{2,4})$/); // 10/20/2030 or 10/20/30
+  if (slash) {
+    const yy = slash[3].length === 4 ? slash[3].slice(2) : slash[3];
+    return yy + slash[1].padStart(2, '0') + slash[2].padStart(2, '0');
+  }
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 6) return digits; // already YYMMDD
+  return '';
+}
+
+/**
+ * Build a GS1 barcode string from the fields a user can read off an implant
+ * sticker: REF (item number), lot, and (optional) expiry. Returns null if the
+ * REF isn't in the catalog. Used by the Usage manual-entry fallback so a label
+ * with no scannable barcode can still be entered.
+ */
+export function buildBarcodeFromFields(
+  itemNumber: string,
+  lot: string,
+  expiry?: string,
+): string | null {
+  const gtinShort = refToGtinShort[itemNumber.trim().toUpperCase()];
+  if (!gtinShort) return null;
+  const cleanLot = lot.trim();
+  if (!cleanLot) return null;
+  let s = `(01)${gtinShortToFullGtin(gtinShort)}(10)${cleanLot}`;
+  const exp = normalizeExpiry(expiry);
+  if (exp) s += `(17)${exp}`;
+  return s;
 }
 
 export function parseGS1Batch(input: string): ParseResult[] {

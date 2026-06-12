@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.35** | Summa Orthopaedics Inventory Management System
+**Version 3.36** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -390,11 +390,14 @@ Use this every day to record the implants a distributor has used. You scan the p
 **Recording a usage ticket:**
 
 1. **Pick the distributor** at the top. (All the items on one ticket come out of this one distributor. To record a different distributor, finish this ticket first or change the selection to start over.)
-2. **Scan each sticker** — use Live Scan, Take Photo, or Upload Photo, just like receiving. You can also tap **Enter barcode manually** to type one in.
-3. As you scan, each item shows a status:
+2. **Capture each sticker.** Many implant stickers on the usage ticket have **no barcode** — just printed text (REF/item number, lot, expiry). The app handles both:
+   - **Live Scan** — best when the sticker has a scannable barcode.
+   - **Take Photo / Upload Photo** — best for text-only stickers. The app reads the **item number, lot, and expiry** right off the printed label. You can fit **several stickers in one photo** and it will add them all at once.
+   - **Enter from the label** — if a photo won't read, tap this and type the **item number, lot, and expiry** straight off the sticker (item number and lot are required; expiry is optional and accepts formats like `2030-10-20`). You can also paste a full barcode here.
+3. As you capture items, each shows a status:
    - 🟢 **Available** — found in this distributor's stock and ready to deduct. If several identical units exist, the one expiring soonest is used first.
    - 🟡 **Not in stock** — this item isn't in that distributor's inventory, so it **can't** be deducted. Double-check the distributor, or that the item was received first.
-   - 🔴 **Unreadable** — the sticker couldn't be read; try scanning again or enter it manually.
+   - 🔴 **Unreadable** — the sticker couldn't be read; take a sharper, well-lit photo of just that label, or use **Enter from the label**.
 4. Tap **Consume N items**. Review the list, add an optional note (case number, surgeon, etc.), and tap **Consume**.
 5. The items are deducted from inventory and the ticket is saved with its own number (like `USE-20260602-0001`).
 

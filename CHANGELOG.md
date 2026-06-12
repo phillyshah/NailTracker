@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.36 — 2026-06-12
+Usage can now read implant stickers that have **no barcode** — only printed REF / lot / expiry text.
+
+- **OCR label reading.** The photo path (Take Photo / Upload Photo) now extracts the printed label text. When OCR finds Summa REF codes, each is mapped to its GTIN via the catalog and turned into a GS1 string the rest of the pipeline already understands. The REF matcher is fuzzy — it folds the digit/letter pairs Tesseract confuses (O↔0, I↔1, S↔5, B↔8, Z↔2) against the known catalog, so a slightly mis-read `S0-S5OI-SO-O44-T` still resolves to `SO-S50I-SO-044-T`.
+- **Multiple labels per photo.** A single photo of a usage sheet with several stickers now yields several items — each REF heading is paired with the lot and expiry printed beneath it (`parseLabelsFromText`). `detectBarcodesFromImage` returns the full list, and the Usage page adds each one.
+- **Better manual fallback.** When a label won't read, the Usage manual entry now takes **Item number / Lot / Expiry** straight off the sticker (or a pasted full barcode) instead of asking for a barcode that isn't there — built client-side with `buildBarcodeFromFields` and the same catalog mapping. Expiry accepts `2030-10-20`, `10/20/2030`, or `301020`.
+- **Tests:** new `ocrBarcode.test.ts` (single label, 4-label sheet, OCR-confusion tolerance, lot-less skip, no-REF, double-"SO" de-dup) and `buildBarcodeFromFields` cases in `parseGS1.test.ts`. Client suite 50 green; build green.
+
 ## v3.35 — 2026-06-12
 Par Levels gains **product-group pars** (admin-only, Beta).
 
