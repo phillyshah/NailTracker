@@ -15,6 +15,7 @@ import {
   BookOpen,
   Sparkles,
   ClipboardCheck,
+  FlaskConical,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -35,6 +36,7 @@ const mainNavItems = [
 
 // Everything else, grouped so the More sheet stays scannable. Histories and
 // analytics live under Reports — More holds actions and setup only.
+// `adminOnly` groups are filtered out for non-admins (see buildMoreGroups).
 const moreGroups = [
   {
     label: 'Tools',
@@ -54,10 +56,16 @@ const moreGroups = [
     label: 'Admin',
     items: [{ to: '/users', label: 'User Management', icon: UserCog }],
   },
+  {
+    label: 'TrackerLabs',
+    adminOnly: true,
+    items: [{ to: '/labs', label: 'TrackerLabs', icon: FlaskConical }],
+  },
 ];
 
-// Flat list for the desktop top nav.
-const moreNavItems = moreGroups.flatMap((g) => g.items);
+function buildMoreGroups(isAdmin: boolean) {
+  return moreGroups.filter((g) => !g.adminOnly || isAdmin);
+}
 
 export function Layout() {
   const { user, logout } = useAuth();
@@ -65,6 +73,10 @@ export function Layout() {
   const location = useLocation();
   const [showMore, setShowMore] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+
+  // Hide admin-only groups (e.g. TrackerLabs) from non-admins.
+  const visibleGroups = buildMoreGroups(user?.role === 'admin');
+  const moreNavItems = visibleGroups.flatMap((g) => g.items);
 
   // Close More menu on any route change
   useEffect(() => {
@@ -246,7 +258,7 @@ export function Layout() {
               </button>
             </div>
             <div className="space-y-4">
-              {moreGroups.map((group) => (
+              {visibleGroups.map((group) => (
                 <div key={group.label}>
                   <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
                     {group.label}

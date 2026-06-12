@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.32 — 2026-06-12
+Introduces **TrackerLabs**, an admin-only section for features that are still in testing.
+
+- **New TrackerLabs section (admin-only).** Added a new nav group, `TrackerLabs`, visible only to users with `role === 'admin'` (filtered in `Layout.tsx` via `buildMoreGroups`). A signed-in non-admin who navigates directly to a `/labs/*` URL is redirected home by a new `AdminRoute` guard in `App.tsx`.
+- **TrackerLabs hub (`client/src/pages/Labs.tsx`).** A landing page with a dismissible help banner explaining the area is experimental/in-testing, and a "Beta"-badged card for each upcoming experiment. The first two — **Par Levels & Reorder** and **Cycle Count** — are wired into the nav as placeholders (`client/src/pages/labs/ComingSoon.tsx`) and will ship in the following releases.
+- Groundwork only — no behavior change for existing users; field reps (non-admins) see nothing new.
+
 ## v3.31 — 2026-06-11
 Banks can now be renamed and re-described after creation, so their names match the terminology used on the floor.
 

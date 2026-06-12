@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.32',
+    date: '2026-06-12',
+    changes: [
+      'New TrackerLabs section (admins only) — a clearly-labeled space for features that are still in testing. The first experiments, Par Levels & Reorder and Cycle Count, are arriving here shortly',
+    ],
+  },
+  {
     version: '3.31',
     date: '2026-06-11',
     changes: [
@@ -39,13 +46,6 @@ export const changelog: ChangelogEntry[] = [
       'The Transfer page now has three tabs: Pick from list, Manual Transfer, and Import from Excel (all the original options are still here, just clearer)',
       'Each item is checked against the source site as you add it; anything not in stock there is flagged with one-tap "Add to source" or "Skip" (plus an "Add all missing" shortcut)',
       'Everything you add moves together as a single, race-safe transfer record',
-    ],
-  },
-  {
-    version: '3.27',
-    date: '2026-06-04',
-    changes: [
-      'Fixed: Transfer (Pick from list) and the bank "add items" picker now show ALL of a distributor\'s items, not just the first 100 — so you can select from the full list even with thousands in stock',
     ],
   },
 ];

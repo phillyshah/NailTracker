@@ -21,6 +21,8 @@ import BankDetail from './pages/BankDetail';
 import Usage from './pages/Usage';
 import UsageHistory from './pages/UsageHistory';
 import UsageDetail from './pages/UsageDetail';
+import Labs from './pages/Labs';
+import ComingSoon from './pages/labs/ComingSoon';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -32,6 +34,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+// TrackerLabs (and any other admin-only area) is gated here: a signed-in
+// non-admin who lands on the URL directly is bounced to the app home rather
+// than seeing a blank/forbidden page.
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role !== 'admin') return <Navigate to="/receive" replace />;
   return <>{children}</>;
 }
 
@@ -69,6 +80,10 @@ export default function App() {
         <Route path="usage" element={<Usage />} />
         <Route path="usage/history" element={<UsageHistory />} />
         <Route path="usage/history/:ticketId" element={<UsageDetail />} />
+        {/* TrackerLabs — admin-only experimental features */}
+        <Route path="labs" element={<AdminRoute><Labs /></AdminRoute>} />
+        <Route path="labs/par-levels" element={<AdminRoute><ComingSoon title="Par Levels & Reorder" /></AdminRoute>} />
+        <Route path="labs/cycle-count" element={<AdminRoute><ComingSoon title="Cycle Count" /></AdminRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
