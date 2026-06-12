@@ -19,6 +19,7 @@ import userRoutes from './routes/users.js';
 import transferRoutes from './routes/transfers.js';
 import bankRoutes from './routes/banks.js';
 import usageRoutes from './routes/usage.js';
+import parLevelRoutes from './routes/parlevels.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3045', 10);
@@ -41,6 +42,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/banks', bankRoutes);
 app.use('/api/usage', usageRoutes);
+app.use('/api/par-levels', parLevelRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

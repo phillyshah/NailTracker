@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.33 — 2026-06-12
+First TrackerLabs feature: **Par Levels & Reorder** (admin-only, Beta).
+
+- **Par Levels editor** (`TrackerLabs → Par Levels`). Set a minimum stock level per item number: a **Global** default that applies to every distributor, plus optional **per-distributor overrides** (expand an item to set them). Values save on blur; clearing a field (or 0) removes it. Backed by a new `ParLevel` table (`prisma/migrations/0007_add_par_level`) — `distributorId = null` is the global default; a real id is an override.
+- **Reorder Report** (`TrackerLabs → Reorder Report`). Lists every item below its effective par, by distributor, with **Suggested Order** = par − on-hand, plus recent **Usage / mo** (3-month average from `usedAt`) as context. Distributor filter, search, and Excel export. Par scope is distributors only (Home Office is the warehouse you replenish from).
+- **Server:** `parlevel.controller.ts` (`list` / `upsert` / `reorderReport` / `exportReorder`) + `routes/parlevels.ts` mounted at `/api/par-levels`, behind `authMiddleware` + `adminOnly`. Pure helper `utils/parLevels.ts` (`effectivePar` — override beats global; `buildReorderRows`) with 8 unit tests. Reorder aggregation reuses the `stockByItem` pivot approach and `usageReport` windowing.
+
 ## v3.32 — 2026-06-12
 Introduces **TrackerLabs**, an admin-only section for features that are still in testing.
 
