@@ -15,6 +15,8 @@ import { listDistributors } from '../api/distributors';
 import { previewUsage, commitUsage, type UsageLine, type UsageCommitResult } from '../api/usage';
 import { buildBarcodeFromFields } from '../utils/parseGS1';
 import { BarcodeScanner } from '../components/BarcodeScanner';
+import { Button } from '../components/Button';
+import { SuccessCard } from '../components/SuccessCard';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
 import { HelpBanner } from '../components/HelpBanner';
@@ -152,28 +154,22 @@ export default function Usage() {
     return (
       <div className="mx-auto max-w-2xl lg:max-w-4xl">
         <ToastContainer toasts={toasts} onRemove={removeToast} />
-        <div className="rounded-2xl bg-white p-6 shadow-sm text-center">
-          <CheckCircle2 size={48} className="mx-auto text-green-600" />
-          <h2 className="mt-3 text-xl font-bold text-gray-900">Usage recorded</h2>
-          <p className="mt-1 text-base text-gray-600">
-            {result.consumed} item{result.consumed !== 1 ? 's' : ''} consumed from {distributorName}
-          </p>
-          <p className="mt-1 font-mono text-base text-green-700">{result.ticketId}</p>
-          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <button
-              onClick={() => navigate(`/usage/history/${encodeURIComponent(result.ticketId)}`)}
-              className="rounded-xl bg-primary-600 px-5 py-3 text-base font-semibold text-white hover:bg-primary-700"
-            >
-              View ticket
-            </button>
-            <button
-              onClick={resetTicket}
-              className="rounded-xl border border-gray-300 px-5 py-3 text-base font-medium text-gray-700 hover:bg-gray-100"
-            >
-              Record another
-            </button>
-          </div>
-        </div>
+        <SuccessCard
+          title="Usage recorded"
+          id={result.ticketId}
+          actions={
+            <>
+              <Button onClick={() => navigate(`/usage/history/${encodeURIComponent(result.ticketId)}`)}>
+                View ticket
+              </Button>
+              <Button variant="secondary" onClick={resetTicket}>
+                Record another
+              </Button>
+            </>
+          }
+        >
+          {result.consumed} item{result.consumed !== 1 ? 's' : ''} consumed from {distributorName}
+        </SuccessCard>
       </div>
     );
   }
@@ -222,19 +218,16 @@ export default function Usage() {
           </label>
 
           <div className="flex gap-3">
-            <button
-              onClick={() => setStep('scan')}
-              className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-100"
-            >
+            <Button variant="secondary" className="flex-1" onClick={() => setStep('scan')}>
               Back
-            </button>
-            <button
+            </Button>
+            <Button
+              className="flex-1"
               onClick={() => commitMutation.mutate()}
               disabled={commitMutation.isPending || availableLines.length === 0}
-              className="flex-1 rounded-xl bg-green-600 px-4 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:opacity-50"
             >
               {commitMutation.isPending ? 'Recording…' : `Consume ${availableLines.length}`}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -373,13 +366,10 @@ export default function Usage() {
           {/* Primary action up top so it isn't missed below a long list; when
               nothing can be consumed, say why instead of just hiding it. */}
           {availableLines.length > 0 ? (
-            <button
-              onClick={() => setStep('confirm')}
-              className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-green-700"
-            >
+            <Button className="mb-4 w-full" onClick={() => setStep('confirm')}>
               <ClipboardCheck size={20} />
               Consume {availableLines.length} item{availableLines.length !== 1 ? 's' : ''}
-            </button>
+            </Button>
           ) : (
             <p className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
               None of these are in {distributorName}'s stock, so there's nothing to consume yet.
@@ -449,13 +439,10 @@ export default function Usage() {
       {/* Sticky consume button */}
       {availableLines.length > 0 && (
         <div className="sticky bottom-20 lg:bottom-4">
-          <button
-            onClick={() => setStep('confirm')}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-4 text-base font-semibold text-white shadow-lg hover:bg-green-700"
-          >
+          <Button size="lg" className="w-full shadow-lg" onClick={() => setStep('confirm')}>
             <ClipboardCheck size={20} />
             Consume {availableLines.length} item{availableLines.length !== 1 ? 's' : ''}
-          </button>
+          </Button>
         </div>
       )}
     </div>

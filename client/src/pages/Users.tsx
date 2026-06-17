@@ -4,6 +4,7 @@ import { Plus, Key, Trash2, Shield, ShieldCheck, X, CalendarClock, ScanLine } fr
 import { listUsers, createUser, updatePassword, updateRole, deleteUser, type User } from '../api/users';
 import { backfillManualExpiry } from '../api/inventory';
 import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/Button';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import RepairBarcodesModal from '../components/RepairBarcodesModal';
@@ -89,12 +90,9 @@ export default function Users() {
 
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">User Management</h2>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-base font-semibold text-white hover:bg-primary-700"
-        >
+        <Button size="sm" onClick={() => setShowAddForm(true)}>
           <Plus size={20} /> Add User
-        </button>
+        </Button>
       </div>
 
       {isLoading ? (

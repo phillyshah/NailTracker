@@ -29,6 +29,8 @@ import {
   type BatchLineParsed,
 } from '../api/transfers';
 import { BarcodeScanner } from '../components/BarcodeScanner';
+import { Button } from '../components/Button';
+import { SuccessCard } from '../components/SuccessCard';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { SearchBar } from '../components/SearchBar';
 import { ToastContainer } from '../components/Toast';
@@ -890,14 +892,11 @@ export default function Transfer() {
                         hidden below a long list or missed behind the sticky bar.
                         When it can't proceed yet, say why. */}
                     {canReview ? (
-                      <button
-                        onClick={() => setStep('confirm')}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-primary-700"
-                      >
+                      <Button className="w-full" onClick={() => setStep('confirm')}>
                         <ArrowRightLeft size={20} />
                         Review Transfer ({includedCount} items)
                         <ChevronRight size={20} />
-                      </button>
+                      </Button>
                     ) : (
                       includedCount > 0 &&
                       !toDistId && (
@@ -969,14 +968,11 @@ export default function Transfer() {
 
             {canReview && (
               <div className="sticky bottom-20 lg:bottom-4 z-30">
-                <button
-                  onClick={() => setStep('confirm')}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-4 text-base font-semibold text-white shadow-lg hover:bg-primary-700 transition-colors"
-                >
+                <Button size="lg" className="w-full shadow-lg" onClick={() => setStep('confirm')}>
                   <ArrowRightLeft size={20} />
                   Review Transfer ({mode === 'pick' ? selectedIds.size : includedCount} items)
                   <ChevronRight size={20} />
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -1016,14 +1012,16 @@ export default function Transfer() {
                 ))}
               </div>
               <div className="mt-5 flex gap-3">
-                <button onClick={() => setStep('select')} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100">Back</button>
-                <button
+                <Button variant="secondary" className="flex-1" onClick={() => setStep('select')}>
+                  Back
+                </Button>
+                <Button
+                  className="flex-1"
                   onClick={() => transferMutation.mutate()}
                   disabled={transferMutation.isPending}
-                  className="flex-1 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
                 >
                   {transferMutation.isPending ? 'Transferring...' : 'Confirm Transfer'}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1032,14 +1030,9 @@ export default function Transfer() {
         {/* STEP 3 */}
         {step === 'done' && savedTransfer && (
           <div className="space-y-4">
-            <div className="rounded-2xl border-2 border-green-300 bg-green-50 p-4 text-center">
-              <Check size={32} className="mx-auto text-green-600 mb-2" />
-              <p className="text-lg font-bold text-green-800">Transfer Complete</p>
-              <p className="text-base font-mono text-green-700 mt-1">{savedTransfer.transferId}</p>
-              <p className="text-sm text-green-600 mt-1">
-                {savedTransfer.itemCount} items: {savedTransfer.fromDistributorName} → {savedTransfer.toDistributorName}
-              </p>
-            </div>
+            <SuccessCard title="Transfer complete" id={savedTransfer.transferId}>
+              {savedTransfer.itemCount} items: {savedTransfer.fromDistributorName} → {savedTransfer.toDistributorName}
+            </SuccessCard>
             {blockedLines.length > 0 && (
               <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
                 <p className="text-sm font-semibold text-amber-800 mb-1">
@@ -1053,16 +1046,13 @@ export default function Transfer() {
               </div>
             )}
             <div className="flex gap-3">
-              <button
-                onClick={handlePrint}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700"
-              >
+              <Button className="flex-1" onClick={handlePrint}>
                 <Printer size={20} />
                 Print / Save PDF
-              </button>
-              <button onClick={resetAll} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium text-gray-600 hover:bg-gray-50">
+              </Button>
+              <Button variant="secondary" className="flex-1" onClick={resetAll}>
                 New Transfer
-              </button>
+              </Button>
             </div>
           </div>
         )}

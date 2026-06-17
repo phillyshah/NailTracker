@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.41',
+    date: '2026-06-17',
+    changes: [
+      'Polished the look-and-feel: buttons across the app now share one consistent size, shape, and color. The main "go" action is always the same blue, and green is reserved for "done" confirmation screens',
+    ],
+  },
+  {
     version: '3.40',
     date: '2026-06-17',
     changes: [
@@ -36,14 +43,6 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-12',
     changes: [
       'Added an "OCR debug" toggle under the photo scanner: turn it on to see the exact text the app read off a label, with a Copy button — handy for reporting a sticker that won\'t scan',
-    ],
-  },
-  {
-    version: '3.36',
-    date: '2026-06-12',
-    changes: [
-      'Usage now reads implant stickers that have no barcode: use Take Photo or Upload Photo and the app reads the item number, lot, and expiry off the printed label — and you can capture several stickers in one photo',
-      'If a label won\'t read, the manual entry now takes the item number, lot, and expiry straight off the sticker instead of asking for a barcode',
     ],
   },
 ];

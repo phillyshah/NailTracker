@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { Plus, Boxes, Trash2, ArrowRightLeft, ChevronRight, Pencil } from 'lucide-react';
 import { listBanks, createBank, updateBank, deleteBank, transferBankToDistributor } from '../api/banks';
 import { listDistributors } from '../api/distributors';
+import { Button } from '../components/Button';
 import { HelpBanner } from '../components/HelpBanner';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -81,12 +82,9 @@ export default function Banks() {
 
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Banks</h2>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
-        >
+        <Button size="sm" onClick={() => setShowCreate(true)}>
           <Plus size={18} /> New Bank
-        </button>
+        </Button>
       </div>
 
       <HelpBanner storageKey="banks">

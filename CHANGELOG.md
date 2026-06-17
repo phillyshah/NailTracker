@@ -1,5 +1,14 @@
 # Changelog
 
+## v3.41 — 2026-06-17
+UI consistency refactor (the deferred follow-up to v3.40).
+
+- **Shared `Button` component** (`client/src/components/Button.tsx`) with `variant` (primary / secondary / danger / warning) and `size` (sm / md / lg). Ends the hand-rolled padding/size/colour drift across pages. Defaults `type="button"` so a Button inside a `<form>` can't submit by accident.
+- **Shared `SuccessCard`** (`client/src/components/SuccessCard.tsx`) so the Transfer / Usage / Cycle Count "done" screens are identical.
+- **Colour convention applied:** advance/confirm actions are primary-blue everywhere; green is reserved for success/done states only. Migrated the green action buttons (Scan "Add to Inventory", Usage "Consume" ×3, Transfer/Usage/CycleCount confirms) and the divergent header CTAs (Banks, Distributors, Users, ParLevels, Inventory) and back buttons.
+- **Verification:** independent agent review of the full diff (no behaviour/handler/layout-class/`type` dropped, no dead imports). Client build + client 56 tests + server 147 tests + server `tsc --noEmit` all green.
+- Not changed: "Mark as Used" keeps its deliberate solid-amber emphasis; tiny icon/ghost buttons left as-is. `cn` remains plain clsx (Button only accepts layout-only `className`).
+
 ## v3.40 — 2026-06-17
 UI consistency: make the primary action discoverable across the staged/multi-step flows.
 

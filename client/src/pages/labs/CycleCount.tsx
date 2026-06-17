@@ -10,6 +10,8 @@ import {
   type AuditCommitResult,
 } from '../../api/audits';
 import { BarcodeScanner } from '../../components/BarcodeScanner';
+import { Button } from '../../components/Button';
+import { SuccessCard } from '../../components/SuccessCard';
 import { HelpBanner } from '../../components/HelpBanner';
 import { ToastContainer } from '../../components/Toast';
 import { useToast } from '../../hooks/useToast';
@@ -112,24 +114,22 @@ export default function CycleCount() {
         <ToastContainer toasts={toasts} onRemove={removeToast} />
         {Back}
         {Title}
-        <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
-            <Check size={30} />
-          </div>
-          <h3 className="text-lg font-bold text-gray-900">Audit saved</h3>
-          <p className="mt-1 font-mono text-sm text-gray-500">{result.auditId}</p>
-          <p className="mt-3 text-sm text-gray-600">
-            {result.matchedCount} matched · {result.added} added · {result.removed} removed at {distributorName}
-          </p>
-          <div className="mt-5 flex gap-3">
-            <button onClick={reset} className="flex-1 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700">
-              New Count
-            </button>
-            <button onClick={() => navigate('/labs/audits')} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100">
-              View History
-            </button>
-          </div>
-        </div>
+        <SuccessCard
+          title="Audit saved"
+          id={result.auditId}
+          actions={
+            <>
+              <Button className="flex-1" onClick={reset}>
+                New Count
+              </Button>
+              <Button variant="secondary" className="flex-1" onClick={() => navigate('/labs/audits')}>
+                View History
+              </Button>
+            </>
+          }
+        >
+          {result.matchedCount} matched · {result.added} added · {result.removed} removed at {distributorName}
+        </SuccessCard>
       </div>
     );
   }
@@ -223,16 +223,12 @@ export default function CycleCount() {
         </Section>
 
         <div className="sticky bottom-20 lg:bottom-4 z-30 mt-4 flex gap-3 bg-slate-50 py-3">
-          <button onClick={() => setStep('scan')} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100">
+          <Button variant="secondary" className="flex-1" onClick={() => setStep('scan')}>
             Scan more
-          </button>
-          <button
-            onClick={finish}
-            disabled={busy}
-            className="flex-1 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-          >
+          </Button>
+          <Button className="flex-1" onClick={finish} disabled={busy}>
             {busy ? 'Saving…' : `Finish (+${addExtras.size} / −${removeMissing.size})`}
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -306,18 +302,14 @@ export default function CycleCount() {
                   placeholder="Paste or type the barcode"
                   className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
                 />
-                <button type="submit" className="rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700">Add</button>
+                <Button type="submit">Add</Button>
               </form>
             )}
           </div>
 
-          <button
-            onClick={goReview}
-            disabled={busy}
-            className="w-full rounded-xl bg-primary-600 px-4 py-3.5 text-base font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-          >
+          <Button className="w-full" onClick={goReview} disabled={busy}>
             {busy ? 'Reconciling…' : `Review count (${barcodes.length} scanned)`}
-          </button>
+          </Button>
         </>
       ) : (
         <p className="rounded-2xl bg-white p-6 text-center text-sm text-gray-500 shadow-sm">
