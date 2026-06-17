@@ -84,4 +84,23 @@ describe('parseLabelsFromText', () => {
     const text = 'REF SO-S50I-SO-044-T LOT J251021-L015 2030-10-20';
     expect(parseLabelsFromText(text)).toHaveLength(1);
   });
+
+  it('counts two identical stickers as two units (no over-dedup)', () => {
+    const sticker = ['REF SO-SPFC-010', 'LOT A123-B45', '2030-10-20'];
+    const text = [...sticker, '', ...sticker].join('\n');
+    const out = parseLabelsFromText(text);
+    expect(out).toHaveLength(2);
+    expect(out[0]).toBe(expected('SO-SPFC-010', 'A123-B45', '301020'));
+    expect(out[1]).toBe(out[0]);
+  });
+
+  it('prefers a labeled EXP over an earlier manufacture date', () => {
+    const text = ['REF SO-SPFC-010', 'LOT A123-B45', 'MFG 2025-01-01', 'EXP 2030-10-20'].join('\n');
+    expect(parseLabelsFromText(text)).toEqual([expected('SO-SPFC-010', 'A123-B45', '301020')]);
+  });
+
+  it('with two unlabeled dates, takes the later one as the expiry', () => {
+    const text = ['REF SO-SPFC-010', 'LOT A123-B45', '2025-01-01', '2030-10-20'].join('\n');
+    expect(parseLabelsFromText(text)).toEqual([expected('SO-SPFC-010', 'A123-B45', '301020')]);
+  });
 });

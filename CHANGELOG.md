@@ -1,5 +1,15 @@
 # Changelog
 
+## v3.39 — 2026-06-17
+Bug-fix sweep from a full server + client + TrackerLabs/OCR audit. (Builds + suites green: server 147, client 56.)
+
+- **Receive → "Assign to bank" over-assigned by UDI.** It matched on UDI (`gtinShort+lot+expiry`, not unique per unit), so `addItems`' `updateMany({ udi: { in }, bankId: null })` swept in *every* un-banked unit of that product+lot at the site, not just the ones received. `assign` now runs in a single `$transaction` and returns the created item ids; Receive tracks each unit's `serverId` and assigns to a bank by exact `itemIds`. (Also makes assign all-or-nothing, fixing a partial-commit/double-stock risk.)
+- **Inventory list stale after detail reassign.** `InventoryDetail` reassign only invalidated `['inventory-item', id]`; now also invalidates `['inventory']` and `['inventory-all']` so the list and pickers reflect the new distributor.
+- **Reorder Report listed Home Office.** `gatherReorderData` passed all active distributors to `buildReorderRows`; Home Office is now excluded by name, matching the documented "distributors only" rule (and group pars no longer flood the report with Home-Office rows).
+- **OCR dropped duplicate stickers.** `parseLabelsFromText` de-duped on GS1 content, collapsing two identical lot stickers in one photo into one unit. `findRefs` now advances past exactly the matched REF (no overlapping hits), the content de-dup is removed (each REF occurrence = one physical unit), and fields printed above the first REF no longer get claimed.
+- **OCR could store a manufacture date as the expiry.** `findExps` now tags EXP-labeled dates and `chooseExp` prefers a labeled value, otherwise the latest date under the REF — so an `MFG` date above the `EXP` no longer wins.
+- **Verified working (no change):** inventory transfer + audit trail (reassign is transactional with `AssignmentHistory`; `TRF-…` persisted); Excel and Manual transfers share one commit path; Receive photos persist (per-item `imageData`); par 3-tier precedence; audit-commit atomicity + missing re-scoping. Deferred (documented follow-ups): reassign TOCTOU guard, usage-commit snapshot under concurrency, sequential-ID ceiling/race, Inventory page-scoped "select all", bulk partial-failure reporting, audit-route validation schemas.
+
 ## v3.38 — 2026-06-17
 Bug fix: Import-from-Excel transfers couldn't be completed.
 

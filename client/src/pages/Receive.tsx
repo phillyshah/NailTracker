@@ -21,6 +21,7 @@ import { useToast } from '../hooks/useToast';
 
 interface ReceivedItem {
   id: number;
+  serverId?: string; // the created InventoryItem id (for precise bank assignment)
   parsed: any;
   imageData: string | null;
   status: 'new' | 'duplicate' | 'error';
@@ -86,7 +87,7 @@ export default function Receive() {
         const assignResult = await assignItems([itemData], targetDist.id);
         if (assignResult.created > 0) {
           setReceivedItems((prev) => [
-            { id: nextId++, parsed, imageData, status: 'new' },
+            { id: nextId++, serverId: assignResult.createdIds?.[0], parsed, imageData, status: 'new' },
             ...prev,
           ]);
           addToast(`Received: ${parsed.productLabel}`, 'success');
@@ -523,14 +524,23 @@ export default function Receive() {
                 <button
                   onClick={async () => {
                     if (!selectedBankId) return;
-                    const udis = receivedItems.filter((i) => i.status === 'new' && i.parsed).map((i) => i.parsed.udi);
-                    if (udis.length === 0) return;
+                    // Use the exact ids created this session — NOT UDIs, which
+                    // aren't unique per unit and would sweep in every other
+                    // un-banked item of the same gtin+lot+expiry at this site.
+                    const itemIds = receivedItems
+                      .filter((i) => i.status === 'new' && i.serverId)
+                      .map((i) => i.serverId!);
+                    if (itemIds.length === 0) {
+                      addToast('Nothing to assign', 'error');
+                      return;
+                    }
                     try {
-                      const result = await addItemsToBank(selectedBankId, { udis });
-                      addToast(`${result.updated} items added to bank`, 'success');
+                      const result = await addItemsToBank(selectedBankId, { itemIds });
+                      addToast(`${result.updated} item${result.updated !== 1 ? 's' : ''} added to bank`, 'success');
                       setShowBankAssign(false);
                       setSelectedBankId('');
                       queryClient.invalidateQueries({ queryKey: ['banks'] });
+                      queryClient.invalidateQueries({ queryKey: ['inventory'] });
                     } catch {
                       addToast('Failed to assign to bank', 'error');
                     }
