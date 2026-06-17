@@ -169,6 +169,16 @@ interface RefHit extends Hit {
   gtinShort: string;
 }
 
+/** Number of ORIGINAL characters that cover `normLen` normalized chars. */
+function originalLenForNorm(candidate: string, normLen: number): number {
+  let kept = 0;
+  let i = 0;
+  for (; i < candidate.length && kept < normLen; i++) {
+    if (normRef(candidate[i]).length > 0) kept++;
+  }
+  return Math.max(i, 2); // always make progress
+}
+
 /** Find every catalogued REF code in the OCR text (fuzzy, OCR-error tolerant). */
 function findRefs(text: string): RefHit[] {
   const out: RefHit[] = [];
@@ -178,9 +188,16 @@ function findRefs(text: string): RefHit[] {
   while ((m = re.exec(text)) !== null) {
     const candNorm = normRef(m[0]);
     const hit = NORMALIZED_CATALOG.find((c) => candNorm.startsWith(c.norm));
-    if (hit) out.push({ ref: hit.ref, gtinShort: hit.gtinShort, index: m.index });
-    // Don't skip a REF that starts within this (greedy) candidate.
-    re.lastIndex = m.index + 2;
+    if (hit) {
+      out.push({ ref: hit.ref, gtinShort: hit.gtinShort, index: m.index });
+      // Advance past exactly THIS ref's characters: far enough that the same
+      // sticker can't match twice (which would otherwise hide genuine duplicate
+      // stickers), but not so far that an adjacent next REF is skipped.
+      re.lastIndex = m.index + originalLenForNorm(m[0], hit.norm.length);
+    } else {
+      // No catalog match — step forward minimally to find a REF starting inside.
+      re.lastIndex = m.index + 2;
+    }
   }
   return out;
 }
@@ -213,19 +230,41 @@ function cleanLot(raw: string): string | null {
   return lot.length >= 3 ? lot : null;
 }
 
-/** Find expiry dates as YYMMDD. Handles "2030-10-20" and a labeled 6-digit form. */
-function findExps(text: string): (Hit & { exp: string })[] {
-  const out: (Hit & { exp: string })[] = [];
+/** Convert a printed date ("2030-10-20" or "301020") to GS1 YYMMDD, or '' if unusable. */
+function dateToYYMMDD(raw: string): string {
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return iso[1].slice(2) + iso[2] + iso[3];
+  return /^\d{6}$/.test(raw) ? raw : '';
+}
+
+/**
+ * Find expiry dates as YYMMDD, tagging whether each was EXP-labeled. Labels
+ * routinely also print a manufacture date, so the caller prefers a labeled
+ * value and otherwise the latest date — never just the first one found.
+ */
+function findExps(text: string): (Hit & { exp: string; labeled: boolean })[] {
+  const out: (Hit & { exp: string; labeled: boolean })[] = [];
   let m: RegExpExecArray | null;
-  const iso = /(\d{4})-(\d{2})-(\d{2})/g; // hourglass date e.g. 2030-10-20
-  while ((m = iso.exec(text)) !== null) {
-    out.push({ exp: m[1].slice(2) + m[2] + m[3], index: m.index });
-  }
-  const labeled = /(?:EXP|EXPIRY|EXPIRATION|USE\s*BY)[:\s]*(\d{6})/gi;
+  const labeled = /(?:EXP|EXPIRY|EXPIRATION|USE\s*BY)[:\s]*(\d{6}|\d{4}-\d{2}-\d{2})/gi;
   while ((m = labeled.exec(text)) !== null) {
-    out.push({ exp: m[1], index: m.index });
+    const exp = dateToYYMMDD(m[1]);
+    if (exp) out.push({ exp, index: m.index, labeled: true });
+  }
+  const iso = /(\d{4})-(\d{2})-(\d{2})/g; // any hourglass date e.g. 2030-10-20
+  while ((m = iso.exec(text)) !== null) {
+    out.push({ exp: m[1].slice(2) + m[2] + m[3], index: m.index, labeled: false });
   }
   return out;
+}
+
+/** Pick the best expiry for one label: a labeled EXP wins; else the latest date. */
+function chooseExp(candidates: { exp: string; labeled: boolean }[]): string | undefined {
+  if (candidates.length === 0) return undefined;
+  const labeled = candidates.filter((c) => c.labeled);
+  const pool = labeled.length > 0 ? labeled : candidates;
+  // YYMMDD compares lexically as chronologically for our 20xx expiries, so the
+  // max is the furthest-future date — i.e. the expiry, not a manufacture date.
+  return pool.reduce((a, b) => (b.exp > a.exp ? b : a)).exp;
 }
 
 /**
@@ -237,12 +276,12 @@ function findExps(text: string): (Hit & { exp: string })[] {
 export function parseLabelsFromText(text: string): string[] {
   const refs = findRefs(text).sort((a, b) => a.index - b.index);
   if (refs.length === 0) return [];
+  const firstRefIdx = refs[0].index;
 
   const lots = findLots(text).sort((a, b) => a.index - b.index);
   const exps = findExps(text).sort((a, b) => a.index - b.index);
 
-  // Index of the REF heading a field belongs to: the last REF at or before it
-  // (fields above the first REF fall to the first label).
+  // Index of the REF heading a field belongs to: the last REF at or before it.
   const ownerOf = (idx: number): number => {
     let owner = 0;
     for (let i = 0; i < refs.length; i++) {
@@ -252,29 +291,31 @@ export function parseLabelsFromText(text: string): string[] {
     return owner;
   };
 
-  // Keep the first (nearest-below) LOT / expiry seen under each REF.
+  // Keep the first (nearest-below) LOT under each REF. Fields printed ABOVE the
+  // first REF aren't part of any label and must not be claimed by REF #0.
   const lotByRef: (string | undefined)[] = new Array(refs.length);
   for (const l of lots) {
+    if (l.index < firstRefIdx) continue;
     const r = ownerOf(l.index);
     if (lotByRef[r] === undefined) lotByRef[r] = l.lot;
   }
-  const expByRef: (string | undefined)[] = new Array(refs.length);
+  // Gather all expiry candidates per REF, then pick the best (labeled / latest).
+  const expByRef: { exp: string; labeled: boolean }[][] = refs.map(() => []);
   for (const e of exps) {
-    const r = ownerOf(e.index);
-    if (expByRef[r] === undefined) expByRef[r] = e.exp;
+    if (e.index < firstRefIdx) continue;
+    expByRef[ownerOf(e.index)].push(e);
   }
 
-  const seen = new Set<string>();
+  // No content-based de-dup: each REF occurrence is one physical sticker, so two
+  // identical lot stickers in one photo correctly count as two units.
   const results: string[] = [];
   for (let i = 0; i < refs.length; i++) {
     const lot = lotByRef[i];
     if (!lot) continue; // a unit needs a lot to be matched in inventory
     let gs1 = `(01)${gtinShortToFullGtin(refs[i].gtinShort)}(10)${lot}`;
-    if (expByRef[i]) gs1 += `(17)${expByRef[i]}`;
-    if (!seen.has(gs1)) {
-      seen.add(gs1);
-      results.push(gs1);
-    }
+    const exp = chooseExp(expByRef[i]);
+    if (exp) gs1 += `(17)${exp}`;
+    results.push(gs1);
   }
 
   return results;

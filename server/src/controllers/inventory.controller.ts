@@ -172,41 +172,47 @@ export async function assign(req: Request, res: Response) {
       }
     }
 
-    let created = 0;
-
-    for (const item of items) {
-      const newItem = await prisma.inventoryItem.create({
-        data: {
-          udi: item.udi,
-          gtin: item.gtin,
-          gtinShort: item.gtinShort,
-          lot: item.lot,
-          expDate: item.expDate ? new Date(item.expDate) : null,
-          rawBarcode: item.rawBarcode,
-          productLabel: item.productLabel,
-          imageData: item.imageData || imageData || null,
-          distributorId: distributorId || null,
-          assignedAt: distributorId ? new Date() : null,
-          assignedBy: req.user?.username || null,
-        },
-      });
-
-      if (distributorId) {
-        await prisma.assignmentHistory.create({
+    // One transaction so a mid-batch failure can't leave half the items (and
+    // half the history) committed — the caller either gets all of them or none.
+    // Returns the created ids so callers (e.g. Receive → assign to bank) can act
+    // on exactly the units they just created, not on every UDI match.
+    const createdIds = await prisma.$transaction(async (tx) => {
+      const ids: string[] = [];
+      for (const item of items) {
+        const newItem = await tx.inventoryItem.create({
           data: {
-            itemId: newItem.id,
-            toDistributorId: distributorId,
-            toDistributorName: distributor?.name || null,
-            changedBy: req.user?.username || null,
-            note: 'Initial assignment',
+            udi: item.udi,
+            gtin: item.gtin,
+            gtinShort: item.gtinShort,
+            lot: item.lot,
+            expDate: item.expDate ? new Date(item.expDate) : null,
+            rawBarcode: item.rawBarcode,
+            productLabel: item.productLabel,
+            imageData: item.imageData || imageData || null,
+            distributorId: distributorId || null,
+            assignedAt: distributorId ? new Date() : null,
+            assignedBy: req.user?.username || null,
           },
         });
+
+        if (distributorId) {
+          await tx.assignmentHistory.create({
+            data: {
+              itemId: newItem.id,
+              toDistributorId: distributorId,
+              toDistributorName: distributor?.name || null,
+              changedBy: req.user?.username || null,
+              note: 'Initial assignment',
+            },
+          });
+        }
+
+        ids.push(newItem.id);
       }
+      return ids;
+    });
 
-      created++;
-    }
-
-    return success(res, { created, skipped: 0 });
+    return success(res, { created: createdIds.length, skipped: 0, createdIds });
   } catch (err) {
     return error(res, 'Assignment failed', 500);
   }

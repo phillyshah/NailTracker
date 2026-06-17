@@ -3,7 +3,7 @@ import type { ApiResponse, InventoryItem, ParsedItemWithStatus } from '../types'
 
 interface ScanResponse extends ApiResponse<{ parsed: ParsedItemWithStatus; existing: InventoryItem | null }> {}
 
-interface AssignResponse extends ApiResponse<{ created: number; skipped: number }> {}
+interface AssignResponse extends ApiResponse<{ created: number; skipped: number; createdIds?: string[] }> {}
 
 interface ListResponse extends ApiResponse<InventoryItem[]> {}
 

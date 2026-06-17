@@ -60,6 +60,10 @@ export default function InventoryDetail() {
       addToast('Item reassigned', 'success');
       setShowReassign(false);
       queryClient.invalidateQueries({ queryKey: ['inventory-item', id] });
+      // The list and selection pickers key off distributor — refresh them too,
+      // otherwise the item still shows under its old distributor after Back.
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-all'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });

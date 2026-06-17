@@ -137,7 +137,11 @@ async function gatherReorderData() {
   }));
 
   const rows = buildReorderRows({
-    distributors: distributors.map((d) => ({ id: d.id, name: d.name })),
+    // Par levels apply to field distributors only — Home Office is the warehouse
+    // you replenish FROM, so it must never appear on the reorder report.
+    distributors: distributors
+      .filter((d) => d.name.trim().toLowerCase() !== 'home office')
+      .map((d) => ({ id: d.id, name: d.name })),
     levels,
     current,
     items: productCatalog.map((c) => ({

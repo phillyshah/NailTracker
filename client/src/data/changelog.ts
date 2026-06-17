@@ -6,6 +6,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.39',
+    date: '2026-06-17',
+    changes: [
+      'Fixed: assigning just-received items to a bank could also pull in other items of the same product/lot that were already in stock. It now adds only the exact items you just received',
+      'Fixed: after reassigning an item from its detail page, the inventory list now refreshes to show its new location instead of the old one',
+      'Fixed: the Reorder Report no longer lists Home Office (par levels apply to field distributors only)',
+      'Improved label photo reading: two identical stickers in one photo now count as two units, and a printed manufacture date is no longer mistaken for the expiry',
+    ],
+  },
+  {
     version: '3.38',
     date: '2026-06-17',
     changes: [
@@ -34,14 +44,6 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       'TrackerLabs Par Levels: set a par by product group (e.g. all Interlocking Screws) in one step — the number applies to every size in the group',
       'Need an exception? Expand a group to set an individual item\'s par, which overrides the group, and expand an item for a per-distributor value. Most specific wins',
-    ],
-  },
-  {
-    version: '3.34',
-    date: '2026-06-12',
-    changes: [
-      'TrackerLabs (admins): new Cycle Count. Pick a distributor, scan everything on the shelf, and the app reconciles it against the system — showing what matches, what\'s missing, and what\'s extra',
-      'Fix discrepancies in one step: add the extra items as stock and remove the missing ones, all saved as an audit record (AUD-…) you can review under Audit History',
     ],
   },
 ];
