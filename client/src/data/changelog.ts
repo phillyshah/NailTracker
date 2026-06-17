@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.40',
+    date: '2026-06-17',
+    changes: [
+      'Easier to find the main button in Transfer, Usage, and Cycle Count: the primary action (Review / Consume / Finish) now also appears at the top of the list, not only pinned at the bottom — so it isn\'t missed below a long list, especially on desktop',
+      'When you can\'t continue yet, the app now tells you why — e.g. uploading an Excel transfer with no destination chosen shows "Pick a To Distributor to continue" instead of just no button',
+    ],
+  },
+  {
     version: '3.39',
     date: '2026-06-17',
     changes: [
@@ -36,14 +44,6 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       'Usage now reads implant stickers that have no barcode: use Take Photo or Upload Photo and the app reads the item number, lot, and expiry off the printed label — and you can capture several stickers in one photo',
       'If a label won\'t read, the manual entry now takes the item number, lot, and expiry straight off the sticker instead of asking for a barcode',
-    ],
-  },
-  {
-    version: '3.35',
-    date: '2026-06-12',
-    changes: [
-      'TrackerLabs Par Levels: set a par by product group (e.g. all Interlocking Screws) in one step — the number applies to every size in the group',
-      'Need an exception? Expand a group to set an individual item\'s par, which overrides the group, and expand an item for a per-distributor value. Most specific wins',
     ],
   },
 ];

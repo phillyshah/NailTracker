@@ -886,6 +886,27 @@ export default function Transfer() {
                       <Stat label="Errors" count={batchCounts.error} color="red" />
                     </div>
 
+                    {/* Primary action at the TOP of the staged list so it's never
+                        hidden below a long list or missed behind the sticky bar.
+                        When it can't proceed yet, say why. */}
+                    {canReview ? (
+                      <button
+                        onClick={() => setStep('confirm')}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-primary-700"
+                      >
+                        <ArrowRightLeft size={20} />
+                        Review Transfer ({includedCount} items)
+                        <ChevronRight size={20} />
+                      </button>
+                    ) : (
+                      includedCount > 0 &&
+                      !toDistId && (
+                        <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                          Pick a <strong>To Distributor</strong> at the top to review and confirm this transfer.
+                        </p>
+                      )
+                    )}
+
                     {hasMissing && (
                       <button
                         onClick={() =>

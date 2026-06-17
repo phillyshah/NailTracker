@@ -222,7 +222,7 @@ export default function CycleCount() {
           {extra.length === 0 && <Empty>Nothing extra — every scan matched a system unit.</Empty>}
         </Section>
 
-        <div className="sticky bottom-0 mt-4 flex gap-3 bg-slate-50 py-3">
+        <div className="sticky bottom-20 lg:bottom-4 z-30 mt-4 flex gap-3 bg-slate-50 py-3">
           <button onClick={() => setStep('scan')} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100">
             Scan more
           </button>
