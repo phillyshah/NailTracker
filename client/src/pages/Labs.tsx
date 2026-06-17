@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { FlaskConical, PackageCheck, ClipboardList, ChevronRight } from 'lucide-react';
+import { FlaskConical, PackageCheck, ClipboardList, History, ChevronRight } from 'lucide-react';
 import { HelpBanner } from '../components/HelpBanner';
 
 interface LabFeature {
@@ -25,6 +25,13 @@ const features: LabFeature[] = [
     description:
       "Scan a distributor's shelf and reconcile it against the system — see what matches, what's missing, and what's extra, then fix discrepancies in one tap.",
     icon: ClipboardList,
+  },
+  {
+    to: '/labs/audits',
+    title: 'Audit History',
+    description:
+      'Review every past cycle count (AUD-…) with its matched, added, and removed counts.',
+    icon: History,
   },
 ];
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { countByStatus, isTransferable, buildTransferItems } from './transferBatch';
+import { countByStatus, isTransferable, buildTransferItems, canReviewTransfer } from './transferBatch';
 import type { BatchLine } from '../api/transfers';
 
 function line(status: BatchLine['status'], id?: string): BatchLine {
@@ -49,5 +49,25 @@ describe('isTransferable / buildTransferItems', () => {
   it('builds nothing when every available line is excluded', () => {
     const lines: BatchLine[] = [line('available', 'i1')];
     expect(buildTransferItems(lines, new Set(['i1']))).toEqual([]);
+  });
+});
+
+describe('canReviewTransfer', () => {
+  it('requires a destination in every mode', () => {
+    expect(canReviewTransfer({ mode: 'pick', selectedCount: 3, includedCount: 0, hasDestination: false })).toBe(false);
+    expect(canReviewTransfer({ mode: 'manual', selectedCount: 0, includedCount: 3, hasDestination: false })).toBe(false);
+    expect(canReviewTransfer({ mode: 'excel', selectedCount: 0, includedCount: 3, hasDestination: false })).toBe(false);
+  });
+
+  it('gates pick mode on the selection count', () => {
+    expect(canReviewTransfer({ mode: 'pick', selectedCount: 0, includedCount: 0, hasDestination: true })).toBe(false);
+    expect(canReviewTransfer({ mode: 'pick', selectedCount: 1, includedCount: 0, hasDestination: true })).toBe(true);
+  });
+
+  it('gates manual AND excel modes on the included (staged) count', () => {
+    // Regression: Import-from-Excel must enable Review just like Manual Transfer.
+    expect(canReviewTransfer({ mode: 'excel', selectedCount: 0, includedCount: 0, hasDestination: true })).toBe(false);
+    expect(canReviewTransfer({ mode: 'excel', selectedCount: 0, includedCount: 61, hasDestination: true })).toBe(true);
+    expect(canReviewTransfer({ mode: 'manual', selectedCount: 0, includedCount: 1, hasDestination: true })).toBe(true);
   });
 });

@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.38 — 2026-06-17
+Bug fix: Import-from-Excel transfers couldn't be completed.
+
+- **Transfer → Import from Excel: "Review Transfer" button restored.** The `canReview` gate only handled the `pick` and `manual` modes, so in `excel` mode the sticky Review button never rendered and a staged Excel transfer (e.g. "61 Ready") had no way to proceed to Confirm. The gate is now a pure, unit-tested helper `canReviewTransfer({ mode, selectedCount, includedCount, hasDestination })` that covers all three modes (`manual` and `excel` share the staged-preview path). The underlying inventory move + audit trail (`reassign` → `AssignmentHistory` + `createTransfer` → `TRF-…`) were never affected — only the client button gate.
+- Tests: `transferBatch.test.ts` gains `canReviewTransfer` coverage incl. the excel regression. Client suite 53 green; build green.
+- **TrackerLabs landing now links Audit History.** A full feature-parity audit against the user guide found every documented feature implemented and wired; the one gap was that Audit History was only reachable from inside Cycle Count. Added an Audit History card to the Labs hub so it's a peer entry as the guide describes.
+
 ## v3.37 — 2026-06-12
 A diagnostic aid for the new label OCR.
 
