@@ -370,6 +370,22 @@ export default function Usage() {
             {previewing && <span className="text-xs text-gray-400 self-center">Checking…</span>}
           </div>
 
+          {/* Primary action up top so it isn't missed below a long list; when
+              nothing can be consumed, say why instead of just hiding it. */}
+          {availableLines.length > 0 ? (
+            <button
+              onClick={() => setStep('confirm')}
+              className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-green-700"
+            >
+              <ClipboardCheck size={20} />
+              Consume {availableLines.length} item{availableLines.length !== 1 ? 's' : ''}
+            </button>
+          ) : (
+            <p className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+              None of these are in {distributorName}'s stock, so there's nothing to consume yet.
+            </p>
+          )}
+
           <div className="space-y-2 mb-4">
             {lines.map((l, idx) => (
               <div

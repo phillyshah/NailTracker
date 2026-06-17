@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.40 — 2026-06-17
+UI consistency: make the primary action discoverable across the staged/multi-step flows.
+
+- **Inline primary CTA at the top of the list, not only a sticky bottom bar.** Following a UI-consistency review, Transfer, Usage, and Cycle Count now render the primary action (Review / Consume / Finish) inline near the top of the staged list in addition to the sticky bar — so it isn't missed below a long list (notably on desktop, where the page scrolls and a 60+ row list pushes a bottom-only button off-screen).
+- **Explain why an action is blocked instead of hiding it.** Transfer's Import-from-Excel and Manual flows show an amber "Pick a To Distributor to continue" hint when items are staged but no destination is chosen (the staged list renders before a destination is required, which made the missing Review button look like a bug). Usage shows "nothing to consume" when no scanned line is in stock.
+- **Cycle Count finish bar** now uses the same sticky offset as Transfer/Usage (`bottom-20 lg:bottom-4`, `z-30`) so it clears the mobile tab bar consistently.
+- Deferred (recommended follow-up from the review): a shared `Button` component to end primary-button padding/size drift, a documented green-vs-primary color convention, a shared SuccessCard for the three "done" screens, and standardized back-button affordance.
+
 ## v3.39 — 2026-06-17
 Bug-fix sweep from a full server + client + TrackerLabs/OCR audit. (Builds + suites green: server 147, client 56.)
 
