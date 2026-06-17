@@ -11,6 +11,7 @@ import { SortableTh } from '../components/SortableTh';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import { cn } from '../utils/cn';
+import { Button } from '../components/Button';
 import { HelpBanner } from '../components/HelpBanner';
 import { filtersToSearchParams, searchParamsToFilters } from '../utils/inventoryUrl';
 import type { InventoryItem } from '../types';
@@ -270,13 +271,14 @@ export default function Inventory() {
                 </option>
               ))}
             </select>
-            <button
+            <Button
+              size="sm"
+              className="shrink-0"
               onClick={() => bulkReassignMutation.mutate()}
               disabled={bulkReassignMutation.isPending}
-              className="shrink-0 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
             >
               Reassign
-            </button>
+            </Button>
           </div>
         </div>
       )}

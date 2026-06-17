@@ -6,6 +6,7 @@ import { listParLevels, setParLevel, type ParLevel } from '../../api/parlevels';
 import { listDistributors } from '../../api/distributors';
 import { catalogByGroup } from '../../utils/catalog';
 import { matchesItemSearch } from '../../utils/itemSearch';
+import { Button } from '../../components/Button';
 import { HelpBanner } from '../../components/HelpBanner';
 import { SearchBar } from '../../components/SearchBar';
 import { ToastContainer } from '../../components/Toast';
@@ -142,12 +143,9 @@ export default function ParLevels() {
           onChange={setSearch}
           placeholder="Search item number or product..."
         />
-        <button
-          onClick={() => navigate('/labs/reorder')}
-          className="shrink-0 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
-        >
+        <Button size="sm" className="shrink-0" onClick={() => navigate('/labs/reorder')}>
           Reorder Report
-        </button>
+        </Button>
       </div>
 
       <div className="space-y-2">
