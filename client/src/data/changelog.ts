@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.38',
+    date: '2026-06-17',
+    changes: [
+      'Fixed: the "Review Transfer" button never appeared when using Transfer → Import from Excel, so an Excel-based transfer couldn\'t be completed. It now appears once a destination is chosen and items are staged, exactly like Manual Transfer',
+      'TrackerLabs now lists Audit History on its main page, alongside Par Levels and Cycle Count',
+    ],
+  },
+  {
     version: '3.37',
     date: '2026-06-12',
     changes: [
@@ -34,14 +42,6 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       'TrackerLabs (admins): new Cycle Count. Pick a distributor, scan everything on the shelf, and the app reconciles it against the system — showing what matches, what\'s missing, and what\'s extra',
       'Fix discrepancies in one step: add the extra items as stock and remove the missing ones, all saved as an audit record (AUD-…) you can review under Audit History',
-    ],
-  },
-  {
-    version: '3.33',
-    date: '2026-06-12',
-    changes: [
-      'TrackerLabs (admins): new Par Levels & Reorder. Set a minimum stock level per item — a Global value for every distributor, with optional per-distributor overrides',
-      'The Reorder Report lists everything below par by distributor, with a suggested order quantity and recent monthly usage for context, and exports to Excel',
     ],
   },
 ];

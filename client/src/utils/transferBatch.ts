@@ -35,9 +35,24 @@ export function isTransferable(line: BatchLine, excluded: Set<string>): boolean 
 }
 
 /**
- * Build the item snapshot list for the grouped Transfer record from the lines
- * the user kept checked. Mirrors the shape the existing Transfer page sends.
+ * Whether the user can advance to the Review/Confirm step. Both staged modes
+ * ('manual' and 'excel') share the batch-preview flow, so they gate on the
+ * included-line count; 'pick' gates on the selection. A destination is always
+ * required. Pure so every mode stays covered (a missing mode here is exactly
+ * what hid the Review button in Import-from-Excel).
  */
+export function canReviewTransfer(params: {
+  mode: 'pick' | 'manual' | 'excel';
+  selectedCount: number;
+  includedCount: number;
+  hasDestination: boolean;
+}): boolean {
+  const { mode, selectedCount, includedCount, hasDestination } = params;
+  if (!hasDestination) return false;
+  if (mode === 'pick') return selectedCount > 0;
+  return includedCount > 0; // 'manual' or 'excel'
+}
+
 export function buildTransferItems(lines: BatchLine[], excluded: Set<string>) {
   return lines
     .filter((l) => isTransferable(l, excluded))

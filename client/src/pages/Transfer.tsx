@@ -38,7 +38,7 @@ import { cn } from '../utils/cn';
 import { HelpBanner } from '../components/HelpBanner';
 import { formatExpiry } from '../utils/expiry';
 import { detectBarcodesFromImage } from '../utils/barcodeDetector';
-import { countByStatus, buildTransferItems, isTransferable } from '../utils/transferBatch';
+import { countByStatus, buildTransferItems, isTransferable, canReviewTransfer } from '../utils/transferBatch';
 import { matchesItemSearch } from '../utils/itemSearch';
 import {
   addBarcode,
@@ -453,9 +453,12 @@ export default function Transfer() {
   const batchCounts = countByStatus(batchLines);
   const hasMissing = batchCounts.not_in_stock > 0;
   const includedCount = batchLines.filter((l) => isTransferable(l, excludedIds)).length;
-  const canReview =
-    (mode === 'pick' && selectedIds.size > 0 && !!toDistId) ||
-    (mode === 'manual' && includedCount > 0 && !!toDistId);
+  const canReview = canReviewTransfer({
+    mode,
+    selectedCount: selectedIds.size,
+    includedCount,
+    hasDestination: !!toDistId,
+  });
 
   return (
     <div className="mx-auto max-w-4xl lg:max-w-7xl">
