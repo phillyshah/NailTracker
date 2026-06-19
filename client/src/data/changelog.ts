@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.44',
+    date: '2026-06-19',
+    changes: [
+      'New "Distributor" account type. A distributor logs into a focused home screen scoped to their own stock, where they can run a Cycle Count of their shelf, view their inventory, and record usage — without seeing the rest of the system. Create one under User Management by choosing the Distributor role and picking which distributor it belongs to',
+    ],
+  },
+  {
     version: '3.43',
     date: '2026-06-19',
     changes: [
@@ -32,16 +39,6 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       'Easier to find the main button in Transfer, Usage, and Cycle Count: the primary action (Review / Consume / Finish) now also appears at the top of the list, not only pinned at the bottom — so it isn\'t missed below a long list, especially on desktop',
       'When you can\'t continue yet, the app now tells you why — e.g. uploading an Excel transfer with no destination chosen shows "Pick a To Distributor to continue" instead of just no button',
-    ],
-  },
-  {
-    version: '3.39',
-    date: '2026-06-17',
-    changes: [
-      'Fixed: assigning just-received items to a bank could also pull in other items of the same product/lot that were already in stock. It now adds only the exact items you just received',
-      'Fixed: after reassigning an item from its detail page, the inventory list now refreshes to show its new location instead of the old one',
-      'Fixed: the Reorder Report no longer lists Home Office (par levels apply to field distributors only)',
-      'Improved label photo reading: two identical stickers in one photo now count as two units, and a printed manufacture date is no longer mistaken for the expiry',
     ],
   },
 ];

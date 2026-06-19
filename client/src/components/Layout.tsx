@@ -15,6 +15,8 @@ import {
   BookOpen,
   Sparkles,
   ClipboardCheck,
+  ClipboardList,
+  Home,
   FlaskConical,
 } from 'lucide-react';
 
@@ -32,6 +34,15 @@ const mainNavItems = [
   { to: '/usage', label: 'Usage', icon: ClipboardCheck },
   { to: '/inventory', label: 'Inventory', icon: Package },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
+];
+
+// Distributor accounts get a focused nav scoped to their own workflow — no admin
+// areas, no More menu.
+const distributorNavItems = [
+  { to: '/home', label: 'Home', icon: Home },
+  { to: '/my-inventory', label: 'Inventory', icon: Package },
+  { to: '/usage', label: 'Usage', icon: ClipboardCheck },
+  { to: '/labs/cycle-count', label: 'Count', icon: ClipboardList },
 ];
 
 // Everything else, grouped so the More sheet stays scannable. Histories and
@@ -74,9 +85,13 @@ export function Layout() {
   const [showMore, setShowMore] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
 
+  // Distributor accounts use a focused nav with no More menu.
+  const isDistributor = user?.role === 'distributor';
+  const mainNav = isDistributor ? distributorNavItems : mainNavItems;
   // Hide admin-only groups (e.g. TrackerLabs) from non-admins.
-  const visibleGroups = buildMoreGroups(user?.role === 'admin');
+  const visibleGroups = isDistributor ? [] : buildMoreGroups(user?.role === 'admin');
   const moreNavItems = visibleGroups.flatMap((g) => g.items);
+  const hasMore = visibleGroups.length > 0;
 
   // Close More menu on any route change
   useEffect(() => {
@@ -104,7 +119,7 @@ export function Layout() {
             </button>
           </div>
           <nav className="flex gap-1">
-            {[...mainNavItems, ...moreNavItems].map((item) => (
+            {[...mainNav, ...moreNavItems].map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -187,7 +202,7 @@ export function Layout() {
       {/* Bottom navigation — mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.06)] lg:hidden">
         <div className="flex justify-around">
-          {mainNavItems.map((item) => (
+          {mainNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -217,6 +232,7 @@ export function Layout() {
             </NavLink>
           ))}
           {/* More button */}
+          {hasMore && (
           <button
             onClick={() => setShowMore(!showMore)}
             className={cn(
@@ -237,6 +253,7 @@ export function Layout() {
             </div>
             <span className={cn(showMore ? 'font-bold' : '')}>More</span>
           </button>
+          )}
         </div>
       </nav>
 

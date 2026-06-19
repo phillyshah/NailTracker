@@ -1,5 +1,23 @@
 # Changelog
 
+## v3.44 — 2026-06-19
+New account type: **Distributor** (schema change — see SQL below).
+
+- **Distributor role** — a field-rep login scoped to ONE distributor. They land on a focused home dashboard (`/home`) with three actions — **Cycle Count** (locked to their own shelf), **My Inventory** (read-only, their own stock), **Record Usage** (their own stock only) — and do not see admin nav or other distributors' data.
+- **Schema:** `User.distributorId` (nullable FK → `Distributor`). A distributor account must be linked to a distributor; other roles can't carry one.
+- **Auth:** JWT + login response now include `distributorId`. Users must re-login after deploy to pick it up.
+- **Scoping/guards:** usage + cycle-count controllers reject a distributor acting on another distributor; new `GET /api/inventory/mine` forces the caller's own scope; transfers and reports now reject distributor accounts (`denyDistributor`); the three inline `adminOnly` copies are consolidated into `server/src/middleware/roles.ts`.
+- **UI:** User Management gained the Distributor role + a distributor picker; CycleCount and Usage lock their distributor selector for distributor accounts; the nav and notification bell adapt to the role.
+
+### SQL to run in Supabase (before/with deploy)
+```sql
+ALTER TABLE "User" ADD COLUMN "distributorId" TEXT;
+ALTER TABLE "User" ADD CONSTRAINT "User_distributorId_fkey"
+  FOREIGN KEY ("distributorId") REFERENCES "Distributor"("id")
+  ON DELETE SET NULL ON UPDATE CASCADE;
+CREATE INDEX "User_distributorId_idx" ON "User"("distributorId");
+```
+
 ## v3.43 — 2026-06-19
 New TrackerLabs feature: Who Has What.
 

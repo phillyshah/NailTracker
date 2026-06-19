@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ClipboardList, Keyboard, Check, AlertTriangle, PackageX, PackagePlus } from 'lucide-react';
 import { listDistributors } from '../../api/distributors';
+import { useAuth } from '../../context/AuthContext';
 import {
   previewAudit,
   commitAudit,
@@ -32,7 +33,20 @@ export default function CycleCount() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<AuditCommitResult | null>(null);
 
+  const { user } = useAuth();
+  const isDistributor = user?.role === 'distributor';
+
   const { data: distributors = [] } = useQuery({ queryKey: ['distributors'], queryFn: listDistributors });
+
+  // A distributor account counts only its own shelf — lock the selection to it.
+  useEffect(() => {
+    if (!isDistributor || !user?.distributorId || distributorId) return;
+    const own = distributors.find((d) => d.id === user.distributorId);
+    if (own) {
+      setDistributorId(own.id);
+      setDistributorName(own.name);
+    }
+  }, [isDistributor, user?.distributorId, distributors, distributorId]);
 
   async function refresh(list: string[]) {
     if (!distributorId) return;
@@ -92,10 +106,10 @@ export default function CycleCount() {
 
   const Back = (
     <button
-      onClick={() => navigate('/labs')}
+      onClick={() => navigate(isDistributor ? '/home' : '/labs')}
       className="mb-4 flex items-center gap-2 text-base text-primary-600 hover:text-primary-700"
     >
-      <ArrowLeft size={20} /> Back to TrackerLabs
+      <ArrowLeft size={20} /> {isDistributor ? 'Back to Home' : 'Back to TrackerLabs'}
     </button>
   );
 
@@ -250,21 +264,27 @@ export default function CycleCount() {
 
       <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
         <label className="block text-sm font-medium text-gray-700 mb-1">Distributor to count</label>
-        <select
-          value={distributorId}
-          onChange={(e) => {
-            setDistributorId(e.target.value);
-            setDistributorName(e.target.selectedOptions[0]?.text || '');
-            setBarcodes([]);
-            setPreview(null);
-          }}
-          className="block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
-        >
-          <option value="">Select a distributor…</option>
-          {distributors.filter((d) => d.active).map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
+        {isDistributor ? (
+          <p className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base font-medium text-gray-700">
+            {distributorName || '…'}
+          </p>
+        ) : (
+          <select
+            value={distributorId}
+            onChange={(e) => {
+              setDistributorId(e.target.value);
+              setDistributorName(e.target.selectedOptions[0]?.text || '');
+              setBarcodes([]);
+              setPreview(null);
+            }}
+            className="block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+          >
+            <option value="">Select a distributor…</option>
+            {distributors.filter((d) => d.active).map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+        )}
         {barcodes.length > 0 && (
           <p className="mt-2 text-xs text-gray-400">{barcodes.length} scanned so far at {distributorName}.</p>
         )}

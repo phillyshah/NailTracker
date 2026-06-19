@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.43** | Summa Orthopaedics Inventory Management System
+**Version 3.44** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -501,13 +501,28 @@ This page shows your full list of distributors — the sales reps, hospitals, or
 3. Choose a role:
    - **User** — can view and manage inventory, but can't add or delete other users
    - **Admin** — full access including User Management
+   - **Distributor** — a field-rep account scoped to a single distributor (see below). When you pick this role, also choose **which distributor** the account belongs to
 4. Tap **Create User**
 
 **Managing existing users:**
 
-- **Change role:** Tap the shield icon next to a user to switch them between User and Admin. (You can't change your own role.)
+- **Change role:** Use the role dropdown next to a user to switch between User, Admin, and Distributor. (You can't change your own role.) For a Distributor, a second dropdown lets you set or change which distributor they're tied to.
 - **Reset password:** Tap the key icon next to a user and enter a new password
 - **Delete user:** Tap the trash icon. You can't delete yourself or the last remaining admin.
+
+---
+
+**Distributor accounts:**
+
+A **Distributor** account is a simplified login for a field rep, scoped to just one distributor's stock. When a distributor logs in, they see a focused home screen with three things — and nothing else:
+
+- **Cycle Count** — scan their own shelf and reconcile it against the system (their distributor is locked in automatically)
+- **My Inventory** — a read-only list of everything currently assigned to them
+- **Record Usage** — log the implants they've used, deducted from their own stock
+
+Distributor accounts don't see the rest of the app (Receive, Transfer, Reports, other distributors, or admin tools), and they can only ever act on their own inventory. This lets reps keep their own counts and usage up to date without giving them access to company-wide data.
+
+> After this update, a distributor (or any user) may need to log out and back in once for the new account scoping to take effect.
 
 ---
 

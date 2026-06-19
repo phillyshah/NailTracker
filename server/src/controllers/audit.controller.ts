@@ -32,6 +32,9 @@ export async function generateAuditId(): Promise<string> {
 export async function preview(req: Request, res: Response) {
   try {
     const { distributorId, barcodes } = req.body as { distributorId: string; barcodes: string[] };
+    if (req.user?.role === 'distributor' && distributorId !== req.user.distributorId) {
+      return error(res, 'You can only count your own distributor', 403);
+    }
     const distributor = await prisma.distributor.findUnique({ where: { id: distributorId } });
     if (!distributor) return error(res, 'Distributor not found', 404);
 
@@ -111,6 +114,10 @@ export async function commit(req: Request, res: Response) {
   try {
     const { distributorId, matchedCount = 0, extras = [], missingItemIds = [], note } =
       req.body as CommitBody;
+
+    if (req.user?.role === 'distributor' && distributorId !== req.user.distributorId) {
+      return error(res, 'You can only count your own distributor', 403);
+    }
 
     const distributor = await prisma.distributor.findUnique({ where: { id: distributorId } });
     if (!distributor) return error(res, 'Distributor not found', 404);
@@ -225,13 +232,19 @@ export async function list(req: Request, res: Response) {
   try {
     const page = Math.max(1, parseInt(str(req.query.page)) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(str(req.query.limit)) || 25));
+
+    // Distributor accounts only see their own audits.
+    const where =
+      req.user?.role === 'distributor' ? { distributorId: req.user.distributorId } : {};
+
     const [sessions, total] = await Promise.all([
       prisma.auditSession.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.auditSession.count(),
+      prisma.auditSession.count({ where }),
     ]);
     return success(res, sessions, { page, limit, total });
   } catch (err) {

@@ -5,6 +5,7 @@ interface AuthUser {
   userId: string;
   username: string;
   role: string;
+  distributorId?: string | null;
 }
 
 interface AuthContextType {
@@ -36,7 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(username: string, password: string) {
     const data = await apiLogin(username, password);
-    setUser({ userId: data.user.id, username: data.user.username, role: data.user.role });
+    setUser({
+      userId: data.user.id,
+      username: data.user.username,
+      role: data.user.role,
+      distributorId: data.user.distributorId ?? null,
+    });
   }
 
   async function logout() {

@@ -8,11 +8,16 @@ generator client {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String
-  role      String   @default("admin")
-  createdAt DateTime @default(now())
+  id            String       @id @default(cuid())
+  username      String       @unique
+  password      String
+  role          String       @default("admin")
+  // Set for role = "distributor": scopes the account to one distributor's stock.
+  distributorId String?
+  distributor   Distributor? @relation(fields: [distributorId], references: [id])
+  createdAt     DateTime     @default(now())
+
+  @@index([distributorId])
 }
 
 model Distributor {
@@ -27,6 +32,7 @@ model Distributor {
   updatedAt DateTime        @updatedAt
   items     InventoryItem[]
   banks     Bank[]
+  users     User[]
 }
 
 model InventoryItem {

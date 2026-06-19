@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
+import { denyDistributor } from '../middleware/roles.js';
 import * as ctrl from '../controllers/reports.controller.js';
 
 const router = Router();
 
 router.use(authMiddleware);
+// Company-wide analytics are not part of the scoped distributor workflow.
+router.use(denyDistributor);
 
 router.get('/summary', ctrl.summary);
 router.get('/expiring', ctrl.expiring);

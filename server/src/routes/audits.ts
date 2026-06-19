@@ -7,14 +7,13 @@ const router = Router();
 
 router.use(authMiddleware);
 
-// Cycle Count is a TrackerLabs (admin-only) feature.
-function adminOnly(req: Request, res: Response, next: NextFunction) {
-  if (req.user?.role !== 'admin') {
-    return res.status(403).json({ success: false, error: 'Admin access required' });
-  }
-  next();
+// Cycle Count is available to admins and to distributor accounts (the latter are
+// scoped to their own distributor — enforced in each handler).
+function adminOrDistributor(req: Request, res: Response, next: NextFunction) {
+  if (req.user?.role === 'admin' || req.user?.role === 'distributor') return next();
+  return res.status(403).json({ success: false, error: 'Access denied' });
 }
-router.use(adminOnly);
+router.use(adminOrDistributor);
 
 router.get('/', ctrl.list);
 router.post('/preview', ctrl.preview);

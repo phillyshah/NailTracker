@@ -58,6 +58,11 @@ export async function preview(req: Request, res: Response) {
       barcodes: string[];
     };
 
+    // A distributor account may only act on its own distributor.
+    if (req.user?.role === 'distributor' && distributorId !== req.user.distributorId) {
+      return error(res, 'You can only record usage for your own distributor', 403);
+    }
+
     const distributor = await prisma.distributor.findUnique({ where: { id: distributorId } });
     if (!distributor) {
       return error(res, 'Distributor not found', 404);
@@ -140,6 +145,11 @@ export async function commit(req: Request, res: Response) {
       itemIds: string[];
       note?: string;
     };
+
+    // A distributor account may only act on its own distributor.
+    if (req.user?.role === 'distributor' && distributorId !== req.user.distributorId) {
+      return error(res, 'You can only record usage for your own distributor', 403);
+    }
 
     const distributor = await prisma.distributor.findUnique({ where: { id: distributorId } });
     if (!distributor) {

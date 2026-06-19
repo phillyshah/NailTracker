@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import {
@@ -21,11 +21,14 @@ import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
 import { HelpBanner } from '../components/HelpBanner';
 import { useToast } from '../hooks/useToast';
+import { useAuth } from '../context/AuthContext';
 
 export default function Usage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toasts, addToast, removeToast } = useToast();
+  const { user } = useAuth();
+  const isDistributor = user?.role === 'distributor';
 
   const [distributorId, setDistributorId] = useState('');
   const [distributorName, setDistributorName] = useState('');
@@ -48,6 +51,16 @@ export default function Usage() {
   const homeOffice = distributors.find(
     (d) => d.name === 'Home Office' || d.name === 'Home Office (HQ)',
   );
+
+  // A distributor account records usage only against its own stock.
+  useEffect(() => {
+    if (!isDistributor || !user?.distributorId || distributorId) return;
+    const own = distributors.find((d) => d.id === user.distributorId);
+    if (own) {
+      setDistributorId(own.id);
+      setDistributorName(own.name);
+    }
+  }, [isDistributor, user?.distributorId, distributors, distributorId]);
 
   // Re-resolve the whole ticket against the distributor's stock. Sending the
   // full barcode list each time lets the server dedup identical stickers across
@@ -261,21 +274,27 @@ export default function Usage() {
       <div className="rounded-2xl bg-white p-4 shadow-sm mb-4">
         <label className="block">
           <span className="text-sm font-medium text-gray-700">Distributor</span>
-          <select
-            value={distributorId}
-            onChange={(e) => changeDistributor(e.target.value)}
-            className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none bg-white"
-          >
-            <option value="">Select a distributor…</option>
-            {homeOffice && <option value={homeOffice.id}>{homeOffice.name}</option>}
-            {distributors
-              .filter((d) => d.id !== homeOffice?.id && d.active)
-              .map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-          </select>
+          {isDistributor ? (
+            <p className="mt-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-base font-medium text-gray-700">
+              {distributorName || '…'}
+            </p>
+          ) : (
+            <select
+              value={distributorId}
+              onChange={(e) => changeDistributor(e.target.value)}
+              className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none bg-white"
+            >
+              <option value="">Select a distributor…</option>
+              {homeOffice && <option value={homeOffice.id}>{homeOffice.name}</option>}
+              {distributors
+                .filter((d) => d.id !== homeOffice?.id && d.active)
+                .map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+            </select>
+          )}
         </label>
         {barcodes.length > 0 && (
           <p className="mt-2 text-xs text-gray-400">
