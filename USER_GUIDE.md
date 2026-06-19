@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.37** | Summa Orthopaedics Inventory Management System
+**Version 3.42** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -572,6 +572,18 @@ This experiment lets you verify the system against the physical shelf, so the nu
 You can review every past count under **Audit History**, each with its own ID (AUD-…) and a breakdown of how many items were matched, added, and removed.
 
 > Removing a "missing" item doesn't delete its history — the record of where it had been is kept. And if a unit gets used or moved between Review and Finish, the app won't remove it by mistake.
+
+**Inventory Backup (Beta):**
+
+This experiment lets you download a backup of your inventory for any period of time, so you always have an off-app record.
+
+1. From TrackerLabs, open **Inventory Backup**
+2. Pick a **period**: Last 6 months, Last year, All time, or a **Custom range** (choose your own From / To dates)
+3. Download in whichever format you need:
+   - **Excel** — a readable spreadsheet listing every item received in the period, with its current status (In stock / Used / Removed) and current location
+   - **JSON** — a complete snapshot (every field, plus each item's full movement history) for archiving
+
+The period is based on when each item was **received** into the system. The backup deliberately includes items that have since been used, transferred, or removed — so it's a true record of everything that came in during that window, not just what's on the shelf today.
 
 ---
 

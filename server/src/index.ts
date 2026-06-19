@@ -21,6 +21,7 @@ import bankRoutes from './routes/banks.js';
 import usageRoutes from './routes/usage.js';
 import parLevelRoutes from './routes/parlevels.js';
 import auditRoutes from './routes/audits.js';
+import backupRoutes from './routes/backup.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3045', 10);
@@ -45,6 +46,7 @@ app.use('/api/banks', bankRoutes);
 app.use('/api/usage', usageRoutes);
 app.use('/api/par-levels', parLevelRoutes);
 app.use('/api/audits', auditRoutes);
+app.use('/api/backup', backupRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
