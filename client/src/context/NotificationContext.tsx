@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getExpiring } from '../api/reports';
+import { useAuth } from './AuthContext';
 import type { ExpiringItem } from '../types';
 
 const STORAGE_KEY = 'dismissed_notifications';
@@ -29,12 +30,16 @@ function saveDismissed(udis: string[]) {
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [dismissed, setDismissed] = useState<string[]>(loadDismissed);
+  const { user } = useAuth();
 
   const { data: expiring = [] } = useQuery({
     queryKey: ['notifications', 'expiring'],
     queryFn: () => getExpiring(90),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
+    // Expiry alerts come from company-wide reports, which distributor accounts
+    // can't access; skip the query for them.
+    enabled: user?.role !== 'distributor',
   });
 
   // Prune dismissed UDIs that are no longer in the expiring list

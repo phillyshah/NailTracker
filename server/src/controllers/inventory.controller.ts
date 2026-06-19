@@ -314,6 +314,22 @@ export async function list(req: Request, res: Response) {
   }
 }
 
+/**
+ * GET /api/inventory/mine
+ * Read-only list of the calling distributor account's own stock. Reuses `list`
+ * but forces the distributor filter to the user's own id (any client-supplied
+ * distributorId/unassigned is ignored).
+ */
+export async function listMine(req: Request, res: Response) {
+  const distributorId = req.user?.distributorId;
+  if (!distributorId) {
+    return error(res, 'No distributor is linked to this account', 403);
+  }
+  (req.query as Record<string, unknown>).distributorId = distributorId;
+  (req.query as Record<string, unknown>).unassigned = undefined;
+  return list(req, res);
+}
+
 export async function getOne(req: Request, res: Response) {
   try {
     const id = str(req.params.id);

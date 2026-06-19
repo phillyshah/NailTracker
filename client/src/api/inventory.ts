@@ -99,6 +99,21 @@ export async function listInventory(filters: InventoryFilters = {}) {
 }
 
 /**
+ * A distributor account's own stock (server forces the distributor filter to the
+ * caller's own id). Supports the same search/paging filters as listInventory.
+ */
+export async function listMyInventory(
+  filters: Pick<InventoryFilters, 'page' | 'limit' | 'search' | 'sortBy' | 'sortDir'> = {},
+) {
+  const params: Record<string, string | number> = {};
+  for (const [k, v] of Object.entries(filters)) {
+    if (v === undefined || v === '') continue;
+    params[k] = v as string | number;
+  }
+  return api<ListResponse>('/inventory/mine', { params });
+}
+
+/**
  * Fetch EVERY matching inventory item by paging through the server's 100-row
  * cap. Use this for selection lists (Transfer pick-mode, the bank item picker)
  * where the user must see/select the complete set — never a silent first 100.
