@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.42** | Summa Orthopaedics Inventory Management System
+**Version 3.43** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -584,6 +584,17 @@ This experiment lets you download a backup of your inventory for any period of t
    - **JSON** — a complete snapshot (every field, plus each item's full movement history) for archiving
 
 The period is based on when each item was **received** into the system. The backup deliberately includes items that have since been used, transferred, or removed — so it's a true record of everything that came in during that window, not just what's on the shelf today.
+
+**Who Has What (Beta):**
+
+This experiment answers a simple question: who is holding what, right now — or at any point in the past?
+
+1. From TrackerLabs, open **Who Has What**
+2. In **Current** mode, you'll see every in-stock item grouped by distributor (and Home Office), with a count on each group. Tap a group to expand or collapse its items
+3. Switch to **As of a date** and pick a date to reconstruct who held what on that day
+4. Use the **search** box to narrow to an item number or product, and **Excel** to export the list
+
+> The "As of a date" view is reconstructed from each item's movement history. Items that were never moved are shown at their current location. It's a close reconstruction for past dates, not a guaranteed exact snapshot.
 
 ---
 

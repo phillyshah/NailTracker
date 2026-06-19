@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.43',
+    date: '2026-06-19',
+    changes: [
+      'New in TrackerLabs: Who Has What. See who holds each item right now, grouped by distributor with counts — or switch to "As of a date" to reconstruct holdings at a point in the past from movement history. Search and Excel export included',
+    ],
+  },
+  {
     version: '3.42',
     date: '2026-06-19',
     changes: [
@@ -35,14 +42,6 @@ export const changelog: ChangelogEntry[] = [
       'Fixed: after reassigning an item from its detail page, the inventory list now refreshes to show its new location instead of the old one',
       'Fixed: the Reorder Report no longer lists Home Office (par levels apply to field distributors only)',
       'Improved label photo reading: two identical stickers in one photo now count as two units, and a printed manufacture date is no longer mistaken for the expiry',
-    ],
-  },
-  {
-    version: '3.38',
-    date: '2026-06-17',
-    changes: [
-      'Fixed: the "Review Transfer" button never appeared when using Transfer → Import from Excel, so an Excel-based transfer couldn\'t be completed. It now appears once a destination is chosen and items are staged, exactly like Manual Transfer',
-      'TrackerLabs now lists Audit History on its main page, alongside Par Levels and Cycle Count',
     ],
   },
 ];

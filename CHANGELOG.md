@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.43 — 2026-06-19
+New TrackerLabs feature: Who Has What.
+
+- **Who Has What (`/labs/who-has-what`, admin/Beta)** — who holds each item, grouped by distributor (with per-location counts), plus a point-in-time **"As of a date"** mode that reconstructs holdings from assignment history. Search + Excel export.
+- **Point-in-time caveat (documented in-app):** `AssignmentHistory` is not a complete ledger — items first received to Home Office and direct deletes write no history row — so `holdingsAsOf` resolves a past location from placement history when available and otherwise falls back to the item's current location (correct for items that never moved). Usage/removal history rows (identified by note) are not treated as placements.
+- New pure helper `server/src/utils/holdings.ts` (`holdingsAsOf`, `groupHoldings`) with 8 unit tests; `controllers/holdings.controller.ts` + `routes/holdings.ts` mounted at `/api/holdings` (auth + admin). Client `pages/labs/WhoHasWhat.tsx` + `api/holdings.ts`, linked from the TrackerLabs hub.
+
 ## v3.42 — 2026-06-19
 New TrackerLabs feature: Inventory Backup.
 
