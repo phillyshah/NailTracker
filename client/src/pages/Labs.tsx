@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { FlaskConical, PackageCheck, ClipboardList, History, ChevronRight } from 'lucide-react';
+import { FlaskConical, PackageCheck, ClipboardList, History, ChevronRight, DatabaseBackup } from 'lucide-react';
 import { HelpBanner } from '../components/HelpBanner';
 
 interface LabFeature {
@@ -32,6 +32,13 @@ const features: LabFeature[] = [
     description:
       'Review every past cycle count (AUD-…) with its matched, added, and removed counts.',
     icon: History,
+  },
+  {
+    to: '/labs/inventory-backup',
+    title: 'Inventory Backup',
+    description:
+      'Download a backup of inventory received in any period (last 6 months, last year, or a custom range) as a readable Excel file or a full JSON snapshot.',
+    icon: DatabaseBackup,
   },
 ];
 

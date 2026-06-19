@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.42',
+    date: '2026-06-19',
+    changes: [
+      'New in TrackerLabs: Inventory Backup. Download a backup of inventory received over any period — last 6 months, last year, or a custom date range — as a readable Excel file or a complete JSON snapshot. The backup includes items since used, transferred, or removed, each with its current status and location',
+    ],
+  },
+  {
     version: '3.41',
     date: '2026-06-17',
     changes: [
@@ -36,13 +43,6 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       'Fixed: the "Review Transfer" button never appeared when using Transfer → Import from Excel, so an Excel-based transfer couldn\'t be completed. It now appears once a destination is chosen and items are staged, exactly like Manual Transfer',
       'TrackerLabs now lists Audit History on its main page, alongside Par Levels and Cycle Count',
-    ],
-  },
-  {
-    version: '3.37',
-    date: '2026-06-12',
-    changes: [
-      'Added an "OCR debug" toggle under the photo scanner: turn it on to see the exact text the app read off a label, with a Copy button — handy for reporting a sticker that won\'t scan',
     ],
   },
 ];

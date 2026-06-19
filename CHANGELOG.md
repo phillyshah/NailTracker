@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.42 — 2026-06-19
+New TrackerLabs feature: Inventory Backup.
+
+- **Inventory Backup (`/labs/inventory-backup`, admin/Beta)** — download a backup of inventory received over an arbitrary window (Last 6 months / Last year / All time / custom from–to). The window filters on each item's `createdAt` and **includes items since used, transferred, or removed**, so the export is a faithful record of what was received in the period.
+- **Two formats:** an **Excel** workbook (Item #, Product, GTIN, Lot, Expiry, Current Status, Current Location, and the created/assigned/used/removed dates) for reading, and a **JSON** snapshot (every `InventoryItem` field + full assignment history) for archiving. JSON supports `?includeImages=false` to drop base64 photo data. (Re-import/restore is out of scope — the JSON is a snapshot only.)
+- New `server/src/controllers/backup.controller.ts` + `routes/backup.ts` mounted at `/api/backup` (auth + admin). Client page `client/src/pages/labs/InventoryBackup.tsx` + `api/backup.ts`, linked from the TrackerLabs hub. Reuses the ExcelJS export pattern and token-in-URL download convention.
+
 ## v3.41 — 2026-06-17
 UI consistency refactor (the deferred follow-up to v3.40).
 
