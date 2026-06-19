@@ -27,6 +27,7 @@ import ReorderReport from './pages/labs/ReorderReport';
 import CycleCount from './pages/labs/CycleCount';
 import AuditHistory from './pages/labs/AuditHistory';
 import InventoryBackup from './pages/labs/InventoryBackup';
+import WhoHasWhat from './pages/labs/WhoHasWhat';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -91,6 +92,7 @@ export default function App() {
         <Route path="labs/cycle-count" element={<AdminRoute><CycleCount /></AdminRoute>} />
         <Route path="labs/audits" element={<AdminRoute><AuditHistory /></AdminRoute>} />
         <Route path="labs/inventory-backup" element={<AdminRoute><InventoryBackup /></AdminRoute>} />
+        <Route path="labs/who-has-what" element={<AdminRoute><WhoHasWhat /></AdminRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { FlaskConical, PackageCheck, ClipboardList, History, ChevronRight, DatabaseBackup } from 'lucide-react';
+import { FlaskConical, PackageCheck, ClipboardList, History, ChevronRight, DatabaseBackup, Users } from 'lucide-react';
 import { HelpBanner } from '../components/HelpBanner';
 
 interface LabFeature {
@@ -39,6 +39,13 @@ const features: LabFeature[] = [
     description:
       'Download a backup of inventory received in any period (last 6 months, last year, or a custom range) as a readable Excel file or a full JSON snapshot.',
     icon: DatabaseBackup,
+  },
+  {
+    to: '/labs/who-has-what',
+    title: 'Who Has What',
+    description:
+      'See who holds each item right now, grouped by distributor — or reconstruct holdings as of a past date from movement history. Excel export included.',
+    icon: Users,
   },
 ];
 
