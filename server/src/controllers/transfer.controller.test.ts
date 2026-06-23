@@ -274,3 +274,64 @@ describe('reassign — expectedFromDistributorId source guard', () => {
     expect(res.status).not.toHaveBeenCalledWith(409);
   });
 });
+
+describe('reassign — bankId is cleared when an item leaves its distributor', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    txMock.mockResolvedValue([]);
+    distributorFindUniqueMock.mockResolvedValue({ id: 'dest1', name: 'Dest', active: true });
+  });
+
+  /** The update payload reassign builds for the item row. */
+  function itemUpdateData() {
+    return itemUpdateMock.mock.calls[0][0].data as Record<string, unknown>;
+  }
+
+  it('clears bankId when the item sits in a distributor-scoped bank and moves', async () => {
+    itemFindUniqueMock.mockResolvedValue({
+      id: 'i1',
+      distributorId: SOURCE.id,
+      bankId: 'bank1',
+      bank: { id: 'bank1', distributorId: SOURCE.id }, // bank belongs to the source
+      deletedAt: null,
+      distributor: SOURCE,
+    });
+
+    const { promise } = callReassign('i1', { distributorId: 'dest1', skipTransferRecord: true });
+    await promise;
+
+    expect(itemUpdateData()).toMatchObject({ distributorId: 'dest1', bankId: null });
+  });
+
+  it('leaves bankId untouched for a GLOBAL bank (no distributor) on a move', async () => {
+    itemFindUniqueMock.mockResolvedValue({
+      id: 'i2',
+      distributorId: SOURCE.id,
+      bankId: 'global1',
+      bank: { id: 'global1', distributorId: null }, // global bank — keep membership
+      deletedAt: null,
+      distributor: SOURCE,
+    });
+
+    const { promise } = callReassign('i2', { distributorId: 'dest1', skipTransferRecord: true });
+    await promise;
+
+    expect(itemUpdateData()).not.toHaveProperty('bankId');
+  });
+
+  it('leaves bankId untouched when the distributor does not change', async () => {
+    itemFindUniqueMock.mockResolvedValue({
+      id: 'i3',
+      distributorId: SOURCE.id,
+      bankId: 'bank1',
+      bank: { id: 'bank1', distributorId: SOURCE.id },
+      deletedAt: null,
+      distributor: SOURCE,
+    });
+
+    const { promise } = callReassign('i3', { distributorId: SOURCE.id, skipTransferRecord: true });
+    await promise;
+
+    expect(itemUpdateData()).not.toHaveProperty('bankId');
+  });
+});

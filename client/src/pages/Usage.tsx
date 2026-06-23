@@ -158,6 +158,12 @@ export default function Usage() {
       }
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['usage'] });
+      // Consumed items also leave their distributor and bank counts — refresh
+      // those views too, or they show a stale count until a manual reload.
+      queryClient.invalidateQueries({ queryKey: ['distributors'] });
+      queryClient.invalidateQueries({ queryKey: ['distributor'] });
+      queryClient.invalidateQueries({ queryKey: ['banks'] });
+      queryClient.invalidateQueries({ queryKey: ['bank'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
