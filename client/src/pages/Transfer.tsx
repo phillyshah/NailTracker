@@ -65,7 +65,7 @@ interface ReviewItem {
   expDate: string | null;
 }
 
-type Mode = 'pick' | 'manual' | 'excel';
+type Mode = 'pick' | 'photo' | 'manual' | 'excel';
 
 export default function Transfer() {
   const queryClient = useQueryClient();
@@ -486,6 +486,15 @@ export default function Transfer() {
               Pick from list
             </button>
             <button
+              onClick={() => setMode('photo')}
+              className={cn(
+                'rounded-lg px-4 py-2 text-sm font-medium',
+                mode === 'photo' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900',
+              )}
+            >
+              Take / Upload Photo
+            </button>
+            <button
               onClick={() => setMode('manual')}
               className={cn(
                 'rounded-lg px-4 py-2 text-sm font-medium',
@@ -676,6 +685,48 @@ export default function Transfer() {
                   </>
                 )}
               </>
+            )}
+
+            {/* PHOTO MODE — read implant stickers (REF/LOT/expiry) via OCR. Same
+                detection path as Scan; results feed the shared staged preview. */}
+            {mode === 'photo' && (
+              <div className="space-y-4">
+                {!fromDistId ? (
+                  <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
+                    <p className="text-gray-500">Pick a source distributor to start adding items.</p>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl bg-white p-4 shadow-sm">
+                    <p className="mb-3 text-sm text-gray-500">
+                      Take or upload a photo of the implant label(s). Each sticker's
+                      printed REF, lot, and expiry is read and checked against{' '}
+                      {fromDist?.name}'s stock — several stickers in one photo are all
+                      read at once. Toggle OCR debug below if a label won't read.
+                    </p>
+
+                    <BarcodeScanner
+                      onResult={(barcode) => restage(addBarcode(stagedRef.current, barcode))}
+                      onError={(msg) => addToast(msg, 'error')}
+                    />
+
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      <Images size={18} />
+                      Batch Photos
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleBatchFiles}
+                      className="hidden"
+                    />
+                  </div>
+                )}
+              </div>
             )}
 
             {/* MANUAL TRANSFER MODE — Receive-style inputs feeding one staged list */}
@@ -869,8 +920,8 @@ export default function Transfer() {
               </div>
             )}
 
-            {/* SHARED staged preview — both Manual Transfer and Import from Excel */}
-            {(mode === 'manual' || mode === 'excel') && (
+            {/* SHARED staged preview — Photo, Manual Transfer, and Import from Excel */}
+            {(mode === 'photo' || mode === 'manual' || mode === 'excel') && (
               <div className="space-y-4">
                 {restaging && (
                   <div className="flex items-center justify-center gap-2 py-2 text-sm text-gray-500">

@@ -1,5 +1,41 @@
 # Changelog
 
+## v3.45 — 2026-06-23
+OCR accuracy, a Transfer photo tab, and an admin OCR Training lab (schema change — see SQL below).
+
+- **OCR accuracy (`client/src/utils/ocrBarcode.ts`, `gtin-map.ts`)** — rebuilt the image preprocessing pipeline: small crops are upscaled, then grayscale → contrast-stretch → Bradley **adaptive (local) threshold** (with an Otsu global fallback), replacing the old fixed global cutoff that failed on uneven lighting. Tesseract now runs via a reused worker configured **PSM 6 / OEM 1** with a REF/lot/date character whitelist. The matcher gained extra OCR character folds (D→0, G→6, T→7, plus the existing O/I/S/B/Z) and a deterministic single-error **Levenshtein** fallback (unique match only — ties rejected). Pure pixel/matcher helpers are unit-tested; a guard test asserts the catalog stays collision-free under the new folds.
+- **Transfer → "Take / Upload Photo" tab (`pages/Transfer.tsx`)** — a fourth transfer mode that reuses the Scan OCR path (Take Photo / Upload Photo / Live Scan / Batch Photos) and feeds the shared staged-preview + commit flow. `canReviewTransfer` extended to gate the new mode.
+- **OCR Training lab (`/labs/ocr-training`, admin/Beta)** — batch-upload label photos, see the raw OCR text + parsed REF/lot/expiry, and confirm/correct each. Confirmed corrections persist as `OcrAlias` rows; the client loads the alias overlay at boot (`AuthContext`) and the matcher consults it to resolve mis-reads it would otherwise miss. **This is not model retraining** — it's a growing correction dictionary + (via `export-fixtures`) a Vitest corpus. New `OcrTrainingSample` + `OcrAlias` tables, `routes/ocr-training.ts` + `controllers/ocrTraining.controller.ts` (alias reads open to any authed user; writes admin-only), pure `deriveAliases` helper with tests. `express.json` limit raised to 10 mb for single-image uploads.
+
+### SQL to run in Supabase (before/with deploy)
+```sql
+CREATE TABLE "OcrTrainingSample" (
+    "id" TEXT NOT NULL,
+    "imageData" TEXT NOT NULL,
+    "rawText" TEXT NOT NULL,
+    "parsedJson" JSONB NOT NULL,
+    "correctedJson" JSONB,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "createdBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "OcrTrainingSample_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "OcrAlias" (
+    "id" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "canonicalRef" TEXT NOT NULL,
+    "source" TEXT NOT NULL DEFAULT 'training',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "OcrAlias_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX "OcrTrainingSample_status_idx" ON "OcrTrainingSample"("status");
+CREATE INDEX "OcrTrainingSample_createdAt_idx" ON "OcrTrainingSample"("createdAt");
+CREATE UNIQUE INDEX "OcrAlias_token_key" ON "OcrAlias"("token");
+CREATE INDEX "OcrAlias_token_idx" ON "OcrAlias"("token");
+```
+> After deploy the VPS build needs the Prisma client regenerated (schema change): `cd server && npx prisma generate --schema=prisma/schema.prisma`.
+
 ## v3.44 — 2026-06-19
 New account type: **Distributor** (schema change — see SQL below).
 

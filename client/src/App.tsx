@@ -28,6 +28,7 @@ import CycleCount from './pages/labs/CycleCount';
 import AuditHistory from './pages/labs/AuditHistory';
 import InventoryBackup from './pages/labs/InventoryBackup';
 import WhoHasWhat from './pages/labs/WhoHasWhat';
+import OcrTraining from './pages/labs/OcrTraining';
 import DistributorHome from './pages/DistributorHome';
 import MyInventory from './pages/MyInventory';
 
@@ -115,6 +116,7 @@ export default function App() {
         <Route path="labs/audits" element={<AdminRoute><AuditHistory /></AdminRoute>} />
         <Route path="labs/inventory-backup" element={<AdminRoute><InventoryBackup /></AdminRoute>} />
         <Route path="labs/who-has-what" element={<AdminRoute><WhoHasWhat /></AdminRoute>} />
+        <Route path="labs/ocr-training" element={<AdminRoute><OcrTraining /></AdminRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

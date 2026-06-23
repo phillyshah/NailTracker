@@ -1,5 +1,5 @@
-import Tesseract from 'tesseract.js';
-import { refToGtinShort, gtinShortToFullGtin } from './gtin-map';
+import { createWorker, PSM, type Worker } from 'tesseract.js';
+import { refToGtinShort, gtinShortToFullGtin, getAliasOverlay } from './gtin-map';
 
 // Raw text from the most recent OCR pass, surfaced by the scanner's debug
 // toggle so unreadable labels can be diagnosed/tuned.
@@ -56,16 +56,63 @@ export async function extractAllBarcodesText(
   }
 }
 
+// REF / lot / date charset only. A whitelist stops Tesseract emitting the
+// punctuation noise that breaks the field regexes; the label vocabulary is a
+// closed set so dropping everything else is safe.
+const OCR_WHITELIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-:/. °';
+
+let workerPromise: Promise<Worker> | null = null;
+
+/** Lazily create — and reuse — a Tesseract worker configured for these labels. */
+async function getWorker(): Promise<Worker> {
+  if (!workerPromise) {
+    workerPromise = (async () => {
+      // OEM 1 = LSTM engine only — most accurate on printed text.
+      const worker = await createWorker('eng', 1, { logger: () => {} });
+      await worker.setParameters({
+        // A single uniform block of text suits a label / sheet of stickers.
+        tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+        tessedit_char_whitelist: OCR_WHITELIST,
+      });
+      return worker;
+    })();
+  }
+  return workerPromise;
+}
+
+/**
+ * Release the OCR worker. The batch Training screen creates many recognitions
+ * against the reused worker; call this on unmount to free it.
+ */
+export async function terminateOcrWorker(): Promise<void> {
+  if (!workerPromise) return;
+  const w = await workerPromise.catch(() => null);
+  workerPromise = null;
+  if (w) await w.terminate().catch(() => {});
+}
+
+/**
+ * Run OCR on an image and return BOTH the raw text and the structured labels in
+ * a single pass. Used by the OCR Training lab so admins can see exactly what the
+ * matcher read and what it parsed.
+ */
+export async function ocrImageToLabels(
+  imageSource: File | Blob | string,
+): Promise<{ rawText: string; labels: ParsedLabel[] }> {
+  const text = await runOCR(imageSource);
+  if (!text) return { rawText: lastOcrText ?? '', labels: [] };
+  return { rawText: text, labels: parseLabelsDetailed(text) };
+}
+
 /** Run Tesseract OCR over an image and return the raw text (or null). */
 async function runOCR(imageSource: File | Blob | string): Promise<string | null> {
   // Preprocess image for better OCR accuracy
   const processed = imageSource instanceof Blob ? await preprocessForOCR(imageSource) : imageSource;
 
+  const worker = await getWorker();
   // Run OCR with a timeout
   const result = await Promise.race([
-    Tesseract.recognize(processed, 'eng', {
-      logger: () => {},
-    }),
+    worker.recognize(processed),
     new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('OCR timeout')), 20000),
     ),
@@ -82,31 +129,144 @@ async function runOCR(imageSource: File | Blob | string): Promise<string | null>
   return text;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Image preprocessing. These steps are the standard recipe for OCR on photos of
+// printed labels: upscale → grayscale → contrast-stretch → local (adaptive)
+// threshold. Each transform is a pure function over pixel arrays so it can be
+// unit-tested on synthetic data without a canvas.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** RGBA bytes → one luma value per pixel. */
+export function toGrayscale(data: Uint8ClampedArray): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(data.length / 4);
+  for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+    out[j] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+  }
+  return out;
+}
+
+/** Linearly rescale gray values so the darkest→0 and brightest→255. */
+export function stretchContrast(gray: Uint8ClampedArray): Uint8ClampedArray {
+  let min = 255;
+  let max = 0;
+  for (let i = 0; i < gray.length; i++) {
+    if (gray[i] < min) min = gray[i];
+    if (gray[i] > max) max = gray[i];
+  }
+  const range = max - min;
+  if (range < 1) return gray; // flat image — nothing to stretch
+  const out = new Uint8ClampedArray(gray.length);
+  for (let i = 0; i < gray.length; i++) {
+    out[i] = ((gray[i] - min) / range) * 255;
+  }
+  return out;
+}
+
+/** Otsu's global threshold — the fallback when adaptive thresholding can't run. */
+export function otsuThreshold(gray: Uint8ClampedArray): number {
+  const hist = new Array(256).fill(0);
+  for (let i = 0; i < gray.length; i++) hist[gray[i]]++;
+  const total = gray.length;
+  let sum = 0;
+  for (let t = 0; t < 256; t++) sum += t * hist[t];
+  let sumB = 0;
+  let wB = 0;
+  let maxVar = -1;
+  let threshold = 127;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > maxVar) {
+      maxVar = between;
+      threshold = t;
+    }
+  }
+  return threshold;
+}
+
 /**
- * Preprocess image for OCR: convert to high-contrast grayscale.
- * This dramatically improves OCR accuracy on barcode labels.
+ * Bradley adaptive threshold: each pixel is compared to the mean of its local
+ * window (computed in O(1) per pixel via an integral image). Unlike a single
+ * global cutoff this survives uneven lighting and shadows across a label.
+ */
+export function adaptiveThreshold(
+  gray: Uint8ClampedArray,
+  width: number,
+  height: number,
+  window = 15,
+  c = 8,
+): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(gray.length);
+  const w1 = width + 1;
+  const integral = new Float64Array(w1 * (height + 1));
+  for (let y = 0; y < height; y++) {
+    let rowSum = 0;
+    for (let x = 0; x < width; x++) {
+      rowSum += gray[y * width + x];
+      integral[(y + 1) * w1 + (x + 1)] = integral[y * w1 + (x + 1)] + rowSum;
+    }
+  }
+  const half = Math.max(1, Math.floor(window / 2));
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const x1 = Math.max(0, x - half);
+      const y1 = Math.max(0, y - half);
+      const x2 = Math.min(width - 1, x + half);
+      const y2 = Math.min(height - 1, y + half);
+      const count = (x2 - x1 + 1) * (y2 - y1 + 1);
+      const sum =
+        integral[(y2 + 1) * w1 + (x2 + 1)] -
+        integral[y1 * w1 + (x2 + 1)] -
+        integral[(y2 + 1) * w1 + x1] +
+        integral[y1 * w1 + x1];
+      const mean = sum / count;
+      out[y * width + x] = gray[y * width + x] > mean - c ? 255 : 0;
+    }
+  }
+  return out;
+}
+
+/**
+ * Preprocess an image for OCR: upscale small crops, then grayscale →
+ * contrast-stretch → adaptive threshold to a crisp black-and-white bitmap.
  */
 async function preprocessForOCR(blob: Blob): Promise<Blob> {
   try {
     const bitmap = await createImageBitmap(blob);
-    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    // Tesseract wants a decent cap height; phone crops of a sticker are often too
+    // small, so upscale narrow images before processing (the biggest single win).
+    const scale = bitmap.width > 0 && bitmap.width < 1000 ? Math.min(3, Math.ceil(1000 / bitmap.width)) : 1;
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(bitmap, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bitmap, 0, 0, width, height);
     bitmap.close();
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const gray = stretchContrast(toGrayscale(imageData.data));
 
-    // Convert to high-contrast grayscale with adaptive threshold
-    for (let i = 0; i < data.length; i += 4) {
-      const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-      // Binary threshold — makes text crisp for OCR
-      const val = gray > 140 ? 255 : 0;
-      data[i] = val;
-      data[i + 1] = val;
-      data[i + 2] = val;
+    let binary: Uint8ClampedArray;
+    try {
+      binary = adaptiveThreshold(gray, width, height);
+    } catch {
+      const t = otsuThreshold(gray);
+      binary = new Uint8ClampedArray(gray.length);
+      for (let i = 0; i < gray.length; i++) binary[i] = gray[i] > t ? 255 : 0;
     }
 
+    const data = imageData.data;
+    for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+      data[i] = data[i + 1] = data[i + 2] = binary[j];
+    }
     ctx.putImageData(imageData, 0, 0);
     return await canvas.convertToBlob({ type: 'image/png' });
   } catch (err) {
@@ -146,20 +306,102 @@ function normRef(s: string): string {
   return s
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '')
-    .replace(/[OQ]/g, '0')
+    .replace(/[OQD]/g, '0')
     .replace(/I/g, '1')
     .replace(/S/g, '5')
+    .replace(/G/g, '6')
+    .replace(/T/g, '7')
     .replace(/B/g, '8')
     .replace(/Z/g, '2');
 }
 
+interface CatalogEntry {
+  norm: string;
+  ref: string;
+  gtinShort: string;
+}
+
 // Catalog REF codes, pre-normalized, longest-first so prefix matching prefers
-// the most specific code.
-const NORMALIZED_CATALOG: { norm: string; ref: string; gtinShort: string }[] = Object.entries(
-  refToGtinShort,
-)
+// the most specific code. Exported so a test can assert the normalized codes stay
+// collision-free as new OCR character folds are added to normRef.
+export const NORMALIZED_CATALOG: CatalogEntry[] = Object.entries(refToGtinShort)
   .map(([ref, gtinShort]) => ({ norm: normRef(ref), ref, gtinShort }))
   .sort((a, b) => b.norm.length - a.norm.length);
+
+/** Bounded Levenshtein distance — returns `max + 1` as soon as it's exceeded. */
+export function levenshtein(a: string, b: string, max = 2): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = new Array<number>(b.length + 1);
+  let curr = new Array<number>(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    let rowMin = curr[0];
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+      if (curr[j] < rowMin) rowMin = curr[j];
+    }
+    if (rowMin > max) return max + 1;
+    [prev, curr] = [curr, prev];
+  }
+  return prev[b.length];
+}
+
+// Alias overlay, normalized the same way as the catalog. Rebuilt only when the
+// underlying overlay array reference changes (set via gtin-map.setAliasOverlay).
+let aliasCacheSrc: unknown = null;
+let aliasCache: CatalogEntry[] = [];
+function normalizedAliasOverlay(): CatalogEntry[] {
+  const src = getAliasOverlay();
+  if (src !== aliasCacheSrc) {
+    aliasCacheSrc = src;
+    aliasCache = src
+      .map((e) => {
+        const ref = e.canonicalRef.toUpperCase();
+        const gtinShort = refToGtinShort[ref];
+        const norm = normRef(e.token);
+        return gtinShort && norm.length > 0 ? { norm, ref, gtinShort } : null;
+      })
+      .filter((x): x is CatalogEntry => x !== null)
+      .sort((a, b) => b.norm.length - a.norm.length);
+  }
+  return aliasCache;
+}
+
+/**
+ * Resolve a normalized candidate token to a catalog entry. Tries, in order:
+ *   1. exact prefix against the catalog (the fast common path),
+ *   2. the persisted training alias overlay (admin-confirmed mis-reads),
+ *   3. a deterministic single-error Levenshtein fallback — accepted only when a
+ *      unique catalog code is within distance 1 (ties are rejected).
+ */
+function matchCatalog(candNorm: string): CatalogEntry | null {
+  const exact = NORMALIZED_CATALOG.find((c) => candNorm.startsWith(c.norm));
+  if (exact) return exact;
+
+  const alias = normalizedAliasOverlay().find((a) => candNorm.startsWith(a.norm));
+  if (alias) return alias;
+
+  let best: CatalogEntry | null = null;
+  let bestDist = 2;
+  let tie = false;
+  for (const c of NORMALIZED_CATALOG) {
+    // Only worth comparing when the candidate can cover this code's length.
+    if (candNorm.length < c.norm.length - 1) continue;
+    const d = levenshtein(candNorm.slice(0, c.norm.length), c.norm, 1);
+    if (d <= 1) {
+      if (d < bestDist) {
+        bestDist = d;
+        best = c;
+        tie = false;
+      } else if (d === bestDist) {
+        tie = true;
+      }
+    }
+  }
+  return best && !tie ? best : null;
+}
 
 interface Hit {
   index: number;
@@ -187,7 +429,7 @@ function findRefs(text: string): RefHit[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const candNorm = normRef(m[0]);
-    const hit = NORMALIZED_CATALOG.find((c) => candNorm.startsWith(c.norm));
+    const hit = matchCatalog(candNorm);
     if (hit) {
       out.push({ ref: hit.ref, gtinShort: hit.gtinShort, index: m.index });
       // Advance past exactly THIS ref's characters: far enough that the same
@@ -267,13 +509,22 @@ function chooseExp(candidates: { exp: string; labeled: boolean }[]): string | un
   return pool.reduce((a, b) => (b.exp > a.exp ? b : a)).exp;
 }
 
+/** One implant label parsed from OCR text — both structured fields and the GS1. */
+export interface ParsedLabel {
+  ref: string;
+  gtin: string;
+  lot: string;
+  exp: string | null; // GS1 YYMMDD, or null when unreadable
+  gs1: string;
+}
+
 /**
- * Parse all implant labels out of a block of OCR text. On these stickers the REF
- * code is the heading, with LOT and expiry printed below it, so each LOT/expiry
- * is attributed to the REF that most recently precedes it. Each REF becomes one
- * GS1 string that parseGS1 understands. Exported for unit testing.
+ * Parse all implant labels out of a block of OCR text, returning structured
+ * fields per label. On these stickers the REF code is the heading, with LOT and
+ * expiry printed below it, so each LOT/expiry is attributed to the REF that most
+ * recently precedes it. Exported for the OCR Training lab and unit testing.
  */
-export function parseLabelsFromText(text: string): string[] {
+export function parseLabelsDetailed(text: string): ParsedLabel[] {
   const refs = findRefs(text).sort((a, b) => a.index - b.index);
   if (refs.length === 0) return [];
   const firstRefIdx = refs[0].index;
@@ -308,17 +559,25 @@ export function parseLabelsFromText(text: string): string[] {
 
   // No content-based de-dup: each REF occurrence is one physical sticker, so two
   // identical lot stickers in one photo correctly count as two units.
-  const results: string[] = [];
+  const results: ParsedLabel[] = [];
   for (let i = 0; i < refs.length; i++) {
     const lot = lotByRef[i];
     if (!lot) continue; // a unit needs a lot to be matched in inventory
-    let gs1 = `(01)${gtinShortToFullGtin(refs[i].gtinShort)}(10)${lot}`;
-    const exp = chooseExp(expByRef[i]);
-    if (exp) gs1 += `(17)${exp}`;
-    results.push(gs1);
+    const gtin = gtinShortToFullGtin(refs[i].gtinShort);
+    const exp = chooseExp(expByRef[i]) ?? null;
+    const gs1 = exp ? `(01)${gtin}(10)${lot}(17)${exp}` : `(01)${gtin}(10)${lot}`;
+    results.push({ ref: refs[i].ref, gtin, lot, exp, gs1 });
   }
 
   return results;
+}
+
+/**
+ * Parse all implant labels out of a block of OCR text into GS1 strings that
+ * parseGS1 understands. Exported for unit testing.
+ */
+export function parseLabelsFromText(text: string): string[] {
+  return parseLabelsDetailed(text).map((l) => l.gs1);
 }
 
 /**

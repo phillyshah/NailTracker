@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.45',
+    date: '2026-06-23',
+    changes: [
+      'Transfer has a new "Take / Upload Photo" tab: photograph implant labels and the printed REF, lot, and expiry are read automatically — several stickers in one photo are all read at once — then checked against the source distributor\'s stock, just like Scan',
+      'Sharper label reading: photos are now upscaled and cleaned up before scanning, and the matcher recovers more common character mis-reads, so labels read correctly more often',
+      'New in TrackerLabs: OCR Training (admin). Upload label photos, review what the scanner read, and correct any mistakes — each correction is remembered so the same label reads correctly next time',
+    ],
+  },
+  {
     version: '3.44',
     date: '2026-06-19',
     changes: [
@@ -31,14 +40,6 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-17',
     changes: [
       'Polished the look-and-feel: buttons across the app now share one consistent size, shape, and color. The main "go" action is always the same blue, and green is reserved for "done" confirmation screens',
-    ],
-  },
-  {
-    version: '3.40',
-    date: '2026-06-17',
-    changes: [
-      'Easier to find the main button in Transfer, Usage, and Cycle Count: the primary action (Review / Consume / Finish) now also appears at the top of the list, not only pinned at the bottom — so it isn\'t missed below a long list, especially on desktop',
-      'When you can\'t continue yet, the app now tells you why — e.g. uploading an Excel transfer with no destination chosen shows "Pick a To Distributor to continue" instead of just no button',
     ],
   },
 ];
