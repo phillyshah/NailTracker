@@ -1,8 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Camera, Upload, X, RotateCcw, ScanLine } from 'lucide-react';
+import { Camera, Upload, X, RotateCcw, ScanLine, Bug, Copy } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { compressImage } from '../utils/compressImage';
 import { detectBarcodesFromImage } from '../utils/barcodeDetector';
+import { getLastOcrText } from '../utils/ocrBarcode';
+
+const OCR_DEBUG_KEY = 'ocrDebug';
 
 const LIVE_SCANNER_ID = 'live-barcode-viewfinder';
 
@@ -16,6 +19,9 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
   const [statusText, setStatusText] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [debug, setDebug] = useState(() => localStorage.getItem(OCR_DEBUG_KEY) === '1');
+  // When debug is on, the raw OCR text + how many labels we read from the photo.
+  const [debugInfo, setDebugInfo] = useState<{ text: string; found: number } | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -88,12 +94,17 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
   async function processImage(blob: Blob | File) {
     setMode('processing');
     setStatusText('Detecting barcode...');
+    setDebugInfo(null);
     try {
       const compressed = await compressImage(blob);
       setPreview(compressed);
 
       // Detect up to 4 barcodes from a single image
       const barcodes = await detectBarcodesFromImage(blob);
+      if (debug) {
+        const text = getLastOcrText();
+        if (text !== null) setDebugInfo({ text, found: barcodes.length });
+      }
       if (barcodes.length > 0) {
         for (const barcode of barcodes) {
           onResult(barcode, compressed);
@@ -114,6 +125,15 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
       setStatusText('');
       onError?.('Failed to process image. Please try again.');
     }
+  }
+
+  function toggleDebug() {
+    setDebug((on) => {
+      const next = !on;
+      localStorage.setItem(OCR_DEBUG_KEY, next ? '1' : '0');
+      if (!next) setDebugInfo(null);
+      return next;
+    });
   }
 
   function reset() {
@@ -233,6 +253,37 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
           {cameraError}
         </div>
       )}
+
+      {/* OCR debug: raw text read from the last photo, for tuning unreadable labels */}
+      {debug && debugInfo && (
+        <div className="rounded-xl border border-gray-300 bg-gray-900 p-3 text-gray-100">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              OCR read {debugInfo.found} label{debugInfo.found === 1 ? '' : 's'}
+            </span>
+            <button
+              onClick={() => navigator.clipboard?.writeText(debugInfo.text)}
+              className="flex items-center gap-1 rounded-lg bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+            >
+              <Copy size={12} /> Copy
+            </button>
+          </div>
+          <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-xs text-gray-200">
+            {debugInfo.text || '(no text detected)'}
+          </pre>
+        </div>
+      )}
+
+      {/* OCR debug toggle */}
+      <button
+        onClick={toggleDebug}
+        className={`flex w-full items-center justify-center gap-1.5 text-xs font-medium ${
+          debug ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600'
+        }`}
+      >
+        <Bug size={12} />
+        OCR debug {debug ? 'on' : 'off'}
+      </button>
     </div>
   );
 }

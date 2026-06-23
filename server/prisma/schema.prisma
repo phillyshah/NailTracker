@@ -8,11 +8,16 @@ generator client {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  password  String
-  role      String   @default("admin")
-  createdAt DateTime @default(now())
+  id            String       @id @default(cuid())
+  username      String       @unique
+  password      String
+  role          String       @default("admin")
+  // Set for role = "distributor": scopes the account to one distributor's stock.
+  distributorId String?
+  distributor   Distributor? @relation(fields: [distributorId], references: [id])
+  createdAt     DateTime     @default(now())
+
+  @@index([distributorId])
 }
 
 model Distributor {
@@ -27,6 +32,7 @@ model Distributor {
   updatedAt DateTime        @updatedAt
   items     InventoryItem[]
   banks     Bank[]
+  users     User[]
 }
 
 model InventoryItem {
@@ -46,6 +52,7 @@ model InventoryItem {
   bankId        String?
   bank          Bank?               @relation(fields: [bankId], references: [id])
   usedAt        DateTime?
+  usageTicketId String?
   deletedAt     DateTime?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
@@ -58,6 +65,7 @@ model InventoryItem {
   @@index([gtinShort])
   @@index([usedAt])
   @@index([bankId])
+  @@index([usageTicketId])
 }
 
 model AssignmentHistory {
@@ -92,6 +100,22 @@ model Transfer {
   @@index([createdAt])
 }
 
+model UsageTicket {
+  id              String   @id @default(cuid())
+  ticketId        String   @unique
+  distributorId   String?
+  distributorName String
+  note            String?
+  itemCount       Int
+  items           Json
+  recordedBy      String?
+  createdAt       DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@index([distributorId])
+}
+
 model Bank {
   id            String          @id @default(cuid())
   name          String          @unique
@@ -104,4 +128,68 @@ model Bank {
   items         InventoryItem[]
 
   @@index([distributorId])
+}
+
+model ParLevel {
+  id            String   @id @default(cuid())
+  scope         String   @default("item") // "item" (SKU) or "category" (group)
+  itemNumber    String? // set when scope = "item"
+  category      String? // group name; set when scope = "category" (and on item rows for reference)
+  gtinShort     String?
+  distributorId String? // null = global default; otherwise a per-distributor override (item scope only)
+  minStock      Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([itemNumber])
+  @@index([scope])
+  @@index([category])
+}
+
+model AuditSession {
+  id              String   @id @default(cuid())
+  auditId         String   @unique
+  distributorId   String?
+  distributorName String
+  matchedCount    Int
+  missingCount    Int
+  extraCount      Int
+  items           Json
+  note            String?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+
+  @@index([auditId])
+  @@index([createdAt])
+}
+
+// OCR Training (TrackerLabs, admin-only). A labelled-correction dataset: admins
+// upload label photos, the OCR matcher's guess is stored alongside the raw text,
+// and they confirm/correct it. Confirmed corrections seed OcrAlias rows that the
+// client matcher loads at boot — accuracy improves as the set grows.
+model OcrTrainingSample {
+  id            String   @id @default(cuid())
+  imageData     String // compressed base64 data URL of the label photo
+  rawText       String // raw Tesseract output
+  parsedJson    Json // matcher's guess: [{ ref, gtin, lot, exp, gs1 }]
+  correctedJson Json? // admin's corrected version (same shape)
+  status        String   @default("pending") // pending | confirmed | corrected | rejected
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// A confirmed mis-read → canonical REF mapping. The matcher consults these to
+// resolve tokens it would otherwise miss.
+model OcrAlias {
+  id           String   @id @default(cuid())
+  token        String   @unique // the mis-read REF token as OCR produced it
+  canonicalRef String // the catalog REF it should resolve to
+  source       String   @default("training") // training | manual
+  createdAt    DateTime @default(now())
+
+  @@index([token])
 }

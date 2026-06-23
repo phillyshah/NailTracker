@@ -1,5 +1,5 @@
 import { Html5Qrcode } from 'html5-qrcode';
-import { extractBarcodeText } from './ocrBarcode';
+import { extractAllBarcodesText } from './ocrBarcode';
 
 /**
  * BarcodeDetector browser API type declarations.
@@ -45,11 +45,12 @@ export async function detectBarcodesFromImage(
     return [zxing];
   }
 
-  // Step 3: Try OCR as last resort — returns single barcode
+  // Step 3: Try OCR as last resort — reads printed REF/LOT/expiry text and can
+  // return several labels from one photo (implant stickers have no barcode).
   const ocr = await detectWithOCR(blob);
-  if (ocr) {
-    console.log('[BarcodeDetector] OCR detected:', ocr);
-    return [ocr];
+  if (ocr.length > 0) {
+    console.log(`[BarcodeDetector] OCR detected ${ocr.length} label(s):`, ocr);
+    return ocr;
   }
 
   console.warn('[BarcodeDetector] All detection methods failed');
@@ -125,14 +126,13 @@ async function detectWithHtml5Qrcode(blob: Blob, elementId: string): Promise<str
 }
 
 /**
- * OCR via Tesseract.js — single barcode fallback.
+ * OCR via Tesseract.js — reads printed label text and returns every label found.
  */
-async function detectWithOCR(blob: Blob): Promise<string | null> {
+async function detectWithOCR(blob: Blob): Promise<string[]> {
   try {
-    const result = await extractBarcodeText(blob);
-    return result;
+    return await extractAllBarcodesText(blob);
   } catch (err) {
     console.warn('[BarcodeDetector] OCR error:', err);
-    return null;
+    return [];
   }
 }

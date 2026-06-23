@@ -9,12 +9,15 @@ import {
   LogOut,
   Menu,
   X,
-  Images,
   UserCog,
   ArrowRightLeft,
   Boxes,
   BookOpen,
   Sparkles,
+  ClipboardCheck,
+  ClipboardList,
+  Home,
+  FlaskConical,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -25,20 +28,55 @@ import { cn } from '../utils/cn';
 
 const GUIDE_URL = 'https://github.com/phillyshah/NailTracker/raw/main/Nail_Tracker_User_Guide.docx';
 
+// Four daily pillars on the bottom bar: stock in, stock out, browse, analyze.
 const mainNavItems = [
   { to: '/receive', label: 'Receive', icon: Building2 },
-  { to: '/scan', label: 'Lookup', icon: ScanLine },
+  { to: '/usage', label: 'Usage', icon: ClipboardCheck },
   { to: '/inventory', label: 'Inventory', icon: Package },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
 ];
 
-const moreNavItems = [
-  { to: '/banks', label: 'Banks', icon: Boxes },
-  { to: '/transfer', label: 'Transfer', icon: ArrowRightLeft },
-  { to: '/distributors', label: 'Distributors', icon: Users },
-  { to: '/batch', label: 'Batch Upload', icon: Images },
-  { to: '/users', label: 'User Management', icon: UserCog },
+// Distributor accounts get a focused nav scoped to their own workflow — no admin
+// areas, no More menu.
+const distributorNavItems = [
+  { to: '/home', label: 'Home', icon: Home },
+  { to: '/my-inventory', label: 'Inventory', icon: Package },
+  { to: '/usage', label: 'Usage', icon: ClipboardCheck },
+  { to: '/labs/cycle-count', label: 'Count', icon: ClipboardList },
 ];
+
+// Everything else, grouped so the More sheet stays scannable. Histories and
+// analytics live under Reports — More holds actions and setup only.
+// `adminOnly` groups are filtered out for non-admins (see buildMoreGroups).
+const moreGroups = [
+  {
+    label: 'Tools',
+    items: [
+      { to: '/scan', label: 'Lookup', icon: ScanLine },
+      { to: '/transfer', label: 'Transfer', icon: ArrowRightLeft },
+    ],
+  },
+  {
+    label: 'Organize',
+    items: [
+      { to: '/banks', label: 'Banks', icon: Boxes },
+      { to: '/distributors', label: 'Distributors', icon: Users },
+    ],
+  },
+  {
+    label: 'Admin',
+    items: [{ to: '/users', label: 'User Management', icon: UserCog }],
+  },
+  {
+    label: 'TrackerLabs',
+    adminOnly: true,
+    items: [{ to: '/labs', label: 'TrackerLabs', icon: FlaskConical }],
+  },
+];
+
+function buildMoreGroups(isAdmin: boolean) {
+  return moreGroups.filter((g) => !g.adminOnly || isAdmin);
+}
 
 export function Layout() {
   const { user, logout } = useAuth();
@@ -46,6 +84,14 @@ export function Layout() {
   const location = useLocation();
   const [showMore, setShowMore] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+
+  // Distributor accounts use a focused nav with no More menu.
+  const isDistributor = user?.role === 'distributor';
+  const mainNav = isDistributor ? distributorNavItems : mainNavItems;
+  // Hide admin-only groups (e.g. TrackerLabs) from non-admins.
+  const visibleGroups = isDistributor ? [] : buildMoreGroups(user?.role === 'admin');
+  const moreNavItems = visibleGroups.flatMap((g) => g.items);
+  const hasMore = visibleGroups.length > 0;
 
   // Close More menu on any route change
   useEffect(() => {
@@ -73,7 +119,7 @@ export function Layout() {
             </button>
           </div>
           <nav className="flex gap-1">
-            {[...mainNavItems, ...moreNavItems].map((item) => (
+            {[...mainNav, ...moreNavItems].map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -156,7 +202,7 @@ export function Layout() {
       {/* Bottom navigation — mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.06)] lg:hidden">
         <div className="flex justify-around">
-          {mainNavItems.map((item) => (
+          {mainNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -186,6 +232,7 @@ export function Layout() {
             </NavLink>
           ))}
           {/* More button */}
+          {hasMore && (
           <button
             onClick={() => setShowMore(!showMore)}
             className={cn(
@@ -206,6 +253,7 @@ export function Layout() {
             </div>
             <span className={cn(showMore ? 'font-bold' : '')}>More</span>
           </button>
+          )}
         </div>
       </nav>
 
@@ -226,25 +274,35 @@ export function Layout() {
                 <X size={20} />
               </button>
             </div>
-            <div className="space-y-1">
-              {moreNavItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setShowMore(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center gap-3 rounded-xl px-4 py-3.5 text-base font-medium transition-colors',
-                      isActive
-                        ? 'bg-primary-100 text-primary-700'
-                        : 'text-gray-700 hover:bg-gray-100',
-                    )
-                  }
-                >
-                  <item.icon size={22} />
-                  {item.label}
-                </NavLink>
+            <div className="space-y-4">
+              {visibleGroups.map((group) => (
+                <div key={group.label}>
+                  <p className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    {group.label}
+                  </p>
+                  <div className="space-y-1">
+                    {group.items.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setShowMore(false)}
+                        className={({ isActive }) =>
+                          cn(
+                            'flex items-center gap-3 rounded-xl px-4 py-3.5 text-base font-medium transition-colors',
+                            isActive
+                              ? 'bg-primary-100 text-primary-700'
+                              : 'text-gray-700 hover:bg-gray-100',
+                          )
+                        }
+                      >
+                        <item.icon size={22} />
+                        {item.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
               ))}
+              <div className="border-t border-gray-100 pt-2 space-y-1">
               <a
                 href={GUIDE_URL}
                 target="_blank"
@@ -262,6 +320,7 @@ export function Layout() {
                 <Sparkles size={22} />
                 What's New
               </button>
+              </div>
             </div>
           </div>
         </div>

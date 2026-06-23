@@ -5,9 +5,10 @@ import {
   CheckCircle2,
   Plus,
   Images,
+  FileSpreadsheet,
   X,
 } from 'lucide-react';
-import { scanBarcode, assignItems } from '../api/inventory';
+import { scanBarcode, scanManual, assignItems, parseSpreadsheet } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { listBanks, addItemsToBank } from '../api/banks';
 import { compressImage } from '../utils/compressImage';
@@ -20,6 +21,7 @@ import { useToast } from '../hooks/useToast';
 
 interface ReceivedItem {
   id: number;
+  serverId?: string; // the created InventoryItem id (for precise bank assignment)
   parsed: any;
   imageData: string | null;
   status: 'new' | 'duplicate' | 'error';
@@ -31,13 +33,21 @@ let nextId = 0;
 export default function Receive() {
   const [receivedItems, setReceivedItems] = useState<ReceivedItem[]>([]);
   const [scanning, setScanning] = useState(true);
+  const [targetDistributorId, setTargetDistributorId] = useState('');
+  const [importing, setImporting] = useState(false);
   const [showManual, setShowManual] = useState(false);
+  const [manualMode, setManualMode] = useState<'qr' | 'fields'>('qr');
   const [manualBarcode, setManualBarcode] = useState('');
+  const [mItemNumber, setMItemNumber] = useState('');
+  const [mLot, setMLot] = useState('');
+  const [mExpDate, setMExpDate] = useState('');
+  const [mQty, setMQty] = useState('1');
   const [showBankAssign, setShowBankAssign] = useState(false);
   const [selectedBankId, setSelectedBankId] = useState('');
   const { toasts, addToast, removeToast } = useToast();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const { data: distributors = [] } = useQuery({
     queryKey: ['distributors'],
@@ -48,19 +58,54 @@ export default function Receive() {
     (d) => d.name === 'Home Office' || d.name === 'Home Office (HQ)',
   );
 
+  // The distributor incoming items are received into. Defaults to Home Office;
+  // the user can pick any distributor (e.g. to import a spreadsheet of stock
+  // straight into a distributor's inventory).
+  const effectiveDistId = targetDistributorId || homeOffice?.id || '';
+  const targetDist = distributors.find((d) => d.id === effectiveDistId) ?? homeOffice;
+
   const { data: banks = [] } = useQuery({
     queryKey: ['banks'],
     queryFn: listBanks,
   });
 
-  // Banks at Home Office (for assignment)
-  const homeOfficeBanks = banks.filter(
-    (b) => b.distributorId === homeOffice?.id || !b.distributorId,
+  // Banks at the target distributor (for optional assignment after receiving)
+  const targetBanks = banks.filter(
+    (b) => b.distributorId === effectiveDistId || !b.distributorId,
   );
 
   const scanMutation = useMutation({
     mutationFn: (params: { barcode: string; imageData?: string }) => scanBarcode(params),
   });
+
+  // Receive an already-parsed item: auto-assign to the selected distributor and
+  // add it to the on-screen list. Shared by barcode scans and manual field entry.
+  async function receiveParsed(parsed: any, imageData: string) {
+    if (targetDist) {
+      try {
+        const itemData = { ...parsed, imageData };
+        const assignResult = await assignItems([itemData], targetDist.id);
+        if (assignResult.created > 0) {
+          setReceivedItems((prev) => [
+            { id: nextId++, serverId: assignResult.createdIds?.[0], parsed, imageData, status: 'new' },
+            ...prev,
+          ]);
+          addToast(`Received: ${parsed.productLabel}`, 'success');
+          queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        } else {
+          addToast('Item was skipped (may already exist)', 'error');
+        }
+      } catch {
+        addToast('Failed to save item', 'error');
+      }
+    } else {
+      setReceivedItems((prev) => [
+        { id: nextId++, parsed, imageData, status: 'new' },
+        ...prev,
+      ]);
+      addToast('Scanned — set up a distributor to auto-receive', 'error');
+    }
+  }
 
   async function handleBarcode(barcode: string, imageData: string) {
     try {
@@ -72,31 +117,7 @@ export default function Receive() {
         return;
       }
 
-      // Auto-receive new items directly to Home Office
-      if (homeOffice) {
-        try {
-          const itemData = { ...result.parsed, imageData };
-          const assignResult = await assignItems([itemData], homeOffice.id);
-          if (assignResult.created > 0) {
-            setReceivedItems((prev) => [
-              { id: nextId++, parsed: result.parsed, imageData, status: 'new' },
-              ...prev,
-            ]);
-            addToast(`Received: ${result.parsed.productLabel}`, 'success');
-            queryClient.invalidateQueries({ queryKey: ['inventory'] });
-          } else {
-            addToast('Item was skipped (may already exist)', 'error');
-          }
-        } catch {
-          addToast('Failed to save item', 'error');
-        }
-      } else {
-        setReceivedItems((prev) => [
-          { id: nextId++, parsed: result.parsed, imageData, status: 'new' },
-          ...prev,
-        ]);
-        addToast('Scanned — set up Home Office distributor to auto-receive', 'error');
-      }
+      await receiveParsed(result.parsed, imageData);
     } catch {
       addToast('Failed to process barcode', 'error');
     }
@@ -108,6 +129,42 @@ export default function Receive() {
     if (!trimmed) return;
     setManualBarcode('');
     await handleBarcode(trimmed, '');
+  }
+
+  async function handleManualFieldsSubmit() {
+    const itemNumber = mItemNumber.trim();
+    const lot = mLot.trim();
+    const expDate = mExpDate.trim();
+    const qty = parseInt(mQty, 10);
+
+    if (!itemNumber || !lot || !expDate) {
+      addToast('Item Number, Lot Number, and Expiration Date are all required', 'error');
+      return;
+    }
+    if (!qty || qty < 1) {
+      addToast('Quantity must be at least 1', 'error');
+      return;
+    }
+
+    try {
+      const result = await scanManual({ itemNumber, lot, expDate });
+      // Each unit is its own inventory row — receive the item `qty` times,
+      // exactly as if the same label had been scanned `qty` times.
+      for (let i = 0; i < qty; i++) {
+        await receiveParsed(result.parsed, '');
+      }
+      setMItemNumber('');
+      setMLot('');
+      setMExpDate('');
+      setMQty('1');
+      // Collapse the manual entry panel so the received items and the
+      // "Assign received items to a bank?" prompt below it are surfaced —
+      // otherwise the tall form keeps that prompt pushed off-screen.
+      setShowManual(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to add item';
+      addToast(message, 'error');
+    }
   }
 
   async function handleBatchFiles(e: React.ChangeEvent<HTMLInputElement>) {
@@ -141,6 +198,30 @@ export default function Receive() {
     }
   }
 
+  async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setImporting(true);
+    try {
+      // Parse server-side (exceljs) so .csv, .txt, and .xlsx all work identically
+      // across desktop and mobile, then receive each barcode like a scan.
+      const barcodes = await parseSpreadsheet(file);
+      if (barcodes.length === 0) {
+        addToast('No barcodes found in file', 'error');
+        return;
+      }
+      for (const barcode of barcodes) {
+        await handleBarcode(barcode, '');
+      }
+      addToast(`Imported ${barcodes.length} barcodes from file`, 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Failed to read file', 'error');
+    } finally {
+      setImporting(false);
+    }
+  }
+
   function handleScanError() {
     setShowManual(true);
   }
@@ -150,6 +231,7 @@ export default function Receive() {
   }
 
   const newCount = receivedItems.filter((i) => i.status === 'new').length;
+  const targetName = targetDist?.name ?? 'Home Office';
 
   return (
     <div className="mx-auto max-w-2xl lg:max-w-4xl">
@@ -162,19 +244,40 @@ export default function Receive() {
         </div>
         <div>
           <h2 className="text-xl font-bold text-gray-900">Receive Inventory</h2>
-          <p className="text-sm text-gray-500">Scan items into Home Office</p>
+          <p className="text-sm text-gray-500">Scan items into {targetName}</p>
         </div>
       </div>
 
       <HelpBanner storageKey="receive">
-        Scan or photograph barcode labels to add new items to Home Office inventory. Items are saved automatically when scanned.
+        Scan or photograph barcode labels, or import a CSV/Excel file, to add new items to {targetName} inventory. Items are saved automatically. Use the selector below to receive into a different distributor.
       </HelpBanner>
 
       {/* Quick scan area — always visible for rapid receiving */}
       {scanning && (
         <div className="rounded-2xl bg-white p-4 shadow-sm mb-4">
+          {/* Receive into — defaults to Home Office, switch to any distributor */}
+          <label className="mb-3 block">
+            <span className="mb-1 block text-xs font-medium text-gray-600">Receive into</span>
+            <select
+              value={effectiveDistId}
+              onChange={(e) => setTargetDistributorId(e.target.value)}
+              className="block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+            >
+              {homeOffice && (
+                <option value={homeOffice.id}>{homeOffice.name}</option>
+              )}
+              {distributors
+                .filter((d) => d.id !== homeOffice?.id)
+                .map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+
           <p className="mb-3 text-sm text-gray-500">
-            Scan items one by one, or upload multiple photos
+            Scan items one by one, upload multiple photos, or import a spreadsheet
           </p>
           <BarcodeScanner
             onResult={(barcode, imageData) => {
@@ -190,15 +293,23 @@ export default function Receive() {
               className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
             >
               <Images size={18} />
-              Batch Upload
+              Batch Photos
             </button>
             <button
-              onClick={() => setShowManual(!showManual)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              onClick={() => csvInputRef.current?.click()}
+              disabled={importing}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
             >
-              Manual Entry
+              <FileSpreadsheet size={18} />
+              {importing ? 'Importing…' : 'Import CSV / Excel'}
             </button>
           </div>
+          <button
+            onClick={() => setShowManual(!showManual)}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Manual Entry
+          </button>
           <input
             ref={fileInputRef}
             type="file"
@@ -207,24 +318,120 @@ export default function Receive() {
             onChange={handleBatchFiles}
             className="hidden"
           />
+          <input
+            ref={csvInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls,.txt"
+            onChange={handleCsvImport}
+            className="hidden"
+          />
 
           {showManual && (
-            <div className="mt-3 flex gap-2">
-              <input
-                type="text"
-                value={manualBarcode}
-                onChange={(e) => setManualBarcode(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
-                placeholder="(01)08880089459148(10)..."
-                className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:border-primary-500 focus:outline-none"
-              />
-              <button
-                onClick={handleManualSubmit}
-                disabled={!manualBarcode.trim()}
-                className="rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-              >
-                Add
-              </button>
+            <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+              {/* Method toggle */}
+              <div className="mb-3 flex gap-2">
+                <button
+                  onClick={() => setManualMode('qr')}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
+                    manualMode === 'qr'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Paste QR Code Data
+                </button>
+                <button
+                  onClick={() => setManualMode('fields')}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
+                    manualMode === 'fields'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Enter Item Info Manually
+                </button>
+              </div>
+
+              {manualMode === 'qr' ? (
+                <>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">
+                    Paste or type the full QR / barcode string
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={manualBarcode}
+                      onChange={(e) => setManualBarcode(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
+                      placeholder="(01)08880089459148(10)..."
+                      className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:border-primary-500 focus:outline-none"
+                    />
+                    <button
+                      onClick={handleManualSubmit}
+                      disabled={!manualBarcode.trim()}
+                      className="rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Item Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={mItemNumber}
+                      onChange={(e) => setMItemNumber(e.target.value)}
+                      placeholder="e.g. SO-SPFN-0180-10-25"
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Lot Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={mLot}
+                      onChange={(e) => setMLot(e.target.value)}
+                      placeholder="e.g. J250929-L021"
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-mono focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Expiration Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={mExpDate}
+                      onChange={(e) => setMExpDate(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Quantity Received <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={mQty}
+                      onChange={(e) => setMQty(e.target.value)}
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-primary-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={handleManualFieldsSubmit}
+                    className="w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-700"
+                  >
+                    Save Receipt
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -291,7 +498,7 @@ export default function Receive() {
           </div>
 
           {/* Bank assignment option */}
-          {newCount > 0 && homeOfficeBanks.length > 0 && !showBankAssign && (
+          {newCount > 0 && targetBanks.length > 0 && !showBankAssign && (
             <button
               onClick={() => setShowBankAssign(true)}
               className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-primary-300 bg-primary-50 px-4 py-3 text-sm font-medium text-primary-700 hover:bg-primary-100"
@@ -309,7 +516,7 @@ export default function Receive() {
                 className="mb-3 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base bg-white focus:border-primary-500 focus:outline-none"
               >
                 <option value="">Select a bank...</option>
-                {homeOfficeBanks.map((b) => (
+                {targetBanks.map((b) => (
                   <option key={b.id} value={b.id}>{b.name} ({b._count?.items ?? 0} items)</option>
                 ))}
               </select>
@@ -317,14 +524,23 @@ export default function Receive() {
                 <button
                   onClick={async () => {
                     if (!selectedBankId) return;
-                    const udis = receivedItems.filter((i) => i.status === 'new' && i.parsed).map((i) => i.parsed.udi);
-                    if (udis.length === 0) return;
+                    // Use the exact ids created this session — NOT UDIs, which
+                    // aren't unique per unit and would sweep in every other
+                    // un-banked item of the same gtin+lot+expiry at this site.
+                    const itemIds = receivedItems
+                      .filter((i) => i.status === 'new' && i.serverId)
+                      .map((i) => i.serverId!);
+                    if (itemIds.length === 0) {
+                      addToast('Nothing to assign', 'error');
+                      return;
+                    }
                     try {
-                      const result = await addItemsToBank(selectedBankId, udis);
-                      addToast(`${result.updated} items added to bank`, 'success');
+                      const result = await addItemsToBank(selectedBankId, { itemIds });
+                      addToast(`${result.updated} item${result.updated !== 1 ? 's' : ''} added to bank`, 'success');
                       setShowBankAssign(false);
                       setSelectedBankId('');
                       queryClient.invalidateQueries({ queryKey: ['banks'] });
+                      queryClient.invalidateQueries({ queryKey: ['inventory'] });
                     } catch {
                       addToast('Failed to assign to bank', 'error');
                     }

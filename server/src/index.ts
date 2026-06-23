@@ -18,6 +18,12 @@ import reportRoutes from './routes/reports.js';
 import userRoutes from './routes/users.js';
 import transferRoutes from './routes/transfers.js';
 import bankRoutes from './routes/banks.js';
+import usageRoutes from './routes/usage.js';
+import parLevelRoutes from './routes/parlevels.js';
+import auditRoutes from './routes/audits.js';
+import backupRoutes from './routes/backup.js';
+import holdingsRoutes from './routes/holdings.js';
+import ocrTrainingRoutes from './routes/ocr-training.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3045', 10);
@@ -28,7 +34,8 @@ app.use(cors({
   origin: process.env.NODE_ENV === 'production' ? true : 'http://localhost:5173',
   credentials: true,
 }));
-app.use(express.json({ limit: '5mb' }));
+// 10mb headroom: OCR Training uploads one base64 label image per request.
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 // API Routes
@@ -39,6 +46,12 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/banks', bankRoutes);
+app.use('/api/usage', usageRoutes);
+app.use('/api/par-levels', parLevelRoutes);
+app.use('/api/audits', auditRoutes);
+app.use('/api/backup', backupRoutes);
+app.use('/api/holdings', holdingsRoutes);
+app.use('/api/ocr-training', ocrTrainingRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

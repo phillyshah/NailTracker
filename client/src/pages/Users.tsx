@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Key, Trash2, Shield, ShieldCheck, X } from 'lucide-react';
+import { Plus, Key, Trash2, Shield, ShieldCheck, Store, X, CalendarClock, ScanLine } from 'lucide-react';
 import { listUsers, createUser, updatePassword, updateRole, deleteUser, type User } from '../api/users';
+import { backfillManualExpiry } from '../api/inventory';
+import { listDistributors } from '../api/distributors';
 import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/Button';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
+import RepairBarcodesModal from '../components/RepairBarcodesModal';
 
 export default function Users() {
   const { user: currentUser } = useAuth();
@@ -15,23 +19,38 @@ export default function Users() {
   const [addUsername, setAddUsername] = useState('');
   const [addPassword, setAddPassword] = useState('');
   const [addRole, setAddRole] = useState('user');
+  const [addDistributorId, setAddDistributorId] = useState('');
 
   const [changingPwd, setChangingPwd] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [showRepair, setShowRepair] = useState(false);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users'],
     queryFn: listUsers,
   });
 
+  const { data: distributors = [] } = useQuery({
+    queryKey: ['distributors'],
+    queryFn: listDistributors,
+  });
+  const activeDistributors = distributors.filter((d) => d.active);
+
   const createMutation = useMutation({
-    mutationFn: () => createUser(addUsername, addPassword, addRole),
+    mutationFn: () =>
+      createUser(
+        addUsername,
+        addPassword,
+        addRole,
+        addRole === 'distributor' ? addDistributorId : null,
+      ),
     onSuccess: () => {
       addToast('User created', 'success');
       setShowAddForm(false);
       setAddUsername('');
       setAddPassword('');
       setAddRole('user');
+      setAddDistributorId('');
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
@@ -48,13 +67,29 @@ export default function Users() {
   });
 
   const roleMutation = useMutation({
-    mutationFn: ({ id, role }: { id: string; role: string }) => updateRole(id, role),
+    mutationFn: ({ id, role, distributorId }: { id: string; role: string; distributorId?: string | null }) =>
+      updateRole(id, role, distributorId),
     onSuccess: () => {
       addToast('Role updated', 'success');
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
+
+  // Change a user's role. Becoming a distributor needs a distributor to scope to,
+  // so default to their current one or the first active distributor.
+  function changeRole(u: User, role: string) {
+    if (role === 'distributor') {
+      const did = u.distributorId || activeDistributors[0]?.id;
+      if (!did) {
+        addToast('Add an active distributor first', 'error');
+        return;
+      }
+      roleMutation.mutate({ id: u.id, role, distributorId: did });
+    } else {
+      roleMutation.mutate({ id: u.id, role, distributorId: null });
+    }
+  }
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteUser(id),
@@ -65,18 +100,30 @@ export default function Users() {
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
+  const backfillExpiryMutation = useMutation({
+    mutationFn: backfillManualExpiry,
+    onSuccess: (res) => {
+      const n = res.data?.updated ?? 0;
+      addToast(
+        n > 0
+          ? `Corrected ${n} item${n === 1 ? '' : 's'}`
+          : 'No items needed correcting',
+        'success',
+      );
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+    onError: (err: Error) => addToast(err.message, 'error'),
+  });
+
   return (
     <div className="mx-auto max-w-2xl lg:max-w-4xl">
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">User Management</h2>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-base font-semibold text-white hover:bg-primary-700"
-        >
+        <Button size="sm" onClick={() => setShowAddForm(true)}>
           <Plus size={20} /> Add User
-        </button>
+        </Button>
       </div>
 
       {isLoading ? (
@@ -108,25 +155,41 @@ export default function Users() {
                         </span>
                       )}
                     </div>
-                    <div className="mt-1 flex items-center gap-3">
-                      <button
-                        onClick={() =>
-                          roleMutation.mutate({
-                            id: u.id,
-                            role: u.role === 'admin' ? 'user' : 'admin',
-                          })
-                        }
-                        disabled={isCurrentUser}
-                        className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={isCurrentUser ? "Can't change your own role" : 'Toggle role'}
-                      >
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <span className="text-gray-400">
                         {u.role === 'admin' ? (
                           <ShieldCheck size={16} className="text-primary-600" />
+                        ) : u.role === 'distributor' ? (
+                          <Store size={16} className="text-primary-600" />
                         ) : (
                           <Shield size={16} />
                         )}
-                        {u.role === 'admin' ? 'Admin' : 'User'}
-                      </button>
+                      </span>
+                      <select
+                        value={u.role}
+                        onChange={(e) => changeRole(u, e.target.value)}
+                        disabled={isCurrentUser}
+                        className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-600 focus:border-primary-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={isCurrentUser ? "Can't change your own role" : 'Change role'}
+                      >
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                        <option value="distributor">Distributor</option>
+                      </select>
+                      {u.role === 'distributor' && (
+                        <select
+                          value={u.distributorId ?? ''}
+                          onChange={(e) =>
+                            roleMutation.mutate({ id: u.id, role: 'distributor', distributorId: e.target.value })
+                          }
+                          className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-600 focus:border-primary-500 focus:outline-none"
+                          title="Assigned distributor"
+                        >
+                          {activeDistributors.map((d) => (
+                            <option key={d.id} value={d.id}>{d.name}</option>
+                          ))}
+                        </select>
+                      )}
                       <span className="text-xs text-gray-400">
                         Added {new Date(u.createdAt).toLocaleDateString()}
                       </span>
@@ -163,6 +226,50 @@ export default function Users() {
             );
           })}
         </div>
+      )}
+
+      {/* Maintenance — admin only */}
+      {currentUser?.role === 'admin' && (
+        <div className="mt-6 rounded-2xl bg-white p-4 shadow-sm">
+          <h3 className="text-base font-semibold text-gray-900 mb-1">Maintenance</h3>
+          <p className="text-sm text-gray-500 mb-3">
+            Correct expiration dates on manually-entered items that were saved one day
+            early before the timezone fix. Safe to run anytime — it only touches items
+            that still need it.
+          </p>
+          <button
+            onClick={() => {
+              if (confirm('Correct expiry dates on all manually-entered items saved one day early?')) {
+                backfillExpiryMutation.mutate();
+              }
+            }}
+            disabled={backfillExpiryMutation.isPending}
+            className="flex items-center justify-center gap-2 rounded-xl border-2 border-primary-300 px-4 py-3 text-base font-semibold text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+          >
+            <CalendarClock size={20} />
+            {backfillExpiryMutation.isPending ? 'Fixing…' : 'Fix Manual Expiry Dates'}
+          </button>
+
+          <p className="text-sm text-gray-500 mt-5 mb-3">
+            Repair items imported before the barcode-parsing fix — re-reads each
+            item's original barcode and restores the correct lot number and
+            expiry (e.g. lots that were cut short like “…-L” with a wrong expiry).
+            You'll review each damaged item one at a time and choose to repair or
+            skip it. Safe to run anytime; it only changes items that need it.
+          </p>
+          <button
+            onClick={() => setShowRepair(true)}
+            className="flex items-center justify-center gap-2 rounded-xl border-2 border-primary-300 px-4 py-3 text-base font-semibold text-primary-700 hover:bg-primary-50"
+          >
+            <ScanLine size={20} />
+            Repair Barcodes (Lot & Expiry)
+          </button>
+        </div>
+      )}
+
+      {/* Repair Barcodes stepper */}
+      {showRepair && (
+        <RepairBarcodesModal onClose={() => setShowRepair(false)} onToast={addToast} />
       )}
 
       {/* Add User Panel */}
@@ -220,8 +327,28 @@ export default function Users() {
                 >
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
+                  <option value="distributor">Distributor</option>
                 </select>
               </label>
+              {addRole === 'distributor' && (
+                <label className="block">
+                  <span className="text-sm font-medium text-gray-700">Distributor</span>
+                  <select
+                    value={addDistributorId}
+                    onChange={(e) => setAddDistributorId(e.target.value)}
+                    required
+                    className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base bg-white focus:border-primary-500 focus:outline-none"
+                  >
+                    <option value="">Select a distributor…</option>
+                    {activeDistributors.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-xs text-gray-400">
+                    The account will be scoped to this distributor's stock.
+                  </span>
+                </label>
+              )}
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"

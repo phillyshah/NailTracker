@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { Plus, Edit2, Trash2, X } from 'lucide-react';
 import { listDistributors, createDistributor, updateDistributor, deactivateDistributor } from '../api/distributors';
+import { Button } from '../components/Button';
+import { HelpBanner } from '../components/HelpBanner';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import type { Distributor } from '../types';
@@ -82,17 +84,21 @@ export default function Distributors() {
 
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Distributors</h2>
-        <button
+        <Button
+          size="sm"
           onClick={() => {
             setEditing(null);
             setForm(emptyForm);
             setShowForm(true);
           }}
-          className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-base font-semibold text-white hover:bg-primary-700"
         >
           <Plus size={20} /> Add
-        </button>
+        </Button>
       </div>
+
+      <HelpBanner storageKey="distributors">
+        Distributors are the sites and reps that hold inventory. Tap a distributor to see its assigned stock, or use <strong>Add</strong> to set up a new one.
+      </HelpBanner>
 
       {isLoading ? (
         <div className="flex justify-center py-12">

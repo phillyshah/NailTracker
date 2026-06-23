@@ -23,7 +23,12 @@ export async function login(req: Request, res: Response) {
 
     const secret = process.env.JWT_SECRET || 'dev-secret';
     const token = jwt.sign(
-      { userId: user.id, username: user.username, role: user.role },
+      {
+        userId: user.id,
+        username: user.username,
+        role: user.role,
+        distributorId: user.distributorId ?? null,
+      },
       secret,
       { expiresIn: '7d' },
     );
@@ -35,7 +40,15 @@ export async function login(req: Request, res: Response) {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return success(res, { token, user: { id: user.id, username: user.username, role: user.role } });
+    return success(res, {
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        distributorId: user.distributorId ?? null,
+      },
+    });
   } catch (err) {
     return error(res, 'Login failed', 500);
   }

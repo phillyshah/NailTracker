@@ -1,16 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router';
-import { Search, Filter, Download, RefreshCw, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Download, RefreshCw, ChevronLeft, ChevronRight, X, ScanLine } from 'lucide-react';
 import { listInventory, reassignItem, type InventoryFilters } from '../api/inventory';
 import { listDistributors } from '../api/distributors';
 import { getExportUrl } from '../api/reports';
 import { ExpiryBadge } from '../components/ExpiryBadge';
+import { SearchBar } from '../components/SearchBar';
 import { SortableTh } from '../components/SortableTh';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 import { cn } from '../utils/cn';
+import { Button } from '../components/Button';
 import { HelpBanner } from '../components/HelpBanner';
+import { filtersToSearchParams, searchParamsToFilters } from '../utils/inventoryUrl';
 import type { InventoryItem } from '../types';
 
 export default function Inventory() {
@@ -18,22 +21,18 @@ export default function Inventory() {
   const queryClient = useQueryClient();
   const { toasts, addToast, removeToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [filters, setFilters] = useState<InventoryFilters>(() => ({
-    page: 1,
-    limit: 25,
-    sortBy: 'itemNumber',
-    sortDir: 'asc',
-    search: searchParams.get('search') || undefined,
-    distributorId: searchParams.get('distributorId') || undefined,
-    gtinShort: searchParams.get('gtinShort') || undefined,
-    expBefore: searchParams.get('expBefore') || undefined,
-    unassigned: searchParams.get('unassigned') === 'true' || undefined,
-    expired: searchParams.get('expired') === 'true' || undefined,
-    expiringInDays: searchParams.get('expiringInDays')
-      ? parseInt(searchParams.get('expiringInDays')!, 10)
-      : undefined,
-  }));
+  // Initialize from the URL so returning from an item detail (or a refresh)
+  // restores the exact page/sort/search the user was on.
+  const [filters, setFilters] = useState<InventoryFilters>(() =>
+    searchParamsToFilters(searchParams),
+  );
   const [search, setSearch] = useState(searchParams.get('search') || '');
+
+  // Keep the URL in sync with the active filters (replace, so paging/sorting
+  // doesn't pollute history) — this is what lets "Back to Inventory" return here.
+  useEffect(() => {
+    setSearchParams(filtersToSearchParams(filters), { replace: true });
+  }, [filters, setSearchParams]);
   const [showFilters, setShowFilters] = useState(false);
   const [reassigning, setReassigning] = useState<InventoryItem | null>(null);
   const [reassignDistId, setReassignDistId] = useState('');
@@ -112,6 +111,7 @@ export default function Inventory() {
           : null;
 
   function clearSpecialFilter() {
+    // The URL-sync effect mirrors this into the query string.
     setFilters((prev) => ({
       ...prev,
       gtinShort: undefined,
@@ -123,8 +123,6 @@ export default function Inventory() {
       page: 1,
     }));
     setSearch('');
-    const next = new URLSearchParams();
-    setSearchParams(next, { replace: true });
   }
 
   function toggleSelect(id: string) {
@@ -152,6 +150,12 @@ export default function Inventory() {
         <h2 className="text-xl font-bold text-gray-900">Inventory</h2>
         <div className="flex gap-2">
           <button
+            onClick={() => navigate('/scan')}
+            className="flex items-center gap-1.5 rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+          >
+            <ScanLine size={18} /> Scan
+          </button>
+          <button
             onClick={() => refetch()}
             className="rounded-xl border border-gray-300 p-2.5 text-gray-600 hover:bg-gray-100"
             aria-label="Refresh"
@@ -173,28 +177,20 @@ export default function Inventory() {
       </HelpBanner>
 
       {/* Search bar */}
-      <div className="mb-3 flex gap-2">
-        <div className="relative flex-1">
-          <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="Search item number, lot, or product..."
-            className="w-full rounded-xl border border-gray-300 py-3 pl-10 pr-4 text-base focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none"
-          />
-        </div>
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={cn(
-            'rounded-xl border px-3 py-2.5',
-            showFilters ? 'border-primary-400 bg-primary-50 text-primary-700' : 'border-gray-300 text-gray-600 hover:bg-gray-100',
-          )}
-        >
-          <Filter size={20} />
-        </button>
-      </div>
+      <SearchBar
+        className="mb-3"
+        value={search}
+        onChange={setSearch}
+        onSubmit={handleSearch}
+        onClear={() => {
+          setSearch('');
+          setFilters((prev) => ({ ...prev, search: undefined, page: 1 }));
+        }}
+        placeholder="Search item number, lot, or product..."
+        showFilterButton
+        filterActive={showFilters}
+        onToggleFilter={() => setShowFilters(!showFilters)}
+      />
 
       {/* Filters panel */}
       {showFilters && (
@@ -275,13 +271,14 @@ export default function Inventory() {
                 </option>
               ))}
             </select>
-            <button
+            <Button
+              size="sm"
+              className="shrink-0"
               onClick={() => bulkReassignMutation.mutate()}
               disabled={bulkReassignMutation.isPending}
-              className="shrink-0 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
             >
               Reassign
-            </button>
+            </Button>
           </div>
         </div>
       )}

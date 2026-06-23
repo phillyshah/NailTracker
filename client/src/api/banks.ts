@@ -38,8 +38,16 @@ export async function deleteBank(id: string) {
   return api<ApiResponse<{ message: string }>>(`/banks/${id}`, { method: 'DELETE' });
 }
 
-export async function addItemsToBank(bankId: string, itemIds: string[]) {
-  const res = await api<ApiResponse<{ updated: number }>>(`/banks/${bankId}/add`, { method: 'POST', body: { itemIds } });
+/** Add items to a bank by row id (the picker) and/or by UDI (the Receive page,
+ *  which only knows the parsed UDI of what it just received). */
+export async function addItemsToBank(
+  bankId: string,
+  selection: { itemIds?: string[]; udis?: string[] },
+) {
+  const res = await api<ApiResponse<{ updated: number }>>(`/banks/${bankId}/add`, {
+    method: 'POST',
+    body: selection,
+  });
   return res.data!;
 }
 
@@ -49,6 +57,9 @@ export async function removeItemsFromBank(bankId: string, itemIds: string[]) {
 }
 
 export async function transferBankToDistributor(bankId: string, distributorId: string, note?: string) {
-  const res = await api<ApiResponse<{ transferred: number }>>(`/banks/${bankId}/transfer`, { method: 'POST', body: { distributorId, note } });
+  const res = await api<ApiResponse<{ transferred: number; toDistributorName: string; transferId: string | null }>>(
+    `/banks/${bankId}/transfer`,
+    { method: 'POST', body: { distributorId, note } },
+  );
   return res.data!;
 }

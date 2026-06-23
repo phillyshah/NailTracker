@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { Package, Users, Clock, XCircle, Inbox, Download, Search, ArrowRightLeft, ChevronRight, LayoutGrid } from 'lucide-react';
+import { Package, Users, Clock, XCircle, Inbox, Download, Search, ArrowRightLeft, ChevronRight, LayoutGrid, TrendingUp, CalendarDays, ClipboardList } from 'lucide-react';
 import { getSummary, getExpiring, getExportUrl } from '../api/reports';
 import { listDistributors } from '../api/distributors';
 import { listTransfers, type TransferRecord } from '../api/transfers';
@@ -107,24 +107,45 @@ export default function Reports() {
         ))}
       </div>
 
-      {/* Stock by Item Number drilldown */}
-      <button
-        onClick={() => navigate('/reports/stock-by-item')}
-        className="w-full rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow text-left focus:outline-none focus:ring-2 focus:ring-primary-400"
-      >
-        <div className="flex items-center gap-4">
-          <div className="rounded-xl bg-primary-50 p-3 text-primary-700">
-            <LayoutGrid size={28} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-bold text-gray-900">Stock by Item Number</h3>
-            <p className="text-sm text-gray-600">
-              Count of each item across Home Office and every distributor — sortable, drillable, exportable.
-            </p>
-          </div>
-          <ChevronRight size={24} className="text-gray-400 shrink-0" />
-        </div>
-      </button>
+      {/* Stock */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Stock</h3>
+        <ReportCard
+          icon={LayoutGrid}
+          title="Stock by Item Number"
+          description="Count of each item across Home Office and every distributor — sortable, drillable, exportable."
+          onClick={() => navigate('/reports/stock-by-item')}
+        />
+      </section>
+
+      {/* Usage */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Usage</h3>
+        <ReportCard
+          icon={CalendarDays}
+          title="Monthly Usage Report"
+          description="Pick any month for a full itemized usage report by distributor and product."
+          onClick={() => navigate('/reports/monthly-usage')}
+        />
+        <ReportCard
+          icon={TrendingUp}
+          title="Usage Trends"
+          description="Units consumed each month by product category — spot growth, seasonality, and slow movers."
+          onClick={() => navigate('/reports/usage-trends')}
+        />
+        <ReportCard
+          icon={LayoutGrid}
+          title="Usage by Distributor"
+          description="Category × distributor grid of units consumed over the last 3/6/12 months."
+          onClick={() => navigate('/reports/usage-by-distributor')}
+        />
+        <ReportCard
+          icon={ClipboardList}
+          title="Usage History"
+          description="Browse and print every recorded usage ticket."
+          onClick={() => navigate('/usage/history')}
+        />
+      </section>
 
       {/* Export by distributor */}
       <div className="rounded-2xl bg-white p-5 shadow-sm">
@@ -293,5 +314,35 @@ export default function Reports() {
         </div>
       )}
     </div>
+  );
+}
+
+function ReportCard({
+  icon: Icon,
+  title,
+  description,
+  onClick,
+}: {
+  icon: typeof Package;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow text-left focus:outline-none focus:ring-2 focus:ring-primary-400"
+    >
+      <div className="flex items-center gap-4">
+        <div className="rounded-xl bg-primary-50 p-3 text-primary-700">
+          <Icon size={28} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+          <p className="text-sm text-gray-600">{description}</p>
+        </div>
+        <ChevronRight size={24} className="text-gray-400 shrink-0" />
+      </div>
+    </button>
   );
 }

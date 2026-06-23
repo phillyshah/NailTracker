@@ -1,8 +1,10 @@
 name: Deploy to VPS
 
+# Manual-only: run from the Actions tab ("Run workflow") rather than on every
+# push to main, so commits aren't marked failed while the VPS deploy is done
+# manually. Re-add a `push:` trigger once the VPS_SSH_KEY secret is fixed.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:

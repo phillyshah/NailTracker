@@ -6,53 +6,40 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
-    version: '3.14',
-    date: '2026-05-14',
+    version: '3.45',
+    date: '2026-06-23',
     changes: [
-      'Bulk reassign bar on mobile now fits on screen — no more swiping right to find the Reassign button',
-      'User Guide rewritten with plain-English instructions and a troubleshooting section',
-      'User Guide download button added to the login page',
+      'Transfer has a new "Take / Upload Photo" tab: photograph implant labels and the printed REF, lot, and expiry are read automatically — several stickers in one photo are all read at once — then checked against the source distributor\'s stock, just like Scan',
+      'Sharper label reading: photos are now upscaled and cleaned up before scanning, and the matcher recovers more common character mis-reads, so labels read correctly more often',
+      'New in TrackerLabs: OCR Training (admin). Upload label photos, review what the scanner read, and correct any mistakes — each correction is remembered so the same label reads correctly next time',
     ],
   },
   {
-    version: '3.13',
-    date: '2026-05-14',
+    version: '3.44',
+    date: '2026-06-19',
     changes: [
-      'Stock by Item Number: clicking an item number drills into that item\'s inventory across all locations',
-      'Stock by Item Number: clicking a count at a specific location shows only that item at that location',
-      'Stock by Item Number: total column is now clickable too',
-      'Inventory filter chip shows both item and location when drilling down from Stock report',
-      'New bell icon in the header shows expiry alerts — items expiring within 90 days appear instantly without visiting Reports',
-      'Dismiss alerts individually or all at once — dismissed state is remembered across sessions',
-      'New Live Scan button on the Receive page — point your camera at a barcode and it\'s detected automatically without taking a photo',
+      'New "Distributor" account type. A distributor logs into a focused home screen scoped to their own stock, where they can run a Cycle Count of their shelf, view their inventory, and record usage — without seeing the rest of the system. Create one under User Management by choosing the Distributor role and picking which distributor it belongs to',
     ],
   },
   {
-    version: '3.12',
-    date: '2026-05-13',
+    version: '3.43',
+    date: '2026-06-19',
     changes: [
-      'Fixed Transfer History detail pages showing blank when clicked',
-      'Added error messaging to diagnose transfer lookup failures',
+      'New in TrackerLabs: Who Has What. See who holds each item right now, grouped by distributor with counts — or switch to "As of a date" to reconstruct holdings at a point in the past from movement history. Search and Excel export included',
     ],
   },
   {
-    version: '3.11',
-    date: '2026-05-13',
+    version: '3.42',
+    date: '2026-06-19',
     changes: [
-      'Fixed: scanning multiple physical units that share the same lot number no longer flags them as duplicates — each scan is its own inventory unit',
-      'Batch upload now ingests every row, even when many barcodes share the same GTIN + Lot',
-      'Inventory detail / edit / reassign now use a stable internal item ID so items with the same UDI are individually addressable',
+      'New in TrackerLabs: Inventory Backup. Download a backup of inventory received over any period — last 6 months, last year, or a custom date range — as a readable Excel file or a complete JSON snapshot. The backup includes items since used, transferred, or removed, each with its current status and location',
     ],
   },
   {
-    version: '3.10',
-    date: '2026-05-13',
+    version: '3.41',
+    date: '2026-06-17',
     changes: [
-      'New Stock by Item Number report — see how many of each item you have at Home Office and at every distributor in one matrix, with a Total column',
-      'Stock matrix is sortable, searchable, and every count is clickable to drill into the matching inventory',
-      'Stock matrix has its own Excel download',
-      'Fixed Excel exports coming back empty — filters were being sent incorrectly',
-      'Inventory page now defaults to sorting by Item Number, and every column header is sortable (Item Number → Description → Lot → Expiry → Distributor)',
+      'Polished the look-and-feel: buttons across the app now share one consistent size, shape, and color. The main "go" action is always the same blue, and green is reserved for "done" confirmation screens',
     ],
   },
 ];

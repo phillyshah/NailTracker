@@ -282,6 +282,22 @@ export function gtinShortToFullGtin(gtinShort: string): string {
 }
 
 /**
+ * Resolve an item-number (REF) search term to the gtinShort codes whose catalog
+ * REF contains it (case-insensitive). Scanned items store only the gtinShort, so
+ * an item-number search has to be translated back through the catalog — this is
+ * what lets "SO-SPFN-0380-10L-30" (or a partial like "0380-10L") find them.
+ */
+export function findGtinShortsByItemNumber(query: string): string[] {
+  const q = query.trim().toUpperCase();
+  if (!q) return [];
+  const out = new Set<string>();
+  for (const [gtinShort, ref] of Object.entries(gtinToRef)) {
+    if (ref.toUpperCase().includes(q)) out.add(gtinShort);
+  }
+  return [...out];
+}
+
+/**
  * Extract a Summa item number (REF code) from raw barcode/label text.
  * Returns the full REF code if found, else null.
  */
@@ -461,3 +477,100 @@ export function getProductLabel(gtinShort: string, rawBarcode?: string): string 
 
   return `Unknown — GTIN: ${gtinShort}`;
 }
+
+/**
+ * The six Summa product types used for usage analytics, plus an 'Other' bucket.
+ * (Short vs Long Nail are split off the SO-SPFN family by the L/R side suffix.)
+ */
+export const PRODUCT_CATEGORIES = [
+  'Short Nail',
+  'Long Nail',
+  'Lag Screw',
+  'Interlocking Screw',
+  'Cap Screw',
+  'Set Screw',
+  'Other',
+] as const;
+
+export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
+
+/**
+ * Classify an item into one of the six product categories (or 'Other').
+ *
+ * REF code first (deterministic — the SPFN family is split into Short/Long by
+ * the diameter's L/R side suffix), then the resolved product label as a fallback
+ * for items only known via the GTIN catalog.
+ */
+export function getProductCategory(gtinShort: string, rawBarcode?: string): ProductCategory {
+  const ref = (rawBarcode && extractItemNumber(rawBarcode)) || gtinToRef[gtinShort] || '';
+  if (/SO-LPFN/i.test(ref)) return 'Long Nail';
+  if (/SO-SPFN/i.test(ref)) {
+    // Long nails carry a side letter right after the diameter, e.g. SO-SPFN-0300-10L-25.
+    return /SO-SPFN-\d{3,4}-\d{1,2}[LR]-/i.test(ref) ? 'Long Nail' : 'Short Nail';
+  }
+  if (/SO-SPFL/i.test(ref)) return 'Lag Screw';
+  if (/SO-S50I|SO-IS\b/i.test(ref)) return 'Interlocking Screw';
+  if (/SO-SPFC|SO-EC\b/i.test(ref)) return 'Cap Screw';
+  if (/SO-SPFS|SO-SS\b/i.test(ref)) return 'Set Screw';
+
+  // Fall back to the human label (handles items resolvable only via gtinMap).
+  const label = getProductLabel(gtinShort, rawBarcode);
+  if (/short nail/i.test(label)) return 'Short Nail';
+  if (/long nail/i.test(label)) return 'Long Nail';
+  if (/lag screw/i.test(label)) return 'Lag Screw';
+  if (/interlocking/i.test(label)) return 'Interlocking Screw';
+  if (/cap screw/i.test(label)) return 'Cap Screw';
+  if (/set screw/i.test(label)) return 'Set Screw';
+  return 'Other';
+}
+
+/**
+ * Coarser product GROUPS used by Par Levels — Short and Long nails collapse into
+ * one "Proximal Femur Nail" group so an admin can set one par for the whole nail
+ * family. A group par is the default for every SKU it contains; an individual
+ * SKU par (or a per-distributor override) takes precedence over it.
+ */
+export const PAR_GROUPS = [
+  'Proximal Femur Nail',
+  'Lag Screw',
+  'Interlocking Screw',
+  'Cap Screw',
+  'Set Screw',
+] as const;
+
+export type ParGroup = (typeof PAR_GROUPS)[number] | 'Other';
+
+/** Map an item to its Par Levels group (nails merged into one family). */
+export function getParGroup(gtinShort: string, rawBarcode?: string): ParGroup {
+  const c = getProductCategory(gtinShort, rawBarcode);
+  if (c === 'Short Nail' || c === 'Long Nail') return 'Proximal Femur Nail';
+  if (c === 'Other') return 'Other';
+  return c;
+}
+
+export interface CatalogItem {
+  itemNumber: string; // REF code
+  gtinShort: string;
+  productLabel: string;
+  group: ParGroup;
+}
+
+/**
+ * The full product catalog (one entry per item number), derived from the GTIN
+ * maps. Used by the reorder calculation so a group par can be applied to every
+ * SKU in that group, not just the ones with an explicit par row.
+ */
+export const productCatalog: CatalogItem[] = (() => {
+  const byItem = new Map<string, CatalogItem>();
+  for (const [gtinShort, itemNumber] of Object.entries(gtinToRef)) {
+    if (!byItem.has(itemNumber)) {
+      byItem.set(itemNumber, {
+        itemNumber,
+        gtinShort,
+        productLabel: gtinMap[gtinShort] || itemNumber,
+        group: getParGroup(gtinShort),
+      });
+    }
+  }
+  return Array.from(byItem.values()).sort((a, b) => a.itemNumber.localeCompare(b.itemNumber));
+})();

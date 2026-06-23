@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.13** | Summa Orthopaedics Inventory Management System
+**Version 3.44** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -48,7 +48,7 @@ Once installed, it opens full-screen just like any other app on your phone.
 
 ### Finding Your Way Around
 
-**On a phone:** You'll see four tabs at the bottom of the screen — **Receive**, **Lookup**, **Inventory**, and **Reports**. Tap **More** to access the rest: Banks, Transfer, Distributors, Batch Upload, and User Management.
+**On a phone:** You'll see four tabs at the bottom of the screen — **Receive**, **Usage**, **Inventory**, and **Reports**. Tap **More** for everything else, grouped into **Tools** (Lookup, Transfer), **Organize** (Banks, Distributors), and **Admin** (User Management). Admins also see a **TrackerLabs** group for features in testing. All reports and histories — including Usage History and Transfer History — live under **Reports**.
 
 **On a computer:** All the pages are listed in the navigation bar at the top.
 
@@ -77,11 +77,13 @@ Near the top-right corner of the screen, there's a **bell icon**. This is one of
 
 **Where to go:** Tap the **Receive** tab (it's the home screen when you open the app)
 
-This is where you bring new items into the system. When a shipment arrives at the Home Office warehouse, you scan each item here. The system automatically records it under "Home Office."
+This is where you bring new items into the system. When a shipment arrives, you scan each item here and the app records it automatically.
+
+**Choosing where items go:** At the top of the Receive screen there's a **"Receive into"** selector. It defaults to **Home Office** — the usual starting point for a new shipment — but you can switch it to any distributor to receive stock directly into their inventory (handy when importing a spreadsheet of a distributor's existing stock). Everything you receive on the screen — scans, photos, and file imports — goes into whichever distributor is selected here.
 
 ---
 
-**The four ways to receive an item:**
+**The ways to receive an item:**
 
 #### Option A — Live Scan *(best for high volume)*
 
@@ -104,22 +106,50 @@ Good for single items or when Live Scan isn't working.
 3. The app will analyze the photo and pull out the product details
 4. You'll see a confirmation card if it was successful, or an error message if it couldn't read the barcode
 
-#### Option C — Batch Upload *(for large shipments)*
+#### Option C — Batch Photos *(for large shipments)*
 
 If you have a lot of items to scan and want to do them all at once using photos already saved on your phone:
 
-1. Tap **Batch Upload**
+1. Tap **Batch Photos**
 2. Select multiple photos from your phone's gallery — you can pick as many as you want
 3. The app will work through each photo and can detect up to **4 barcodes per image**
-4. All successfully scanned items are saved to Home Office automatically
+4. All successfully scanned items are saved automatically into the selected distributor
 
-#### Option D — Manual Entry
+#### Option D — Import CSV / Excel *(for spreadsheets of barcodes)*
 
-Use this if a barcode won't scan (damaged label, etc.) and you can read the numbers by eye.
+If you have a list of barcodes in a spreadsheet — for example a stock list from a distributor:
 
-1. Tap **Manual Entry**
-2. Type the barcode string exactly as it appears — for example: `(01)08880089459148(10)J250929-L021(17)300928`
+1. Tap **Import CSV / Excel**
+2. Choose a `.csv`, `.txt`, or Excel (`.xlsx`) file containing the barcode strings
+3. The app reads every barcode and receives each one into the selected distributor automatically
+
+> This works the same on desktop and mobile — the file is read on the server, so real Excel files import correctly everywhere.
+
+#### Option E — Manual Entry
+
+Use this when a barcode won't scan (damaged label, no scanner handy, or the details came from paperwork). Tap **Manual Entry**, then choose one of two methods:
+
+**Method 1 — Paste QR Code Data**
+
+Best when you already have the full barcode/QR text.
+
+1. Make sure **Paste QR Code Data** is selected
+2. Type or paste the barcode string exactly as it appears — for example: `(01)08880089459148(10)J250929-L021(17)300928`
 3. Press Enter or tap **Add**
+
+**Method 2 — Enter Item Info Manually**
+
+Best when you can read the item details off the box or paperwork but don't have the full barcode string.
+
+1. Tap **Enter Item Info Manually**
+2. Fill in all four fields:
+   - **Item Number** — the Summa REF code, e.g. `SO-SPFN-0180-10-25`
+   - **Lot Number** — the lot/batch number
+   - **Expiration Date** — pick the date
+   - **Quantity Received** — how many of this exact item you're receiving
+3. Tap **Save Receipt**
+
+The app looks up the item number, fills in the product details automatically, and creates one inventory record for each unit in the quantity — exactly as if you'd scanned that many labels. If the item number isn't recognized, you'll see a message and nothing is saved, so double-check the REF code.
 
 > **About duplicate lot numbers:** If you're receiving 50 screws that all came from the same manufacturing batch (same lot number), that's completely fine — scan each one individually and the system will create a separate record for each physical item. This is the correct way to do it.
 
@@ -127,7 +157,7 @@ Use this if a barcode won't scan (damaged label, etc.) and you can read the numb
 
 **Assigning received items to a bank:**
 
-After scanning, you may see a prompt: *"Assign received items to a bank?"* A "bank" is a named group of items (like a kit or tray). If these items belong to a specific kit:
+After receiving items — whether by scanning or by Manual Entry — you may see a prompt: *"Assign received items to a bank?"* A "bank" is a named group of items (like a kit or tray). If these items belong to a specific kit:
 
 1. Tap the **Assign to Bank** button
 2. Choose the bank from the dropdown
@@ -139,7 +169,7 @@ If they don't belong to a kit yet, just skip this step — you can always assign
 
 ### 2. Looking Up an Item
 
-**Where to go:** Tap **Lookup** in the bottom navigation
+**Where to go:** Tap **More → Lookup**, or the **Scan** button on the Inventory page
 
 Use this when you want to check on a specific item — maybe you scanned something and want to know where it is, or a rep called and wants to know the status of a particular lot.
 
@@ -237,6 +267,16 @@ A "bank" is a named group of items that belong together — for example, a kit t
 3. Select which distributor it belongs to
 4. Tap **Create**
 
+**Renaming a bank or editing its description:**
+
+You can change a bank's name and description at any time so they match the terminology you use in real life.
+
+1. Tap **Edit** — either on the bank's card in the Banks list, or in the header on the bank's own page
+2. Update the name and/or description
+3. Tap **Save Changes**
+
+The new name appears everywhere immediately. (Renaming only changes the label — the items in the bank are unaffected.)
+
 **Adding items to a bank:**
 
 1. Open the bank, then tap **Add Items**
@@ -263,15 +303,26 @@ Use this when you need to officially move items from one distributor to another 
 
 ---
 
-**Creating a transfer:**
+**Four ways to build a transfer.** At the top of the Transfer page there's a toggle:
+
+- **Pick from list** — browse the source distributor's items and tick the ones to move. Best when you can see what you want on screen.
+- **Take / Upload Photo** — photograph the implant labels and let the app read them. Best when you're working from the physical items and there's no barcode to scan.
+- **Manual Transfer** — scan, paste, or type each item, just like the Receive page. Best for quick transfers of a few parts.
+- **Import from Excel** — upload a CSV/Excel file of barcodes. Best for moving many items at once from a spreadsheet.
+
+---
+
+**Creating a transfer (Pick from list):**
 
 1. Under **From**, choose where the items are coming from
 2. Under **To**, choose where they're going
-3. Check the boxes next to the items you want to move. Tap **Select All** if you want everything.
+3. Use the **search box** to quickly narrow the list by item number, lot, or product name, then check the boxes next to the items you want to move. Tap **Select All** to select everything currently shown.
 4. Add an optional note (e.g., "Returning expired stock" or "Filling new rep order")
-5. Tap **Confirm Transfer**
+5. Tap **Review Transfer**, then **Confirm Transfer**
 
 The system creates a transfer record and updates every item's location automatically.
+
+> **Quick-find everywhere:** the same search box appears wherever you pick items — the Manual Transfer staged list, the Bank "Add Items" picker, and each Distributor's detail page — so you can always type a few characters to jump to what you need.
 
 > **Single-item reassignment also counts:** If you move one item from its detail page using the Reassign button, a transfer record is created for that too — so every move is always tracked.
 
@@ -287,7 +338,99 @@ If you need a paper record of a transfer:
 
 ---
 
-### 7. Reports
+**Take / Upload Photo (read the labels):**
+
+When you're holding the physical implants and there's no barcode to scan, switch to the **Take / Upload Photo** tab. The app reads the printed **REF**, **lot**, and **expiry** straight off each sticker.
+
+1. Pick the **From** and **To** distributors
+2. Tap the **Take / Upload Photo** tab, then:
+   - **Take Photo** — snap a label with your camera
+   - **Upload Photo** — pick an image from your gallery
+   - **Batch Photos** — select several photos at once
+   - **Live Scan** — if a label *does* have a barcode, point the camera at it
+3. Several stickers in one photo are all read at once. Each item is checked against the **From** distributor's stock and shown with the same **Ready / Not in stock / Error** badges as Manual Transfer.
+4. Handle any **Not in stock** rows with **Add to source**, **Skip**, or **Add all missing items to source & include**
+5. Tap **Review Transfer**, then **Confirm Transfer**
+
+> **Label won't read?** Turn on **OCR debug** (the small toggle under the camera) to see exactly what text the app read — handy for reporting a stubborn label. Admins can also train the app to recognise it (see **OCR Training** under TrackerLabs).
+
+---
+
+**Manual Transfer (scan, paste, or type):**
+
+When you're moving a handful of parts — or working from the physical items instead of a list — switch to **Manual Transfer**. It works exactly like the Receive page, so there's nothing new to learn.
+
+1. Pick the **From** and **To** distributors
+2. Tap the **Manual Transfer** toggle, then add items using whichever method suits you:
+   - **Live Scan** — point the camera at each barcode in turn
+   - **Take Photo / Upload Photo** — snap a label or pick an image from your gallery
+   - **Batch Photos** — select several photos at once and the app reads them all
+   - **Manual Entry** — paste a full QR/barcode string, or type the **Item Number**, **Lot**, **Expiration**, and **Quantity** by hand
+3. As you add items, each one is checked against the **From** distributor's stock and shown as a row with a coloured badge:
+   - **Ready** (green) — found at the source; will be transferred
+   - **Not in stock** (amber) — the item parsed fine, but the source doesn't have it
+   - **Error** (red) — the barcode/label couldn't be read
+4. For any **Not in stock** row, you have two options:
+   - Tap **Add to source** — the app creates that item in the source distributor and includes it in the transfer (use this when you *know* the item is physically there and the source just hasn't logged it yet)
+   - Tap **Skip** — the row is dropped from the transfer
+5. If there are several missing rows, tap **Add all missing items to source & include** to handle them all at once
+6. Tap **Review Transfer**, then **Confirm Transfer**
+
+> **Tip:** scan the same item twice and the app correctly stages two units — and if the source only has one, the second is flagged "Not in stock" rather than double-counting.
+
+---
+
+**Import from Excel (move many items from a spreadsheet):**
+
+When you have a spreadsheet of barcodes and need to move a lot of items at once, use the **Import from Excel** tab instead of adding them one by one.
+
+1. Pick the **From** and **To** distributors
+2. Tap the **Import from Excel** tab, then **Choose CSV / Excel file**
+3. The app reads every barcode and checks it against the **From** distributor's stock, showing one row per barcode with the same **Ready / Not in stock / Error** badges as Manual Transfer
+4. Handle any **Not in stock** rows with **Add to source**, **Skip**, or **Add all missing items to source & include** — exactly as in Manual Transfer
+5. Tap **Review Transfer**, then **Confirm Transfer**
+
+> **Mix and match:** items you scan or type in Manual Transfer and rows from a spreadsheet feed the same staged list, so you can combine them in one transfer if you like.
+
+> **Transfers never create new stock by themselves.** The "Add to source" buttons are the *only* way this flow adds inventory — everything else is just moving existing items between distributors.
+
+> **Safety net:** if someone else moves one of the staged items between when you added it and when you confirmed, the app skips that row (rather than silently relocating it) and lists it in the success screen as "Skipped — moved out of source between preview and confirm".
+
+---
+
+### 7. Recording Daily Usage (Usage Tickets)
+
+**Where to go:** Tap **Usage** in the bottom navigation
+
+Use this every day to record the implants a distributor has used. You scan the product stickers from the paper usage ticket, and the app deducts those items from that distributor's inventory — but only after confirming they're actually in stock.
+
+---
+
+**Recording a usage ticket:**
+
+1. **Pick the distributor** at the top. (All the items on one ticket come out of this one distributor. To record a different distributor, finish this ticket first or change the selection to start over.)
+2. **Capture each sticker.** Many implant stickers on the usage ticket have **no barcode** — just printed text (REF/item number, lot, expiry). The app handles both:
+   - **Live Scan** — best when the sticker has a scannable barcode.
+   - **Take Photo / Upload Photo** — best for text-only stickers. The app reads the **item number, lot, and expiry** right off the printed label. You can fit **several stickers in one photo** and it will add them all at once.
+   - **Enter from the label** — if a photo won't read, tap this and type the **item number, lot, and expiry** straight off the sticker (item number and lot are required; expiry is optional and accepts formats like `2030-10-20`). You can also paste a full barcode here.
+3. As you capture items, each shows a status:
+   - 🟢 **Available** — found in this distributor's stock and ready to deduct. If several identical units exist, the one expiring soonest is used first.
+   - 🟡 **Not in stock** — this item isn't in that distributor's inventory, so it **can't** be deducted. Double-check the distributor, or that the item was received first.
+   - 🔴 **Unreadable** — the sticker couldn't be read; take a sharper, well-lit photo of just that label, or use **Enter from the label**.
+4. Tap **Consume N items**. Review the list, add an optional note (case number, surgeon, etc.), and tap **Consume**.
+5. The items are deducted from inventory and the ticket is saved with its own number (like `USE-20260602-0001`).
+
+> **Only in-stock items are deducted.** Anything flagged "not in stock" is left untouched — the app never guesses or deducts something a distributor doesn't have.
+
+---
+
+**Usage History:**
+
+Tap **History** (top of the Usage page) or **More → Usage History** to see every ticket you've recorded. Tap a ticket to see exactly which items were consumed, and use **Print** for a paper or PDF record.
+
+---
+
+### 8. Reports
 
 **Where to go:** Tap **Reports** in the bottom navigation
 
@@ -325,6 +468,18 @@ You can also search by item number or description at the top, sort by any column
 
 ---
 
+**Usage Reports (how products are being used):**
+
+The Reports page has a **Usage** section with three reports that show what's actually being consumed — useful for planning orders and balancing stock between distributors. Each one has an **Excel** export button.
+
+- **Monthly Usage Report** — pick *any* month and (optionally) a distributor to get a full itemized statement: every product used that month, grouped by distributor, with quantities, subtotals, and a grand total. This is your go-to "what did we use in May?" report.
+- **Usage Trends** — units consumed each month by product category (Short Nail, Long Nail, Lag Screw, Interlocking Screw, Cap Screw, Set Screw) over the last 3, 6, or 12 months. A bar chart shows the monthly totals; the table breaks it down by category. Filter to one distributor to see just their usage.
+- **Usage by Distributor** — a grid with product categories down the side and distributors across the top, showing how many of each were used over the window. Quickly compares who uses what.
+
+> Usage reports fill in as you record usage tickets (Usage tab). The more you record, the more useful the trends become.
+
+---
+
 **Transfer History:**
 
 A searchable list of every transfer ever created. Type a transfer ID, distributor name, or date in the search bar to find what you're looking for. Tap any transfer ID to see the full detail and print it.
@@ -334,37 +489,6 @@ A searchable list of every transfer ever created. Type a transfer ID, distributo
 **Expiring Items:**
 
 A table showing up to 20 items that expire in the next 180 days, sorted by how many days are left. Tap any column header to re-sort the list.
-
----
-
-### 8. Batch Upload
-
-**Where to go:** Tap **More** → **Batch Upload**
-
-Use this when you have a large number of items to add to the system and you'd rather upload photos or a spreadsheet than scan them one at a time.
-
----
-
-**Uploading photos:**
-
-1. Tap the upload area and select images from your phone or computer
-2. The app scans each photo automatically — it can find up to **4 barcodes per image**
-3. You'll see results appear one by one showing what was found (or any errors)
-
-**Uploading a CSV/Excel file:**
-
-If your shipping documents come as a spreadsheet with barcode data:
-
-1. Make sure the barcode strings are in the first column
-2. Tap the upload area and select your file
-3. Each row becomes one inventory item — items that share a lot number are each created individually, not skipped
-
-**After uploading:**
-
-1. A grid shows all the items that were found, with a checkmark (success) or X (failed to read)
-2. Select the items you want to keep
-3. Choose a destination distributor from the dropdown
-4. Tap **Assign** to save them
 
 ---
 
@@ -396,13 +520,131 @@ This page shows your full list of distributors — the sales reps, hospitals, or
 3. Choose a role:
    - **User** — can view and manage inventory, but can't add or delete other users
    - **Admin** — full access including User Management
+   - **Distributor** — a field-rep account scoped to a single distributor (see below). When you pick this role, also choose **which distributor** the account belongs to
 4. Tap **Create User**
 
 **Managing existing users:**
 
-- **Change role:** Tap the shield icon next to a user to switch them between User and Admin. (You can't change your own role.)
+- **Change role:** Use the role dropdown next to a user to switch between User, Admin, and Distributor. (You can't change your own role.) For a Distributor, a second dropdown lets you set or change which distributor they're tied to.
 - **Reset password:** Tap the key icon next to a user and enter a new password
 - **Delete user:** Tap the trash icon. You can't delete yourself or the last remaining admin.
+
+---
+
+**Distributor accounts:**
+
+A **Distributor** account is a simplified login for a field rep, scoped to just one distributor's stock. When a distributor logs in, they see a focused home screen with three things — and nothing else:
+
+- **Cycle Count** — scan their own shelf and reconcile it against the system (their distributor is locked in automatically)
+- **My Inventory** — a read-only list of everything currently assigned to them
+- **Record Usage** — log the implants they've used, deducted from their own stock
+
+Distributor accounts don't see the rest of the app (Receive, Transfer, Reports, other distributors, or admin tools), and they can only ever act on their own inventory. This lets reps keep their own counts and usage up to date without giving them access to company-wide data.
+
+> After this update, a distributor (or any user) may need to log out and back in once for the new account scoping to take effect.
+
+---
+
+**Maintenance — Fix Manual Expiry Dates:**
+
+At the bottom of the User Management page (admins only) is a **Fix Manual Expiry Dates** button. Older manually-entered items could be saved with an expiration date that displayed one day early. Tap this button once to correct any affected items across the whole system. It's safe to run anytime — it only changes items that still need fixing, and reports how many it corrected.
+
+**Maintenance — Repair Barcodes (Lot & Expiry):**
+
+Also on the User Management page (admins only) is a **Repair Barcodes** button. Some items imported from a spreadsheet before a parsing fix had their lot number cut short (for example showing "…-L" instead of the full "…-L170") and an incorrect expiry date.
+
+Tap **Repair Barcodes** and the app finds every item whose stored details don't match its original barcode, then walks you through them **one at a time** — much like Find & Replace in Word or Excel. For each item you'll see the current value crossed out next to the corrected value (lot, expiry, product, and item number), and you can:
+
+- **Repair** — apply the correction to this item and move to the next
+- **Skip** — leave this item as-is and move to the next
+- **Repair all remaining** — fix every remaining item at once
+
+A running count of repaired/skipped is shown, and a summary appears when you reach the end. Nothing changes until you tap Repair (or Repair all remaining), it only ever touches items that need it, and it leaves manually-entered items alone.
+
+---
+
+### TrackerLabs (Beta — Admins Only)
+
+**Where to go:** Tap **More** → **TrackerLabs** *(only visible to admins)*
+
+TrackerLabs is a dedicated space for **new features that are still being tested**. Features here are marked with a **Beta** badge, are only visible to admins, and may change as we refine them based on your feedback. When a feature is solid, it graduates out of TrackerLabs into the main menu.
+
+Open TrackerLabs to see the current experiments. Each one has its own help banner explaining how it works.
+
+> Because TrackerLabs features are in testing, try them on real data with a little caution and let us know what's working or what feels off — that feedback is exactly what shapes the final version.
+
+**Par Levels & Reorder (Beta):**
+
+This experiment helps you answer "what do I need to order?" instead of just "what do I have?"
+
+1. From TrackerLabs, open **Par Levels**. Items are organized into **product groups** — Proximal Femur Nail, Lag Screw, Interlocking Screw, Cap Screw, and Set Screw
+2. The fastest way to set pars is a **Group par**: one number on the group's header row that applies to *every size* in that group (e.g. set "3" on Interlocking Screw and every interlocking size now has a par of 3)
+3. To fine-tune, expand a group and set a value on an **individual item** — that overrides the group par for that one item. The item's box shows the inherited group number as a faint placeholder so you can see what it would be otherwise
+4. To fine-tune one site, expand an item and set a **per-distributor override**. Leave any field blank or 0 to clear it and fall back to the level above it — values save automatically as you move off each field
+5. Open the **Reorder Report** to see every item that's below its par, grouped by distributor
+
+So pars resolve from most specific to least: a per-distributor item value wins, then the item's own value, then the group par. Set a group par once and only touch the items that are exceptions.
+
+The Reorder Report shows, for each low item: how many are **on hand**, the **par** level, a **suggested order** quantity (how many to bring it back up to par), and the recent **usage per month** for context. You can search, filter to one distributor, and **download the report as an Excel file** to use as an order sheet.
+
+> Par levels apply to distributors (the field sites you replenish), not to Home Office — Home Office is the warehouse you reorder into.
+
+**Cycle Count (Beta):**
+
+This experiment lets you verify the system against the physical shelf, so the numbers in Nail Tracker stay honest.
+
+1. From TrackerLabs, open **Cycle Count**
+2. Choose the **distributor** you're counting
+3. **Scan everything physically on the shelf** (use the camera, or type/paste barcodes for anything that won't scan)
+4. Tap **Review count**. The app reconciles your scans against what the system says that distributor has, and sorts everything into three groups:
+   - **Matched** — scanned items the system already knew about (nothing to do)
+   - **Missing** — items the system has at this site but that you didn't scan (maybe they're gone)
+   - **Extra** — items you scanned that the system doesn't have here (untracked stock)
+5. Resolve the differences: check the **Extra** items you want to **add** as stock at this distributor, and check the **Missing** items you want to **remove** from inventory
+6. Tap **Finish**. Your fixes are applied together, and the count is saved as an audit record
+
+You can review every past count under **Audit History**, each with its own ID (AUD-…) and a breakdown of how many items were matched, added, and removed.
+
+> Removing a "missing" item doesn't delete its history — the record of where it had been is kept. And if a unit gets used or moved between Review and Finish, the app won't remove it by mistake.
+
+**Inventory Backup (Beta):**
+
+This experiment lets you download a backup of your inventory for any period of time, so you always have an off-app record.
+
+1. From TrackerLabs, open **Inventory Backup**
+2. Pick a **period**: Last 6 months, Last year, All time, or a **Custom range** (choose your own From / To dates)
+3. Download in whichever format you need:
+   - **Excel** — a readable spreadsheet listing every item received in the period, with its current status (In stock / Used / Removed) and current location
+   - **JSON** — a complete snapshot (every field, plus each item's full movement history) for archiving
+
+The period is based on when each item was **received** into the system. The backup deliberately includes items that have since been used, transferred, or removed — so it's a true record of everything that came in during that window, not just what's on the shelf today.
+
+**Who Has What (Beta):**
+
+This experiment answers a simple question: who is holding what, right now — or at any point in the past?
+
+1. From TrackerLabs, open **Who Has What**
+2. In **Current** mode, you'll see every in-stock item grouped by distributor (and Home Office), with a count on each group. Tap a group to expand or collapse its items
+3. Switch to **As of a date** and pick a date to reconstruct who held what on that day
+4. Use the **search** box to narrow to an item number or product, and **Excel** to export the list
+
+> The "As of a date" view is reconstructed from each item's movement history. Items that were never moved are shown at their current location. It's a close reconstruction for past dates, not a guaranteed exact snapshot.
+
+---
+
+**OCR Training (Beta):**
+
+The implant stickers have no barcode, so the app reads the printed text instead. This experiment lets you *teach* the app the labels it struggles with, so reading gets more reliable over time.
+
+1. From TrackerLabs, open **OCR Training**
+2. Tap **Upload label photos** and pick one or more pictures of implant labels. The app reads each one and shows you two things side by side: the **raw text** it saw, and the **parsed labels** (REF / lot / expiry) it worked out
+3. Check each parsed label:
+   - If it's right, tap **Looks right**
+   - If something's wrong, fix the **Correct REF** (and lot/expiry) — you can also **Add label** for a sticker it missed entirely — then tap **Save correction**
+   - If the photo isn't usable, tap **Reject**
+4. Saved corrections are remembered. Next time the same mangled REF turns up — anywhere a label is photographed — the app resolves it to the right item automatically.
+
+> **What this does (and doesn't) do:** it builds a *correction list* the scanner checks against — it does **not** retrain the underlying text-recognition engine. The more real labels you review, the more mis-reads it can recover.
 
 ---
 
@@ -452,6 +694,11 @@ All 105 Summa Orthopaedics products are in the database. If an item shows up as 
 - Make sure there's good lighting — shadows on the barcode cause read failures
 - Hold the phone steady and make sure the whole barcode is in the frame
 - Try **Manual Entry** if the label is damaged or the barcode is smudged
+
+**A text-only sticker won't read?**
+- Take a sharper, well-lit photo of just that one label, then try again
+- Use **Enter from the label** (on the Usage page) to type the item number, lot, and expiry directly
+- To help us improve reading, turn on the small **OCR debug** switch beneath the photo buttons, retake the photo, and tap **Copy** — that copies the exact text the app read off the label so you can send it to your administrator
 
 **Item shows up as "Unknown" product?**
 - The product code may not be in the database yet

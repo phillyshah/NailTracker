@@ -3,6 +3,16 @@ import ExcelJS from 'exceljs';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 import { getItemNumber } from '../utils/gtin-map.js';
+import {
+  buildTrends,
+  buildMatrix,
+  buildMonthlyUsage,
+  windowStart,
+  lastNMonths,
+  monthBounds,
+  monthKey,
+  type UsedRow,
+} from '../utils/usageReport.js';
 
 export async function summary(_req: Request, res: Response) {
   try {
@@ -355,6 +365,249 @@ export async function exportStockByItem(_req: Request, res: Response) {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     await workbook.xlsx.write(res);
     return res.end();
+  } catch (err) {
+    return error(res, 'Export failed', 500);
+  }
+}
+
+// ---- Usage analytics ------------------------------------------------------
+
+const USED_SELECT = {
+  gtinShort: true,
+  rawBarcode: true,
+  distributorId: true,
+  usedAt: true,
+} as const;
+
+/** Window size in months — 3, 6, or 12 (default 3). */
+function parseMonths(q: unknown): number {
+  const n = parseInt(str(q), 10);
+  return n === 6 ? 6 : n === 12 ? 12 : 3;
+}
+
+/** 'YYYY-MM' from the query, or the current UTC month if missing/invalid. */
+function parseMonth(q: unknown): string {
+  const m = str(q);
+  return /^\d{4}-\d{2}$/.test(m) ? m : monthKey(new Date());
+}
+
+/**
+ * GET /api/reports/usage-trends?months=3|6|12&distributorId=
+ * Units consumed per product category per month.
+ */
+export async function usageTrends(req: Request, res: Response) {
+  try {
+    const months = parseMonths(req.query.months);
+    const where: Record<string, unknown> = {
+      usedAt: { gte: windowStart(months) },
+      deletedAt: null,
+    };
+    const distributorId = str(req.query.distributorId);
+    if (distributorId) where.distributorId = distributorId;
+
+    const rows = await prisma.inventoryItem.findMany({ where, select: USED_SELECT });
+    const data = buildTrends(rows as unknown as UsedRow[], lastNMonths(months));
+    return success(res, { window: months, ...data });
+  } catch (err) {
+    return error(res, 'Failed to build usage trends', 500);
+  }
+}
+
+/**
+ * GET /api/reports/usage-matrix?months=3|6|12
+ * Category (rows) × distributor (columns) units consumed in the window.
+ */
+export async function usageMatrix(req: Request, res: Response) {
+  try {
+    const months = parseMonths(req.query.months);
+    const [rows, distributors] = await Promise.all([
+      prisma.inventoryItem.findMany({
+        where: { usedAt: { gte: windowStart(months) }, deletedAt: null },
+        select: USED_SELECT,
+      }),
+      prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
+    ]);
+    const data = buildMatrix(
+      rows as unknown as UsedRow[],
+      distributors.map((d) => ({ id: d.id, name: d.name })),
+    );
+    return success(res, { window: months, ...data });
+  } catch (err) {
+    return error(res, 'Failed to build usage matrix', 500);
+  }
+}
+
+/**
+ * GET /api/reports/monthly-usage?month=YYYY-MM&distributorId=
+ * Itemized usage for a single month, grouped by distributor.
+ */
+export async function monthlyUsage(req: Request, res: Response) {
+  try {
+    const month = parseMonth(req.query.month);
+    const { start, end } = monthBounds(month);
+    const where: Record<string, unknown> = { usedAt: { gte: start, lt: end }, deletedAt: null };
+    const distributorId = str(req.query.distributorId);
+    if (distributorId) where.distributorId = distributorId;
+
+    const [rows, distributors] = await Promise.all([
+      prisma.inventoryItem.findMany({ where, select: USED_SELECT }),
+      prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
+    ]);
+    const data = buildMonthlyUsage(
+      rows as unknown as UsedRow[],
+      distributors.map((d) => ({ id: d.id, name: d.name })),
+    );
+    return success(res, { month, ...data });
+  } catch (err) {
+    return error(res, 'Failed to build monthly usage report', 500);
+  }
+}
+
+function sendXlsx(res: Response, workbook: ExcelJS.Workbook, filename: string) {
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  );
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  return workbook.xlsx.write(res).then(() => res.end());
+}
+
+/** GET /api/reports/usage-trends/export */
+export async function exportUsageTrends(req: Request, res: Response) {
+  try {
+    const months = parseMonths(req.query.months);
+    const monthList = lastNMonths(months);
+    const where: Record<string, unknown> = {
+      usedAt: { gte: windowStart(months) },
+      deletedAt: null,
+    };
+    const distributorId = str(req.query.distributorId);
+    if (distributorId) where.distributorId = distributorId;
+
+    const rows = await prisma.inventoryItem.findMany({ where, select: USED_SELECT });
+    const data = buildTrends(rows as unknown as UsedRow[], monthList);
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Nail Tracker';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet('Usage Trends');
+    sheet.columns = [
+      { header: 'Product Category', key: 'category', width: 22 },
+      ...monthList.map((m) => ({ header: m, key: m, width: 12 })),
+      { header: 'Total', key: 'total', width: 10 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+    sheet.views = [{ state: 'frozen', ySplit: 1, xSplit: 1 }];
+
+    for (const s of data.series) {
+      const row: Record<string, string | number> = { category: s.category, total: s.total };
+      for (const m of monthList) row[m] = s.byMonth[m] ?? 0;
+      sheet.addRow(row);
+    }
+    const totalsRow: Record<string, string | number> = { category: 'Total', total: data.total };
+    for (const m of monthList) totalsRow[m] = data.totalsByMonth[m] ?? 0;
+    sheet.addRow(totalsRow).font = { bold: true };
+    sheet.getColumn('total').font = { bold: true };
+
+    return sendXlsx(res, workbook, `usage-trends-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  } catch (err) {
+    return error(res, 'Export failed', 500);
+  }
+}
+
+/** GET /api/reports/usage-matrix/export */
+export async function exportUsageMatrix(req: Request, res: Response) {
+  try {
+    const months = parseMonths(req.query.months);
+    const [rows, distributors] = await Promise.all([
+      prisma.inventoryItem.findMany({
+        where: { usedAt: { gte: windowStart(months) }, deletedAt: null },
+        select: USED_SELECT,
+      }),
+      prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
+    ]);
+    const data = buildMatrix(
+      rows as unknown as UsedRow[],
+      distributors.map((d) => ({ id: d.id, name: d.name })),
+    );
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Nail Tracker';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet('Usage by Distributor');
+    sheet.columns = [
+      { header: 'Product Category', key: 'category', width: 22 },
+      ...data.columns.map((c) => ({ header: c.name, key: c.id, width: 18 })),
+      { header: 'Total', key: 'total', width: 10 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+    sheet.views = [{ state: 'frozen', ySplit: 1, xSplit: 1 }];
+
+    for (const r of data.rows) {
+      const row: Record<string, string | number> = { category: r.category, total: r.total };
+      for (const c of data.columns) row[c.id] = r.counts[c.id] ?? 0;
+      sheet.addRow(row);
+    }
+    const totalsRow: Record<string, string | number> = { category: 'Total', total: data.grandTotal };
+    for (const c of data.columns) totalsRow[c.id] = data.totalsByColumn[c.id] ?? 0;
+    sheet.addRow(totalsRow).font = { bold: true };
+    sheet.getColumn('total').font = { bold: true };
+
+    return sendXlsx(res, workbook, `usage-by-distributor-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  } catch (err) {
+    return error(res, 'Export failed', 500);
+  }
+}
+
+/** GET /api/reports/monthly-usage/export */
+export async function exportMonthlyUsage(req: Request, res: Response) {
+  try {
+    const month = parseMonth(req.query.month);
+    const { start, end } = monthBounds(month);
+    const where: Record<string, unknown> = { usedAt: { gte: start, lt: end }, deletedAt: null };
+    const distributorId = str(req.query.distributorId);
+    if (distributorId) where.distributorId = distributorId;
+
+    const [rows, distributors] = await Promise.all([
+      prisma.inventoryItem.findMany({ where, select: USED_SELECT }),
+      prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
+    ]);
+    const data = buildMonthlyUsage(
+      rows as unknown as UsedRow[],
+      distributors.map((d) => ({ id: d.id, name: d.name })),
+    );
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Nail Tracker';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet(`Usage ${month}`);
+    sheet.columns = [
+      { header: 'Distributor', key: 'distributor', width: 24 },
+      { header: 'Item Number', key: 'itemNumber', width: 22 },
+      { header: 'Product', key: 'product', width: 36 },
+      { header: 'Category', key: 'category', width: 20 },
+      { header: 'Qty Used', key: 'qty', width: 10 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    for (const g of data.groups) {
+      for (const it of g.items) {
+        sheet.addRow({
+          distributor: g.distributorName,
+          itemNumber: it.itemNumber || it.gtinShort,
+          product: it.productLabel,
+          category: it.category,
+          qty: it.qty,
+        });
+      }
+      sheet.addRow({ distributor: `${g.distributorName} subtotal`, qty: g.subtotal }).font = {
+        bold: true,
+      };
+    }
+    sheet.addRow({ distributor: 'Grand total', qty: data.grandTotal }).font = { bold: true };
+
+    return sendXlsx(res, workbook, `monthly-usage-${month}.xlsx`);
   } catch (err) {
     return error(res, 'Export failed', 500);
   }
