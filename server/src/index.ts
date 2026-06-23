@@ -23,6 +23,7 @@ import parLevelRoutes from './routes/parlevels.js';
 import auditRoutes from './routes/audits.js';
 import backupRoutes from './routes/backup.js';
 import holdingsRoutes from './routes/holdings.js';
+import ocrTrainingRoutes from './routes/ocr-training.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3045', 10);
@@ -33,7 +34,8 @@ app.use(cors({
   origin: process.env.NODE_ENV === 'production' ? true : 'http://localhost:5173',
   credentials: true,
 }));
-app.use(express.json({ limit: '5mb' }));
+// 10mb headroom: OCR Training uploads one base64 label image per request.
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
 // API Routes
@@ -49,6 +51,7 @@ app.use('/api/par-levels', parLevelRoutes);
 app.use('/api/audits', auditRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/holdings', holdingsRoutes);
+app.use('/api/ocr-training', ocrTrainingRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

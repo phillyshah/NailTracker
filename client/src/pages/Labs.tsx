@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { FlaskConical, PackageCheck, ClipboardList, History, ChevronRight, DatabaseBackup, Users } from 'lucide-react';
+import { FlaskConical, PackageCheck, ClipboardList, History, ChevronRight, DatabaseBackup, Users, ScanText } from 'lucide-react';
 import { HelpBanner } from '../components/HelpBanner';
 
 interface LabFeature {
@@ -46,6 +46,13 @@ const features: LabFeature[] = [
     description:
       'See who holds each item right now, grouped by distributor — or reconstruct holdings as of a past date from movement history. Excel export included.',
     icon: Users,
+  },
+  {
+    to: '/labs/ocr-training',
+    title: 'OCR Training',
+    description:
+      'Upload implant label photos, review what the scanner read, and correct any mistakes. Each correction is remembered so the same label reads correctly next time — accuracy improves the more you train.',
+    icon: ScanText,
   },
 ];
 

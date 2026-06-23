@@ -281,6 +281,44 @@ export function gtinShortToFullGtin(gtinShort: string): string {
   return '08800089' + gtinShort.slice(-6);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// OCR alias overlay — the "training" feedback loop.
+//
+// Admins review mis-read labels in the OCR Training lab and confirm what each
+// mangled REF token should have been. Those corrections are persisted server-side
+// and loaded here once at app boot via setAliasOverlay. The OCR matcher
+// (ocrBarcode) consults this overlay to resolve tokens it would otherwise miss,
+// so accuracy improves as the correction set grows — no model retraining.
+//
+// Defaults empty: with no aliases loaded the matcher behaves exactly as before,
+// which keeps the pure parse path deterministic for tests.
+// ─────────────────────────────────────────────────────────────────────────────
+export interface OcrAliasEntry {
+  /** The mis-read REF text exactly as OCR produced it. */
+  token: string;
+  /** The catalog REF it should resolve to. */
+  canonicalRef: string;
+}
+
+let aliasOverlay: OcrAliasEntry[] = [];
+
+/** Replace the active alias overlay (keeps only entries whose REF is catalogued). */
+export function setAliasOverlay(entries: OcrAliasEntry[]): void {
+  aliasOverlay = entries.filter(
+    (e) => e.token && e.canonicalRef && refToGtinShort[e.canonicalRef.toUpperCase()],
+  );
+}
+
+/** Current alias overlay (the matcher reads this; tests can assert against it). */
+export function getAliasOverlay(): OcrAliasEntry[] {
+  return aliasOverlay;
+}
+
+/** Clear the overlay — used by tests to avoid cross-test leakage. */
+export function clearAliasOverlay(): void {
+  aliasOverlay = [];
+}
+
 /**
  * Extract a Summa item number (REF code) from raw barcode/label text.
  * Returns the full REF code if found, else null.

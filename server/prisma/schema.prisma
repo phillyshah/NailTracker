@@ -162,3 +162,34 @@ model AuditSession {
   @@index([auditId])
   @@index([createdAt])
 }
+
+// OCR Training (TrackerLabs, admin-only). A labelled-correction dataset: admins
+// upload label photos, the OCR matcher's guess is stored alongside the raw text,
+// and they confirm/correct it. Confirmed corrections seed OcrAlias rows that the
+// client matcher loads at boot — accuracy improves as the set grows.
+model OcrTrainingSample {
+  id            String   @id @default(cuid())
+  imageData     String // compressed base64 data URL of the label photo
+  rawText       String // raw Tesseract output
+  parsedJson    Json // matcher's guess: [{ ref, gtin, lot, exp, gs1 }]
+  correctedJson Json? // admin's corrected version (same shape)
+  status        String   @default("pending") // pending | confirmed | corrected | rejected
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// A confirmed mis-read → canonical REF mapping. The matcher consults these to
+// resolve tokens it would otherwise miss.
+model OcrAlias {
+  id           String   @id @default(cuid())
+  token        String   @unique // the mis-read REF token as OCR produced it
+  canonicalRef String // the catalog REF it should resolve to
+  source       String   @default("training") // training | manual
+  createdAt    DateTime @default(now())
+
+  @@index([token])
+}

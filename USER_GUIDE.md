@@ -303,10 +303,11 @@ Use this when you need to officially move items from one distributor to another 
 
 ---
 
-**Three ways to build a transfer.** At the top of the Transfer page there's a toggle:
+**Four ways to build a transfer.** At the top of the Transfer page there's a toggle:
 
 - **Pick from list** — browse the source distributor's items and tick the ones to move. Best when you can see what you want on screen.
-- **Manual Transfer** — scan, photograph, paste, or type each item, just like the Receive page. Best for quick transfers of a few parts, or when you're working from the physical items rather than a list.
+- **Take / Upload Photo** — photograph the implant labels and let the app read them. Best when you're working from the physical items and there's no barcode to scan.
+- **Manual Transfer** — scan, paste, or type each item, just like the Receive page. Best for quick transfers of a few parts.
 - **Import from Excel** — upload a CSV/Excel file of barcodes. Best for moving many items at once from a spreadsheet.
 
 ---
@@ -337,7 +338,25 @@ If you need a paper record of a transfer:
 
 ---
 
-**Manual Transfer (scan, photo, paste, or type):**
+**Take / Upload Photo (read the labels):**
+
+When you're holding the physical implants and there's no barcode to scan, switch to the **Take / Upload Photo** tab. The app reads the printed **REF**, **lot**, and **expiry** straight off each sticker.
+
+1. Pick the **From** and **To** distributors
+2. Tap the **Take / Upload Photo** tab, then:
+   - **Take Photo** — snap a label with your camera
+   - **Upload Photo** — pick an image from your gallery
+   - **Batch Photos** — select several photos at once
+   - **Live Scan** — if a label *does* have a barcode, point the camera at it
+3. Several stickers in one photo are all read at once. Each item is checked against the **From** distributor's stock and shown with the same **Ready / Not in stock / Error** badges as Manual Transfer.
+4. Handle any **Not in stock** rows with **Add to source**, **Skip**, or **Add all missing items to source & include**
+5. Tap **Review Transfer**, then **Confirm Transfer**
+
+> **Label won't read?** Turn on **OCR debug** (the small toggle under the camera) to see exactly what text the app read — handy for reporting a stubborn label. Admins can also train the app to recognise it (see **OCR Training** under TrackerLabs).
+
+---
+
+**Manual Transfer (scan, paste, or type):**
 
 When you're moving a handful of parts — or working from the physical items instead of a list — switch to **Manual Transfer**. It works exactly like the Receive page, so there's nothing new to learn.
 
@@ -610,6 +629,22 @@ This experiment answers a simple question: who is holding what, right now — or
 4. Use the **search** box to narrow to an item number or product, and **Excel** to export the list
 
 > The "As of a date" view is reconstructed from each item's movement history. Items that were never moved are shown at their current location. It's a close reconstruction for past dates, not a guaranteed exact snapshot.
+
+---
+
+**OCR Training (Beta):**
+
+The implant stickers have no barcode, so the app reads the printed text instead. This experiment lets you *teach* the app the labels it struggles with, so reading gets more reliable over time.
+
+1. From TrackerLabs, open **OCR Training**
+2. Tap **Upload label photos** and pick one or more pictures of implant labels. The app reads each one and shows you two things side by side: the **raw text** it saw, and the **parsed labels** (REF / lot / expiry) it worked out
+3. Check each parsed label:
+   - If it's right, tap **Looks right**
+   - If something's wrong, fix the **Correct REF** (and lot/expiry) — you can also **Add label** for a sticker it missed entirely — then tap **Save correction**
+   - If the photo isn't usable, tap **Reject**
+4. Saved corrections are remembered. Next time the same mangled REF turns up — anywhere a label is photographed — the app resolves it to the right item automatically.
+
+> **What this does (and doesn't) do:** it builds a *correction list* the scanner checks against — it does **not** retrain the underlying text-recognition engine. The more real labels you review, the more mis-reads it can recover.
 
 ---
 
