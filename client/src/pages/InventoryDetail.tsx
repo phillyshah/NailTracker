@@ -64,6 +64,12 @@ export default function InventoryDetail() {
       // otherwise the item still shows under its old distributor after Back.
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-all'] });
+      // Moving an item changes distributor counts and clears its bank membership
+      // (distributor-scoped banks) — refresh those views too.
+      queryClient.invalidateQueries({ queryKey: ['distributors'] });
+      queryClient.invalidateQueries({ queryKey: ['distributor'] });
+      queryClient.invalidateQueries({ queryKey: ['banks'] });
+      queryClient.invalidateQueries({ queryKey: ['bank'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
@@ -74,6 +80,10 @@ export default function InventoryDetail() {
       addToast('Item marked as used', 'success');
       queryClient.invalidateQueries({ queryKey: ['inventory-item', id] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['distributors'] });
+      queryClient.invalidateQueries({ queryKey: ['distributor'] });
+      queryClient.invalidateQueries({ queryKey: ['banks'] });
+      queryClient.invalidateQueries({ queryKey: ['bank'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });

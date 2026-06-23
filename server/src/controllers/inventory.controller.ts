@@ -382,7 +382,7 @@ export async function reassign(req: Request, res: Response) {
 
     const item = await prisma.inventoryItem.findUnique({
       where: { id },
-      include: { distributor: true },
+      include: { distributor: true, bank: true },
     });
 
     if (!item || item.deletedAt) {
@@ -410,6 +410,13 @@ export async function reassign(req: Request, res: Response) {
     const newDistId = distributorId || null;
     const distributorChanged = oldDistId !== newDistId;
 
+    // A distributor-scoped bank only holds that distributor's stock (enforced by
+    // bank.addItems). So an item moving to a different distributor must drop its
+    // stale bankId, or it stays counted in the old distributor's bank — exactly
+    // the bank-vs-distributor discrepancy. Global banks (no distributorId) are
+    // left alone, and bank-level moves use transferBank (which keeps bankId).
+    const leavesBank = distributorChanged && item.bankId != null && item.bank?.distributorId != null;
+
     let transferId: string | null = null;
     if (distributorChanged && !skipTransferRecord) {
       transferId = await nextTransferId();
@@ -422,6 +429,7 @@ export async function reassign(req: Request, res: Response) {
           distributorId: newDistId,
           assignedAt: newDistId ? new Date() : null,
           assignedBy: req.user?.username || null,
+          ...(leavesBank ? { bankId: null } : {}),
         },
       }),
       prisma.assignmentHistory.create({

@@ -265,6 +265,12 @@ export default function Transfer() {
         'success',
       );
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      // A transfer changes distributor counts and (for distributor-scoped banks)
+      // bank counts too — refresh those views so they don't show a stale total.
+      queryClient.invalidateQueries({ queryKey: ['distributors'] });
+      queryClient.invalidateQueries({ queryKey: ['distributor'] });
+      queryClient.invalidateQueries({ queryKey: ['banks'] });
+      queryClient.invalidateQueries({ queryKey: ['bank'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
