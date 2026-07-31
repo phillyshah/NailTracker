@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.46',
+    date: '2026-07-31',
+    changes: [
+      'Added Telescopic Lag Screw products (PFL-T085 through PFL-T110)',
+    ],
+  },
+  {
     version: '3.45',
     date: '2026-06-23',
     changes: [
@@ -33,13 +40,6 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-19',
     changes: [
       'New in TrackerLabs: Inventory Backup. Download a backup of inventory received over any period — last 6 months, last year, or a custom date range — as a readable Excel file or a complete JSON snapshot. The backup includes items since used, transferred, or removed, each with its current status and location',
-    ],
-  },
-  {
-    version: '3.41',
-    date: '2026-06-17',
-    changes: [
-      'Polished the look-and-feel: buttons across the app now share one consistent size, shape, and color. The main "go" action is always the same blue, and green is reserved for "done" confirmation screens',
     ],
   },
 ];

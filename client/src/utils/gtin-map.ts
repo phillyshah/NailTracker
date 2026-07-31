@@ -140,6 +140,13 @@ export const gtinMap: Record<string, string> = {
   '9462193': 'Interlocking Screw 85mm',
   '9462247': 'Interlocking Screw 90mm',
 
+  // ── Lag Screws — Telescopic (PFL-T) ────────────────────────────────
+  '9454785': 'Lag Screw Telescopic 85mm',
+  '9454792': 'Lag Screw Telescopic 90mm',
+  '9454815': 'Lag Screw Telescopic 100mm',
+  '9454822': 'Lag Screw Telescopic 105mm',
+  '9454839': 'Lag Screw Telescopic 110mm',
+
   // ── Cap Screws (SO-SPFC) ───────────────────────────────────────────
   '9462551': 'Cap Screw 0mm',
   '9462568': 'Cap Screw 5mm',
@@ -223,6 +230,12 @@ export const gtinToRef: Record<string, string> = {
   '9461004': 'SO-SPFN-0420-11L-25',
   '9461066': 'SO-SPFN-0400-11L-30',
   '9461073': 'SO-SPFN-0420-11L-30',
+  // Lag Screw (Telescopic)
+  '9454785': 'PFL-T085',
+  '9454792': 'PFL-T090',
+  '9454815': 'PFL-T100',
+  '9454822': 'PFL-T105',
+  '9454839': 'PFL-T110',
   // Lag Screw (Normal)
   '9461370': 'SO-SPFL-N070',
   '9461387': 'SO-SPFL-N075',
@@ -330,6 +343,7 @@ export function extractItemNumber(text: string): string | null {
   const patterns = [
     /\bSO-SPFN-\d{3,4}-\d{1,2}[LR]?-\d{2}\b/i,
     /\bSO-SPFL-[NAT]\d{2,3}\b/i,
+    /\bPFL-T\d{3}\b/i,
     /\bSO-S50I-SO-\d{2,3}-T\b/i,
     /\bSO-SPFC-\d{3}\b/i,
     /\bSO-SPFS-\d{3}\b/i,
@@ -363,6 +377,7 @@ const refCategories: [RegExp, string][] = [
   [/SO-SPFL-N/i, 'Lag Screw (Normal)'],
   [/SO-SPFL-A/i, 'Lag Screw (Anti-Rotation)'],
   [/SO-SPFL-T/i, 'Lag Screw (Telescopic)'],
+  [/PFL-T/i, 'Lag Screw (Telescopic)'],
   [/SO-S50I/i, 'Interlocking Screw'],
   [/SO-IS/i, 'Interlocking Screw'],
   [/SO-SPFC/i, 'Cap Screw'],
@@ -412,6 +427,12 @@ function parseRefCode(text: string): string | null {
     const angle = parseInt(lpfnMatch[3], 10) + 100;
     const side = lpfnMatch[4].toUpperCase() === 'L' ? 'Left' : 'Right';
     return `Long Nail ${length}/${diameter}mm ${side} ${angle}°`;
+  }
+
+  // Telescopic lag screw (short REF): PFL-T{length}
+  const pflTMatch = text.match(/PFL-T(\d{3})/i);
+  if (pflTMatch) {
+    return `Lag Screw Telescopic ${parseInt(pflTMatch[1], 10)}mm`;
   }
 
   // Lag screw: SO-SPFL-{type}{length}
