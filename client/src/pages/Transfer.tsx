@@ -84,7 +84,7 @@ export default function Transfer() {
   // re-preview against source stock on every change. `batchLines` is the derived
   // preview result (Available / Not in stock / Error). A ref mirrors the staged
   // list so rapid sequential scans don't read a stale closure value.
-  const [stagedInputs, setStagedInputs] = useState<StagedInput[]>([]);
+  const [_stagedInputs, setStagedInputs] = useState<StagedInput[]>([]);
   const stagedRef = useRef<StagedInput[]>([]);
   const [batchLines, setBatchLines] = useState<BatchLine[]>([]);
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());

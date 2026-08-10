@@ -1,5 +1,22 @@
 # Changelog
 
+## v3.47 — 2026-08-10
+README, ESLint security rules, and TypeScript strict extras.
+
+- **README (`README.md`)** — new project README with setup instructions, Mermaid architecture diagram, environment variable table, project structure, available scripts, database schema overview, and VPS deployment guide.
+- **ESLint flat config (`eslint.config.js`)** — `no-eval` + `no-implied-eval` enforced as hard errors across both workspaces; `typescript-eslint` recommended rules wired in; `lint` scripts added to root, client, and server `package.json`. Zero lint errors.
+- **TypeScript strictness (`tsconfig.base.json`)** — added `noImplicitReturns` and `noFallthroughCasesInSwitch`; fixed the one real code path in `roles.ts` that was missing a `return`.
+
+No schema changes. No SQL needed.
+
+## v3.46 — 2026-07-31
+Added Telescopic Lag Screw products (PFL-T085 through PFL-T110) to the GTIN catalog.
+
+- **New products** — five Telescopic Lag Screw sizes (85 mm, 90 mm, 100 mm, 105 mm, 110 mm) added to `gtin-map.ts`: GTIN short codes, REF codes (`PFL-T085` … `PFL-T110`), display labels, and OCR pattern matching.
+- Non-sterile barcode format (AI 11 production date) already handled by the existing `parseRawStream` parser — no parser changes needed.
+
+No schema changes. No SQL needed.
+
 ## v3.45 — 2026-06-23
 OCR accuracy, a Transfer photo tab, and an admin OCR Training lab (schema change — see SQL below).
 

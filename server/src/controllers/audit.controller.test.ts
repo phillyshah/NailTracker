@@ -120,7 +120,7 @@ describe('audit commit', () => {
   });
 
   it('works with no resolutions (audit-only record)', async () => {
-    const { res, promise } = callCommit({ distributorId: BERWYN.id, matchedCount: 3 });
+    const { res: _res, promise } = callCommit({ distributorId: BERWYN.id, matchedCount: 3 });
     await promise;
     expect(itemFindManyMock).not.toHaveBeenCalled(); // no missing ids → no lookup
     expect(itemCreateMock).not.toHaveBeenCalled();

@@ -14,10 +14,13 @@ interface BarcodeDetectorOptions {
   formats: string[];
 }
 
-declare class BarcodeDetectorAPI {
-  constructor(options?: BarcodeDetectorOptions);
+interface BarcodeDetectorAPI {
   detect(image: ImageBitmapSource): Promise<DetectedBarcode[]>;
-  static getSupportedFormats(): Promise<string[]>;
+}
+
+interface BarcodeDetectorAPIStatic {
+  new(options?: BarcodeDetectorOptions): BarcodeDetectorAPI;
+  getSupportedFormats(): Promise<string[]>;
 }
 
 /**
@@ -73,7 +76,7 @@ export async function detectBarcodeFromImage(
  */
 async function detectAllWithNativeAPI(blob: Blob): Promise<string[]> {
   try {
-    const BarcodeDetector = (window as any).BarcodeDetector as typeof BarcodeDetectorAPI | undefined;
+    const BarcodeDetector = (window as any).BarcodeDetector as BarcodeDetectorAPIStatic | undefined;
     if (!BarcodeDetector) {
       console.log('[BarcodeDetector] Native API not available in this browser');
       return [];

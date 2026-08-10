@@ -5,7 +5,7 @@ export function adminOnly(req: Request, res: Response, next: NextFunction) {
   if (req.user?.role !== 'admin') {
     return res.status(403).json({ success: false, error: 'Admin access required' });
   }
-  next();
+  return next();
 }
 
 /**
@@ -16,7 +16,7 @@ export function denyDistributor(req: Request, res: Response, next: NextFunction)
   if (req.user?.role === 'distributor') {
     return res.status(403).json({ success: false, error: 'Not available for distributor accounts' });
   }
-  next();
+  return next();
 }
 
 /**

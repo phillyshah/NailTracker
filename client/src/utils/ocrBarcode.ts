@@ -447,7 +447,7 @@ function findRefs(text: string): RefHit[] {
 /** Find LOT values. Prefers a "LOT"-labeled value, falls back to the J######-#### shape. */
 function findLots(text: string): (Hit & { lot: string })[] {
   const out: (Hit & { lot: string })[] = [];
-  const labeled = /(?:LOT|BATCH)[:\s#]*([A-Z0-9][A-Z0-9\-]{3,24})/gi;
+  const labeled = /(?:LOT|BATCH)[:\s#]*([A-Z0-9][A-Z0-9-]{3,24})/gi;
   let m: RegExpExecArray | null;
   while ((m = labeled.exec(text)) !== null) {
     const lot = cleanLot(m[1]);
@@ -591,7 +591,7 @@ function parseGS1FromOCR(rawText: string): string | null {
   console.log('[OCR] Parsing strategies on text:', fullText.substring(0, 200));
 
   // Strategy 1: Look for parenthesized AI format — (01)...(10)...(17)...
-  const parenPattern = /\(?0\s*1\)?\s*(\d[\d\s]{12,16})\s*\(?1\s*0\)?\s*([\w\d][\w\d\s\-]{2,30})\s*\(?1\s*7\)?\s*(\d[\d\s]{4,7})/i;
+  const parenPattern = /\(?0\s*1\)?\s*(\d[\d\s]{12,16})\s*\(?1\s*0\)?\s*([\w\d][\w\d\s-]{2,30})\s*\(?1\s*7\)?\s*(\d[\d\s]{4,7})/i;
   const parenMatch = fullText.match(parenPattern);
   if (parenMatch) {
     const gtin = parenMatch[1].replace(/\s/g, '').slice(0, 14).padStart(14, '0');
@@ -688,12 +688,12 @@ function parseLabeledFields(text: string): string | null {
   let gtin: string | null = null;
   const gtinPatterns = [
     /(?:GTIN|REF|UDI|NDC)[:\s]*(\d[\d\s]{12,16})/i,
-    /(?:GTIN|REF|UDI|NDC)[:\s#]*([0-9][\d\s\-]{12,18})/i,
+    /(?:GTIN|REF|UDI|NDC)[:\s#]*([0-9][\d\s-]{12,18})/i,
   ];
   for (const pattern of gtinPatterns) {
     const match = upper.match(pattern);
     if (match) {
-      gtin = match[1].replace(/[\s\-]/g, '').slice(0, 14);
+      gtin = match[1].replace(/[\s-]/g, '').slice(0, 14);
       if (/^\d{13,14}$/.test(gtin)) {
         gtin = gtin.padStart(14, '0');
         break;
@@ -705,7 +705,7 @@ function parseLabeledFields(text: string): string | null {
   // Look for LOT value
   let lot: string | null = null;
   const lotPatterns = [
-    /(?:LOT|BATCH)[:\s#]*([A-Z0-9][\w\-]{2,25})/i,
+    /(?:LOT|BATCH)[:\s#]*([A-Z0-9][\w-]{2,25})/i,
   ];
   for (const pattern of lotPatterns) {
     const match = text.match(pattern);
@@ -721,13 +721,13 @@ function parseLabeledFields(text: string): string | null {
   // Look for EXP date
   let exp = '';
   const expPatterns = [
-    /(?:EXP|EXPIRY|EXPIRATION|USE\s*BY)[:\s]*(\d{2}[\/-]?\d{2}[\/-]?\d{2,4})/i,
+    /(?:EXP|EXPIRY|EXPIRATION|USE\s*BY)[:\s]*(\d{2}[/-]?\d{2}[/-]?\d{2,4})/i,
     /(?:EXP|EXPIRY)[:\s]*(\d{6})/i,
   ];
   for (const pattern of expPatterns) {
     const match = text.match(pattern);
     if (match) {
-      exp = match[1].replace(/[\/-]/g, '').slice(0, 6);
+      exp = match[1].replace(/[/-]/g, '').slice(0, 6);
       break;
     }
   }
@@ -762,7 +762,7 @@ function findGTINAndLot(text: string): string | null {
     // Look for lot number after the GTIN in the text
     const afterGTIN = text.substring(text.indexOf(digits) + digits.length);
     // Lot numbers typically start with a letter or digit and contain hyphens
-    const lotMatch = afterGTIN.match(/\s*[:\s]*([A-Z0-9][A-Z0-9\-]{3,25})/i);
+    const lotMatch = afterGTIN.match(/\s*[:\s]*([A-Z0-9][A-Z0-9-]{3,25})/i);
     if (lotMatch) {
       const lot = lotMatch[1].trim();
       // Look for expiry after lot
