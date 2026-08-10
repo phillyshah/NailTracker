@@ -206,7 +206,7 @@ describe('update (rename / edit description)', () => {
   it('renames a bank and updates its description', async () => {
     bankUpdateMock.mockResolvedValue({ id: 'bank-1', name: 'Trauma Cart A', description: 'Left OR' });
 
-    const { res, promise } = call(update, 'bank-1', { name: '  Trauma Cart A  ', description: '  Left OR  ' });
+    const { res: _res, promise } = call(update, 'bank-1', { name: '  Trauma Cart A  ', description: '  Left OR  ' });
     await promise;
 
     expect(bankUpdateMock).toHaveBeenCalledTimes(1);

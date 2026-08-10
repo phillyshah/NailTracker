@@ -159,7 +159,7 @@ export default function ParLevels() {
                   onClick={() =>
                     setOpenGroups((s) => {
                       const next = new Set(s);
-                      next.has(group) ? next.delete(group) : next.add(group);
+                      if (next.has(group)) { next.delete(group); } else { next.add(group); }
                       return next;
                     })
                   }
@@ -199,7 +199,7 @@ export default function ParLevels() {
                             onClick={() =>
                               setOpenItems((s) => {
                                 const next = new Set(s);
-                                next.has(c.itemNumber) ? next.delete(c.itemNumber) : next.add(c.itemNumber);
+                                if (next.has(c.itemNumber)) { next.delete(c.itemNumber); } else { next.add(c.itemNumber); }
                                 return next;
                               })
                             }

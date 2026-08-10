@@ -15,7 +15,6 @@ import { compressImage } from '../utils/compressImage';
 import { detectBarcodesFromImage } from '../utils/barcodeDetector';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { HelpBanner } from '../components/HelpBanner';
-import { ExpiryBadge } from '../components/ExpiryBadge';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
 

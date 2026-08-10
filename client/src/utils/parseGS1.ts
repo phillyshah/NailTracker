@@ -110,9 +110,9 @@ export function parseGS1(rawBarcode: string): ParseResult {
     return { error: 'Empty barcode string', rawBarcode: trimmed };
   }
 
-  let gtin = '';
-  let lot = '';
-  let expDateStr = '';
+  let gtin: string;
+  let lot: string;
+  let expDateStr: string;
 
   if (trimmed.includes('(')) {
     const aiPattern = /\((\d{2})\)([^(]*)/g;

@@ -192,7 +192,7 @@ export default function CycleCount() {
               onToggle={() =>
                 setRemoveMissing((s) => {
                   const next = new Set(s);
-                  next.has(m.itemId) ? next.delete(m.itemId) : next.add(m.itemId);
+                  if (next.has(m.itemId)) { next.delete(m.itemId); } else { next.add(m.itemId); }
                   return next;
                 })
               }
@@ -225,7 +225,7 @@ export default function CycleCount() {
               onToggle={() =>
                 setAddExtras((s) => {
                   const next = new Set(s);
-                  next.has(e.scanKey) ? next.delete(e.scanKey) : next.add(e.scanKey);
+                  if (next.has(e.scanKey)) { next.delete(e.scanKey); } else { next.add(e.scanKey); }
                   return next;
                 })
               }

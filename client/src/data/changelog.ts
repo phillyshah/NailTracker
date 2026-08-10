@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.47',
+    date: '2026-08-10',
+    changes: [
+      'Added project README with setup instructions, architecture diagram, and local development guide',
+      'ESLint now enforces security rules (no-eval, no-implied-eval) across both workspaces',
+    ],
+  },
+  {
     version: '3.46',
     date: '2026-07-31',
     changes: [
@@ -33,13 +41,6 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-19',
     changes: [
       'New in TrackerLabs: Who Has What. See who holds each item right now, grouped by distributor with counts — or switch to "As of a date" to reconstruct holdings at a point in the past from movement history. Search and Excel export included',
-    ],
-  },
-  {
-    version: '3.42',
-    date: '2026-06-19',
-    changes: [
-      'New in TrackerLabs: Inventory Backup. Download a backup of inventory received over any period — last 6 months, last year, or a custom date range — as a readable Excel file or a complete JSON snapshot. The backup includes items since used, transferred, or removed, each with its current status and location',
     ],
   },
 ];
