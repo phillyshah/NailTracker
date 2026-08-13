@@ -23,6 +23,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { NotificationBell } from './NotificationBell';
 import { WhatsNewModal } from './WhatsNewModal';
+import { ErrorBoundary } from './ErrorBoundary';
 import { APP_VERSION } from '../version';
 import { cn } from '../utils/cn';
 
@@ -195,8 +196,12 @@ export function Layout() {
       </header>
 
       {/* Main content */}
+      {/* The boundary wraps only the routed page, so a crash never takes out the
+          header/nav — the user can always navigate away instead of restarting. */}
       <main className="flex-1 overflow-y-auto px-4 py-4 pb-24 lg:px-10 lg:py-6 lg:pb-6">
-        <Outlet />
+        <ErrorBoundary resetKey={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
 
       {/* Bottom navigation — mobile */}

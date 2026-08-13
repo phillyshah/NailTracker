@@ -1,10 +1,23 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import reactHooks from 'eslint-plugin-react-hooks';
 
 export default tseslint.config(
   // Base JS + TypeScript recommended rules
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+
+  // React Hooks — `rules-of-hooks` catches conditional/after-early-return hook
+  // calls, which crash the render with "Rendered more hooks than during the
+  // previous render" and blank the whole page (see v3.48 UsageDetail fix).
+  {
+    files: ['client/src/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+    },
+  },
 
   // Project-level rule overrides
   {

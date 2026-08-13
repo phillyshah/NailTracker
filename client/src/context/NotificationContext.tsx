@@ -50,7 +50,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setDismissed(pruned);
       saveDismissed(pruned);
     }
-  }, [expiring]); // `dismissed` intentionally omitted — adding it creates an infinite loop
+  // `dismissed` intentionally omitted — including it re-runs this effect on the
+  // very state it sets, which loops forever.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expiring]);
 
   const dismissNotification = useCallback((udi: string) => {
     setDismissed((prev) => {

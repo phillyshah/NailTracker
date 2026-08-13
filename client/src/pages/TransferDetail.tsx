@@ -34,6 +34,25 @@ export default function TransferDetail() {
     setTimeout(() => { document.title = original; }, 1000);
   }
 
+  // NOTE: every hook must run before the loading/error early returns below.
+  // `useSortable` is a hook; calling it after a conditional return changes the
+  // hook count between the pending render and the loaded render, which crashes
+  // React ("Rendered more hooks than during the previous render") and blanks the
+  // page. Derive from `transfer?` so this is safe while the query is pending.
+  const items = Array.isArray(transfer?.items) ? (transfer.items as TransferItem[]) : [];
+
+  const { sorted: sortedItems, sortKey, sortDir, toggleSort } = useSortable(
+    items,
+    {
+      productLabel: (i) => i.productLabel || '',
+      itemNumber: (i) => i.itemNumber || '',
+      lot: (i) => i.lot,
+      gtin: (i) => i.gtin,
+      expDate: (i) => i.expDate,
+    },
+    'productLabel',
+  );
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -55,20 +74,6 @@ export default function TransferDetail() {
       </div>
     );
   }
-
-  const items = Array.isArray(transfer.items) ? (transfer.items as TransferItem[]) : [];
-
-  const { sorted: sortedItems, sortKey, sortDir, toggleSort } = useSortable(
-    items,
-    {
-      productLabel: (i) => i.productLabel || '',
-      itemNumber: (i) => i.itemNumber || '',
-      lot: (i) => i.lot,
-      gtin: (i) => i.gtin,
-      expDate: (i) => i.expDate,
-    },
-    'productLabel',
-  );
 
   return (
     <div className="mx-auto max-w-4xl">
