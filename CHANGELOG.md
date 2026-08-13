@@ -1,5 +1,14 @@
 # Changelog
 
+## v3.48 — 2026-08-13
+Fixes the blank-screen crash on "View ticket" after recording usage.
+
+- **Blank screen on usage/transfer detail (`pages/UsageDetail.tsx`, `pages/TransferDetail.tsx`)** — both pages called the `useSortable` hook *after* their `isLoading` / `error` early returns. On mount the query is pending, so the component returned early having run fewer hooks; when the data arrived the next render ran three more (`useState` ×2, `useMemo`). React rejects a changing hook count and threw **"Rendered more hooks than during the previous render"**, and with no error boundary in the tree React unmounted the entire app — the blank page users got stuck on after pressing **View ticket**. Both pages now run every hook before any conditional return, deriving items from `ticket?` / `transfer?` so the call is safe while the query is pending.
+- **`react-hooks/rules-of-hooks` enforced (`eslint.config.js`)** — added `eslint-plugin-react-hooks` and turned this rule on as a hard **error** for `client/src`. It flags the exact defect above ("Did you accidentally call a React Hook after an early return?"), so this class of crash can no longer reach `main`. `exhaustive-deps` is enabled as a warning.
+- **Error boundary (`components/ErrorBoundary.tsx`)** — new boundary wrapping the routed `<Outlet />` in `Layout`. Any future render crash now shows a "This page didn't load" screen with **Try again** / **Go to home** instead of a white page, and because it wraps only the page content the header and navigation stay mounted — the user is never stuck having to close the app. Navigating to another route clears the error automatically.
+
+No schema changes. No SQL needed.
+
 ## v3.47 — 2026-08-10
 README, ESLint security rules, and TypeScript strict extras.
 

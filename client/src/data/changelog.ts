@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.48',
+    date: '2026-08-13',
+    changes: [
+      'Fixed: pressing "View ticket" after recording usage opened a blank screen you could only escape by closing the app. The ticket now opens correctly. The same crash on transfer detail pages is fixed too',
+      'If a page ever fails to load, you now get a "This page didn\'t load" screen with Try again and Go to home buttons, instead of a blank page — the menu stays available so you are never stuck',
+    ],
+  },
+  {
     version: '3.47',
     date: '2026-08-10',
     changes: [
@@ -34,13 +42,6 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-06-19',
     changes: [
       'New "Distributor" account type. A distributor logs into a focused home screen scoped to their own stock, where they can run a Cycle Count of their shelf, view their inventory, and record usage — without seeing the rest of the system. Create one under User Management by choosing the Distributor role and picking which distributor it belongs to',
-    ],
-  },
-  {
-    version: '3.43',
-    date: '2026-06-19',
-    changes: [
-      'New in TrackerLabs: Who Has What. See who holds each item right now, grouped by distributor with counts — or switch to "As of a date" to reconstruct holdings at a point in the past from movement history. Search and Excel export included',
     ],
   },
 ];
