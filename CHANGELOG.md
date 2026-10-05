@@ -68,16 +68,39 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS "AssignmentHistory_itemId_changedAt_idx"
 CREATE INDEX CONCURRENTLY IF NOT EXISTS "AssignmentHistory_changedAt_idx"
   ON "AssignmentHistory" ("changedAt");
 
--- Only after the creates succeed. The first four duplicate a UNIQUE constraint
--- and are pure write cost; check idx_scan = 0 before dropping the last two.
+-- Only after the creates succeed. Each is redundant by STRUCTURE, not by usage
+-- statistics: the first four duplicate a UNIQUE index on the same column, and
+-- the fifth is a strict prefix of the composite created above. Nothing can
+-- regress. (Do NOT drop InventoryItem_deletedAt_idx / _usedAt_idx -- see the
+-- correction note below.)
 DROP INDEX CONCURRENTLY IF EXISTS "Transfer_transferId_idx";
 DROP INDEX CONCURRENTLY IF EXISTS "UsageTicket_ticketId_idx";
 DROP INDEX CONCURRENTLY IF EXISTS "AuditSession_auditId_idx";
 DROP INDEX CONCURRENTLY IF EXISTS "OcrAlias_token_idx";
 DROP INDEX CONCURRENTLY IF EXISTS "AssignmentHistory_itemId_idx";
-DROP INDEX CONCURRENTLY IF EXISTS "InventoryItem_deletedAt_idx";
-DROP INDEX CONCURRENTLY IF EXISTS "InventoryItem_usedAt_idx";
 ```
+
+### Correction (2026-10-05, after applying the above)
+
+An earlier revision of this SQL block, and of `0011_perf_indexes/migration.sql`, also told you
+to drop `InventoryItem_deletedAt_idx` and `InventoryItem_usedAt_idx`. **That was wrong**, and
+production statistics caught it before the drops were run:
+
+```
+InventoryItem_deletedAt_idx   idx_scan =  70
+InventoryItem_usedAt_idx      idx_scan = 229
+```
+
+The argument for dropping them was that `deletedAt IS NULL` matches nearly every live row, so a
+btree on that column cannot be used profitably. That holds for the `IS NULL` filter — but not
+for the *range* queries. The usage reports filter `usedAt >= <window start>`, and because most
+rows have `usedAt IS NULL` that predicate is highly selective, so Postgres uses the index
+precisely where it pays off. Dropping them would have quietly slowed the usage reports.
+
+Both indexes remain in production. They may still be superseded by the new partial indexes over
+time: re-run the `pg_stat_user_indexes` query and compare against the counts above — if these two
+have stalled while the `InventoryItem_live_*` indexes climb, the drop becomes evidence-backed.
+`InventoryItem_usageTicketId_idx` showed 0 scans and is worth including in that same recheck.
 
 ### Also worth doing on the VPS (nginx, not in this release)
 - `client_max_body_size 10m;` — nginx defaults to 1 MB but the server accepts 10 MB for OCR uploads, so OCR Training photo uploads are likely failing with 413 before Express sees them.

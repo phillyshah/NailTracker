@@ -66,10 +66,12 @@ model InventoryItem {
   // running `prisma migrate diff` against this schema and applying the result:
   // it will propose DROPping every one of them.
   //
-  // 0011 also drops @@index([deletedAt]) and @@index([usedAt]) in production:
-  // both columns are too non-selective for a btree to help, and the partial
-  // indexes supersede them. They are left declared here only because removing
-  // them from the schema would make the same diff propose re-creating them.
+  // @@index([deletedAt]) and @@index([usedAt]) below DO exist in production and
+  // are in active use (70 and 229 scans as of 2026-10-05). An earlier draft of
+  // 0011 proposed dropping them on the theory that "deletedAt IS NULL" matches
+  // nearly every live row so a btree cannot help -- true of the IS NULL filter,
+  // but the usage reports query "usedAt >= <window>", which IS selective since
+  // most rows are null. Measured statistics overrode the theory; they stay.
   @@index([udi])
   @@index([distributorId])
   @@index([expDate])
