@@ -58,6 +58,7 @@ export async function exportBackupExcel(req: Request, res: Response) {
     const { from, to } = resolveRange(req);
     const items = await prisma.inventoryItem.findMany({
       where: buildWhere(from, to),
+      omit: { imageData: true },
       include: {
         distributor: { select: { name: true } },
         bank: { select: { name: true } },

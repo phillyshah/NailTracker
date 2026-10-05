@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { Package, Users, Clock, XCircle, Inbox, Download, Search, ArrowRightLeft, ChevronRight, LayoutGrid, TrendingUp, CalendarDays, ClipboardList } from 'lucide-react';
@@ -15,7 +15,7 @@ import type { ExpiringItem } from '../types';
 export default function Reports() {
   const navigate = useNavigate();
   const { data: summary } = useQuery({ queryKey: ['summary'], queryFn: getSummary });
-  const { data: expiring } = useQuery({ queryKey: ['expiring'], queryFn: () => getExpiring(180) });
+  const { data: expiring } = useQuery({ queryKey: ['expiring', 180], queryFn: () => getExpiring(180) });
   const { data: distributors = [] } = useQuery({ queryKey: ['distributors'], queryFn: listDistributors });
 
   const [transferSearch, setTransferSearch] = useState('');
@@ -47,7 +47,9 @@ export default function Reports() {
     'desc',
   );
 
-  const expiringList: ExpiringItem[] = (expiring ?? []).slice(0, 20);
+  // Memoized: a fresh array identity here would defeat useSortable's memo even
+  // after the getters fix, since `items` is also a dependency.
+  const expiringList: ExpiringItem[] = useMemo(() => (expiring ?? []).slice(0, 20), [expiring]);
   const {
     sorted: sortedExpiring,
     sortKey: expSortKey,

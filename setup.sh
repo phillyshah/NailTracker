@@ -26,6 +26,6 @@ echo "Building application..."
 npm run build
 
 echo "Restarting PM2..."
-pm2 restart summa-inventory 2>/dev/null || pm2 start ecosystem.config.js
+pm2 restart summa-inventory 2>/dev/null || pm2 start ecosystem.config.cjs
 
 echo "=== Setup complete! ==="

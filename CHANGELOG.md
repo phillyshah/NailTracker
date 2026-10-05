@@ -1,5 +1,89 @@
 # Changelog
 
+## v3.49 — 2026-10-05
+Reports crash fix plus a system-wide performance pass (schema change — see SQL below).
+
+### Fixes
+- **Reports crash on an unexpected API response (`client/src/utils/asArray.ts`, 5 API modules)** — `const { data: xs = [] } = useQuery(...)` only falls back when the value is `undefined`, so a `null` or non-array payload passed the default straight into `.map()` and took the page down. Reproduced in a headless browser: `{data:null}` gave `Cannot read properties of null (reading 'map')`, a non-array object gave `r.map is not a function`. The pattern existed at 17 call sites, so it is now normalised once at the API boundary via `asArray()`.
+- **Error screen is now diagnosable (`components/ErrorBoundary.tsx`)** — shows the error *name* (a SyntaxError and a TypeError point at completely different causes), the React component stack, app version and route, plus a **Copy error details** button.
+- **Expiry query fired while logged out (`context/NotificationContext.tsx`)** — the guard was `user?.role !== 'distributor'`, which is `true` when `user` is `null`, so the request fired unauthenticated on every cold load and permanently on the login screen, 401ing and retrying.
+- **`ecosystem.config.js` → `.cjs`** — the file uses `module.exports`, but `"type": "module"` was added to the root `package.json` in v3.47, so Node parses it as ESM. It happens to work on Node 22 (CommonJS syntax detection) but **not on Node 20, which is what the VPS runs** — meaning the `pm2 start ecosystem.config.js` recovery path would fail after a reboot.
+
+### Performance
+- **Response compression (`server/src/index.ts`)** — nothing in the stack compressed anything. The client bundle alone goes **969 kB → 262 kB** (73%); every JSON report payload benefits equally.
+- **Cache headers (`server/src/index.ts`)** — `/assets` (content-hashed by Vite) is now `max-age=1y, immutable`; unhashed public files get 1h; `index.html` is `no-cache` so deploys always land.
+- **Scanner library deferred (`utils/barcodeDetector.ts`, `components/BarcodeScanner.tsx`)** — `html5-qrcode` imports the entire zxing UMD via a namespace import that cannot tree-shake: **369 kB raw / 107 kB gzip, 39% of the bundle** — for a library that is only the fallback after the native `BarcodeDetector` API, used on scan screens only. Now loaded on demand.
+- **Route-level code splitting (`App.tsx`, `vite.config.ts`)** — 24 routes moved to `React.lazy` behind a `<Suspense>` boundary in `Layout`, with a stable react/query vendor chunk. Admin-only TrackerLabs pages and the reports sub-pages no longer ship to every user. Measured first load for `/reports`: **969 kB → 425 kB of JavaScript**.
+- **Stopped sending label photos with list data (9 queries)** — `imageData` holds a base64 photo per unit. Two call sites already excluded it deliberately; nine did not, including the unpaginated `GET /api/reports/expiring`. Now `omit`ed everywhere except the JSON backup, where images are the point.
+- **`stock-by-item` aggregates in SQL (`reports.controller.ts`, `utils/stockReport.ts`)** — was fetching one row per physical unit to build a pivot of SKUs × locations, roughly an 80× over-fetch. Now a `groupBy`, with the pivot extracted into a unit-tested pure helper shared by the JSON and xlsx variants.
+- **Point-in-time holdings (`holdings.controller.ts`)** — was filtering history by `itemId: { in: [...every id...] }`, a multi-hundred-kB statement that also forced the two queries to run in series. Now bounded by date and run in parallel.
+- **Row ceilings** — `expiring` and the distributor report are capped at 5,000 rows. Deliberately *not* applied to holdings, where truncation would produce wrong totals rather than partial ones.
+- **Scoped the 10 MB body limit** to the two routes that need it, rather than every endpoint.
+- **Connection pool (`utils/prisma.ts`)** — added `keepAlive` (idle sockets to Supabase were being silently reaped, surfacing as intermittent "Connection terminated unexpectedly") plus explicit pool and statement timeouts.
+
+### SQL to run in Supabase (after deploy; indexes are additive and safe on live data)
+
+Run each statement **on its own** — `CREATE INDEX CONCURRENTLY` cannot run inside a transaction block, and the SQL Editor wraps multi-statement scripts in one.
+
+**First, confirm what actually exists.** The migration history has drifted from production (`User.distributorId` was added by hand and never recorded), so the schema is not evidence of the live index set:
+
+```sql
+SELECT tablename, indexname, indexdef FROM pg_indexes
+WHERE schemaname = 'public' ORDER BY tablename, indexname;
+
+SELECT relname, indexrelname, idx_scan FROM pg_stat_user_indexes
+WHERE relname = 'InventoryItem' ORDER BY idx_scan;
+```
+
+Then apply `server/prisma/migrations/0011_perf_indexes/migration.sql`. In short:
+
+```sql
+-- Live-stock partial indexes. deletedAt/usedAt are the least selective columns
+-- in the table, so a plain btree on them cannot help; restricting the index to
+-- live rows is what makes these queries index-usable.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_live_dist_idx"
+  ON "InventoryItem" ("distributorId") WHERE "deletedAt" IS NULL AND "usedAt" IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_live_match_idx"
+  ON "InventoryItem" ("gtinShort", "lot", "distributorId") WHERE "deletedAt" IS NULL AND "usedAt" IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_live_exp_idx"
+  ON "InventoryItem" ("expDate") WHERE "deletedAt" IS NULL AND "usedAt" IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_live_gtin_idx"
+  ON "InventoryItem" ("gtinShort") WHERE "deletedAt" IS NULL AND "usedAt" IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_used_window_idx"
+  ON "InventoryItem" ("usedAt", "distributorId") WHERE "deletedAt" IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_createdAt_idx"
+  ON "InventoryItem" ("createdAt");
+
+-- The daily TRF-/USE-/AUD- id generators do LIKE 'prefix%' on the write path;
+-- under the default collation a plain btree cannot serve that.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "Transfer_transferId_pattern_idx"
+  ON "Transfer" ("transferId" text_pattern_ops);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "UsageTicket_ticketId_pattern_idx"
+  ON "UsageTicket" ("ticketId" text_pattern_ops);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "AuditSession_auditId_pattern_idx"
+  ON "AuditSession" ("auditId" text_pattern_ops);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "AssignmentHistory_itemId_changedAt_idx"
+  ON "AssignmentHistory" ("itemId", "changedAt");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "AssignmentHistory_changedAt_idx"
+  ON "AssignmentHistory" ("changedAt");
+
+-- Only after the creates succeed. The first four duplicate a UNIQUE constraint
+-- and are pure write cost; check idx_scan = 0 before dropping the last two.
+DROP INDEX CONCURRENTLY IF EXISTS "Transfer_transferId_idx";
+DROP INDEX CONCURRENTLY IF EXISTS "UsageTicket_ticketId_idx";
+DROP INDEX CONCURRENTLY IF EXISTS "AuditSession_auditId_idx";
+DROP INDEX CONCURRENTLY IF EXISTS "OcrAlias_token_idx";
+DROP INDEX CONCURRENTLY IF EXISTS "AssignmentHistory_itemId_idx";
+DROP INDEX CONCURRENTLY IF EXISTS "InventoryItem_deletedAt_idx";
+DROP INDEX CONCURRENTLY IF EXISTS "InventoryItem_usedAt_idx";
+```
+
+### Also worth doing on the VPS (nginx, not in this release)
+- `client_max_body_size 10m;` — nginx defaults to 1 MB but the server accepts 10 MB for OCR uploads, so OCR Training photo uploads are likely failing with 413 before Express sees them.
+- `http2 on;` — now materially more valuable, since the bundle is split into many small chunks.
+
+
 ## v3.48 — 2026-08-13
 Fixes the blank-screen crash on "View ticket" after recording usage.
 

@@ -1,36 +1,42 @@
+import { lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router';
 import { useAuth } from './context/AuthContext';
 import { Layout } from './components/Layout';
 import Login from './pages/Login';
-import Scan from './pages/Scan';
 import Inventory from './pages/Inventory';
-import InventoryDetail from './pages/InventoryDetail';
 import Reports from './pages/Reports';
-import StockByItem from './pages/StockByItem';
-import UsageTrends from './pages/UsageTrends';
-import UsageMatrix from './pages/UsageMatrix';
-import MonthlyUsage from './pages/MonthlyUsage';
-import Distributors from './pages/Distributors';
-import DistributorDetail from './pages/DistributorDetail';
-import Users from './pages/Users';
 import Receive from './pages/Receive';
-import Transfer from './pages/Transfer';
-import TransferDetail from './pages/TransferDetail';
-import Banks from './pages/Banks';
-import BankDetail from './pages/BankDetail';
 import Usage from './pages/Usage';
-import UsageHistory from './pages/UsageHistory';
-import UsageDetail from './pages/UsageDetail';
-import Labs from './pages/Labs';
-import ParLevels from './pages/labs/ParLevels';
-import ReorderReport from './pages/labs/ReorderReport';
-import CycleCount from './pages/labs/CycleCount';
-import AuditHistory from './pages/labs/AuditHistory';
-import InventoryBackup from './pages/labs/InventoryBackup';
-import WhoHasWhat from './pages/labs/WhoHasWhat';
-import OcrTraining from './pages/labs/OcrTraining';
 import DistributorHome from './pages/DistributorHome';
-import MyInventory from './pages/MyInventory';
+
+// Everything below the landing screens is fetched on demand. The TrackerLabs
+// pages are admin-only and the reports sub-pages and detail views are reached by
+// drilling in, so shipping them in the entry chunk charged every user for code
+// most of them never run.
+const Scan = lazy(() => import('./pages/Scan'));
+const InventoryDetail = lazy(() => import('./pages/InventoryDetail'));
+const StockByItem = lazy(() => import('./pages/StockByItem'));
+const UsageTrends = lazy(() => import('./pages/UsageTrends'));
+const UsageMatrix = lazy(() => import('./pages/UsageMatrix'));
+const MonthlyUsage = lazy(() => import('./pages/MonthlyUsage'));
+const Distributors = lazy(() => import('./pages/Distributors'));
+const DistributorDetail = lazy(() => import('./pages/DistributorDetail'));
+const Users = lazy(() => import('./pages/Users'));
+const Transfer = lazy(() => import('./pages/Transfer'));
+const TransferDetail = lazy(() => import('./pages/TransferDetail'));
+const Banks = lazy(() => import('./pages/Banks'));
+const BankDetail = lazy(() => import('./pages/BankDetail'));
+const UsageHistory = lazy(() => import('./pages/UsageHistory'));
+const UsageDetail = lazy(() => import('./pages/UsageDetail'));
+const Labs = lazy(() => import('./pages/Labs'));
+const ParLevels = lazy(() => import('./pages/labs/ParLevels'));
+const ReorderReport = lazy(() => import('./pages/labs/ReorderReport'));
+const CycleCount = lazy(() => import('./pages/labs/CycleCount'));
+const AuditHistory = lazy(() => import('./pages/labs/AuditHistory'));
+const InventoryBackup = lazy(() => import('./pages/labs/InventoryBackup'));
+const WhoHasWhat = lazy(() => import('./pages/labs/WhoHasWhat'));
+const OcrTraining = lazy(() => import('./pages/labs/OcrTraining'));
+const MyInventory = lazy(() => import('./pages/MyInventory'));
 
 // Where each role lands by default. Distributor accounts get a focused home;
 // everyone else gets the standard Receive screen.

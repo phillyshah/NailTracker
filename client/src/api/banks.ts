@@ -1,5 +1,6 @@
 import { api } from './client';
 import type { ApiResponse } from '../types';
+import { asArray } from '../utils/asArray';
 
 export interface Bank {
   id: string;
@@ -16,7 +17,7 @@ export interface Bank {
 
 export async function listBanks() {
   const res = await api<ApiResponse<Bank[]>>('/banks');
-  return res.data!;
+  return asArray<NonNullable<typeof res.data>[number]>(res.data);
 }
 
 export async function getBank(id: string) {

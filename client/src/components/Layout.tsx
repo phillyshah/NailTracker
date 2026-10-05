@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router';
 import {
   Building2,
@@ -200,7 +200,15 @@ export function Layout() {
           header/nav — the user can always navigate away instead of restarting. */}
       <main className="flex-1 overflow-y-auto px-4 py-4 pb-24 lg:px-10 lg:py-6 lg:pb-6">
         <ErrorBoundary resetKey={location.pathname}>
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="flex justify-center py-12">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </ErrorBoundary>
       </main>
 

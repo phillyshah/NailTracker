@@ -1,9 +1,10 @@
 import { api } from './client';
 import type { ApiResponse, Distributor } from '../types';
+import { asArray } from '../utils/asArray';
 
 export async function listDistributors() {
   const res = await api<ApiResponse<Distributor[]>>('/distributors');
-  return res.data!;
+  return asArray<NonNullable<typeof res.data>[number]>(res.data);
 }
 
 export async function getDistributor(id: string) {

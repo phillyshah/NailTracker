@@ -1,5 +1,6 @@
 import { api } from './client';
 import type { ApiResponse, SummaryReport, ExpiringItem } from '../types';
+import { asArray } from '../utils/asArray';
 
 export async function getSummary() {
   const res = await api<ApiResponse<SummaryReport>>('/reports/summary');
@@ -10,7 +11,7 @@ export async function getExpiring(days = 90) {
   const res = await api<ApiResponse<ExpiringItem[]>>('/reports/expiring', {
     params: { days },
   });
-  return res.data!;
+  return asArray<NonNullable<typeof res.data>[number]>(res.data);
 }
 
 export interface StockLocation {

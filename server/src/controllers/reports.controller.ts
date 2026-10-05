@@ -3,6 +3,17 @@ import ExcelJS from 'exceljs';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 import { getItemNumber } from '../utils/gtin-map.js';
+import { buildStockRows, HOME, type StockGroup } from '../utils/stockReport.js';
+
+/**
+ * Safety ceiling for the two reports that return an unbounded array. Neither is
+ * paginated, so without a cap `?days=3650` returns the entire live inventory.
+ * Both are ordered most-relevant-first, so a truncated result is still the part
+ * that matters. Deliberately NOT applied to holdings: that report derives
+ * point-in-time placement from the full set, so truncating it would yield wrong
+ * totals rather than partial ones.
+ */
+const REPORT_ROW_CAP = 5000;
 import {
   buildTrends,
   buildMatrix,
@@ -65,9 +76,17 @@ export async function expiring(req: Request, res: Response) {
         usedAt: null,
         expDate: { lte: cutoff },
       },
+      omit: { imageData: true },
       include: { distributor: { select: { name: true } } },
       orderBy: { expDate: 'asc' },
+      take: REPORT_ROW_CAP,
     });
+
+    if (items.length === REPORT_ROW_CAP) {
+      console.warn(
+        `[reports] expiring hit the ${REPORT_ROW_CAP}-row cap; result truncated to the soonest-expiring.`,
+      );
+    }
 
     const enriched = items.map((item) => ({
       id: item.id,
@@ -101,7 +120,9 @@ export async function distributorReport(req: Request, res: Response) {
 
     const items = await prisma.inventoryItem.findMany({
       where: { distributorId: id, deletedAt: null, usedAt: null },
+      omit: { imageData: true },
       orderBy: { createdAt: 'desc' },
+      take: REPORT_ROW_CAP,
     });
 
     const enrichedItems = items.map((it: { gtinShort: string; rawBarcode: string }) => ({
@@ -109,7 +130,11 @@ export async function distributorReport(req: Request, res: Response) {
       itemNumber: getItemNumber(it.gtinShort, it.rawBarcode),
     }));
 
-    return success(res, { distributor, items: enrichedItems });
+    return success(res, {
+      distributor,
+      items: enrichedItems,
+      truncated: enrichedItems.length === REPORT_ROW_CAP,
+    });
   } catch (err) {
     return error(res, 'Failed to generate distributor report', 500);
   }
@@ -169,6 +194,7 @@ export async function exportExcel(req: Request, res: Response) {
 
     const items = await prisma.inventoryItem.findMany({
       where,
+      omit: { imageData: true },
       include: { distributor: { select: { name: true } } },
       orderBy,
     });
@@ -224,51 +250,52 @@ export async function exportExcel(req: Request, res: Response) {
   }
 }
 
+
+/**
+ * Shared data gather for the stock-by-item pivot (JSON + xlsx variants).
+ *
+ * Aggregates in SQL rather than fetching one row per physical unit: the answer
+ * is at most (#SKUs x #locations) rows, so grouping server-side avoids pulling
+ * the entire live inventory across the network on every dashboard load.
+ */
+async function gatherStockByItem() {
+  const [grouped, distributors] = await Promise.all([
+    prisma.inventoryItem.groupBy({
+      by: ['gtinShort', 'rawBarcode', 'productLabel', 'distributorId'],
+      where: { deletedAt: null, usedAt: null },
+      _count: { _all: true },
+    }),
+    prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
+  ]);
+
+  const groups: StockGroup[] = [];
+  for (const g of grouped) {
+    groups.push({
+      gtinShort: g.gtinShort,
+      rawBarcode: g.rawBarcode,
+      productLabel: g.productLabel,
+      distributorId: g.distributorId,
+      count: g._count._all,
+    });
+  }
+
+  // Sort explicitly: which group is seen first decides the row's itemNumber and
+  // label, and groupBy ordering is not guaranteed.
+  groups.sort(
+    (a, b) => a.gtinShort.localeCompare(b.gtinShort) || a.rawBarcode.localeCompare(b.rawBarcode),
+  );
+
+  return { groups, distributors };
+}
+
 /**
  * GET /api/reports/stock-by-item
  * Pivot table: rows = item number, columns = Home Office + each active distributor + Total.
  */
 export async function stockByItem(_req: Request, res: Response) {
   try {
-    const [items, distributors] = await Promise.all([
-      prisma.inventoryItem.findMany({
-        where: { deletedAt: null, usedAt: null },
-        select: { gtinShort: true, rawBarcode: true, productLabel: true, distributorId: true },
-      }),
-      prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
-    ]);
-
-    type Row = {
-      gtinShort: string;
-      itemNumber: string;
-      productLabel: string;
-      counts: Record<string, number>;
-      total: number;
-    };
-
-    const HOME = 'home';
-    const rowsMap = new Map<string, Row>();
-    for (const it of items) {
-      let row = rowsMap.get(it.gtinShort);
-      if (!row) {
-        row = {
-          gtinShort: it.gtinShort,
-          itemNumber: getItemNumber(it.gtinShort, it.rawBarcode) || '',
-          productLabel: it.productLabel || 'Unknown',
-          counts: { [HOME]: 0 },
-          total: 0,
-        };
-        for (const d of distributors) row.counts[d.id] = 0;
-        rowsMap.set(it.gtinShort, row);
-      }
-      const key = it.distributorId ?? HOME;
-      row.counts[key] = (row.counts[key] ?? 0) + 1;
-      row.total += 1;
-    }
-
-    const rows = Array.from(rowsMap.values()).sort((a, b) =>
-      (a.itemNumber || a.gtinShort).localeCompare(b.itemNumber || b.gtinShort),
-    );
+    const { groups, distributors } = await gatherStockByItem();
+    const rows = buildStockRows(groups, distributors.map((d: { id: string }) => d.id), 'empty');
 
     return success(res, {
       locations: [
@@ -288,41 +315,8 @@ export async function stockByItem(_req: Request, res: Response) {
  */
 export async function exportStockByItem(_req: Request, res: Response) {
   try {
-    const [items, distributors] = await Promise.all([
-      prisma.inventoryItem.findMany({
-        where: { deletedAt: null, usedAt: null },
-        select: { gtinShort: true, rawBarcode: true, productLabel: true, distributorId: true },
-      }),
-      prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
-    ]);
-
-    type Row = {
-      itemNumber: string;
-      productLabel: string;
-      counts: Record<string, number>;
-      total: number;
-    };
-    const HOME = 'home';
-    const rowsMap = new Map<string, Row>();
-    for (const it of items) {
-      let row = rowsMap.get(it.gtinShort);
-      if (!row) {
-        row = {
-          itemNumber: getItemNumber(it.gtinShort, it.rawBarcode) || it.gtinShort,
-          productLabel: it.productLabel || 'Unknown',
-          counts: { [HOME]: 0 },
-          total: 0,
-        };
-        for (const d of distributors) row.counts[d.id] = 0;
-        rowsMap.set(it.gtinShort, row);
-      }
-      const key = it.distributorId ?? HOME;
-      row.counts[key] = (row.counts[key] ?? 0) + 1;
-      row.total += 1;
-    }
-    const rows = Array.from(rowsMap.values()).sort((a, b) =>
-      a.itemNumber.localeCompare(b.itemNumber),
-    );
+    const { groups, distributors } = await gatherStockByItem();
+    const rows = buildStockRows(groups, distributors.map((d: { id: string }) => d.id), 'gtinShort');
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Nail Tracker';

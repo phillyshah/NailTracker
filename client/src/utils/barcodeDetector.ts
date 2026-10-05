@@ -1,4 +1,3 @@
-import { Html5Qrcode } from 'html5-qrcode';
 import { extractAllBarcodesText } from './ocrBarcode';
 
 /**
@@ -102,6 +101,11 @@ async function detectAllWithNativeAPI(blob: Blob): Promise<string[]> {
  * html5-qrcode (zxing-js wrapper) — single barcode fallback.
  */
 async function detectWithHtml5Qrcode(blob: Blob, elementId: string): Promise<string | null> {
+  // Loaded on demand. html5-qrcode pulls in the whole zxing UMD via a namespace
+  // import, which cannot tree-shake -- ~369 kB raw / 107 kB gzip, 39% of the
+  // bundle. It is only ever reached when the native BarcodeDetector API is
+  // unavailable or finds nothing, so it has no business being on first paint.
+  const { Html5Qrcode } = await import('html5-qrcode');
   let el = document.getElementById(elementId);
   if (!el) {
     el = document.createElement('div');
