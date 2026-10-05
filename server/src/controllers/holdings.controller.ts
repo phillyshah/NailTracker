@@ -76,20 +76,30 @@ async function gatherHoldings(asOf: Date | null) {
     resolved = items.map((item) => ({ distributorId: item.distributorId, item }));
   } else {
     // Point-in-time: anything created on/before asOf, plus its placement history.
-    const items = await prisma.inventoryItem.findMany({
-      where: { createdAt: { lte: asOf } },
-      select: ITEM_SELECT,
-    });
-    const rawHistory = await prisma.assignmentHistory.findMany({
-      where: { itemId: { in: items.map((i) => i.id) } },
-      select: {
-        itemId: true,
-        toDistributorId: true,
-        fromDistributorId: true,
-        changedAt: true,
-        note: true,
-      },
-    });
+    //
+    // The history query used to filter by `itemId: { in: [...every id...] }`,
+    // which both forced it to wait for the item query and shipped a ~25-char
+    // cuid per row (a multi-hundred-kB statement on a large table). Bounding it
+    // by date instead makes the two independent, so they run in parallel — and
+    // is slightly MORE correct, since rows after asOf no longer have to be
+    // skipped downstream. holdingsAsOf() groups history by itemId and ignores
+    // ids it has no item for, so dropping the id filter is behaviour-preserving.
+    const [items, rawHistory] = await Promise.all([
+      prisma.inventoryItem.findMany({
+        where: { createdAt: { lte: asOf } },
+        select: ITEM_SELECT,
+      }),
+      prisma.assignmentHistory.findMany({
+        where: { changedAt: { lte: asOf } },
+        select: {
+          itemId: true,
+          toDistributorId: true,
+          fromDistributorId: true,
+          changedAt: true,
+          note: true,
+        },
+      }),
+    ]);
     const history: HoldingHistory[] = rawHistory.map((h) => ({
       itemId: h.itemId,
       toDistributorId: h.toDistributorId,

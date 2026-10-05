@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, Upload, X, RotateCcw, ScanLine, Bug, Copy } from 'lucide-react';
-import { Html5Qrcode } from 'html5-qrcode';
+import type { Html5Qrcode } from 'html5-qrcode';
 import { compressImage } from '../utils/compressImage';
 import { detectBarcodesFromImage } from '../utils/barcodeDetector';
 import { getLastOcrText } from '../utils/ocrBarcode';
@@ -56,6 +56,9 @@ export function BarcodeScanner({ onResult, onError }: BarcodeScannerProps) {
     // Yield to let React render the container div before html5-qrcode touches it
     await new Promise((r) => setTimeout(r, 50));
 
+    // Same deferral as barcodeDetector: the scanner library is fetched when the
+    // user actually starts a live scan, not when the page loads.
+    const { Html5Qrcode } = await import('html5-qrcode');
     const scanner = new Html5Qrcode(LIVE_SCANNER_ID);
     scannerRef.current = scanner;
 

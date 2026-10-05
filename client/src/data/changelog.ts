@@ -6,6 +6,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.49',
+    date: '2026-10-05',
+    changes: [
+      'The app now loads much faster, especially on a phone: pages download about 60% less code, and the barcode scanner library is only fetched when you actually scan something',
+      'Reports, inventory and distributor screens load faster too — the server no longer sends label photos with list data that does not display them',
+      'Fixed a crash that could show "This page didn\'t load" on Reports if the server returned an unexpected response',
+      'If a page ever fails to load, the error screen now has a "Copy error details" button so problems can be reported and fixed quickly',
+    ],
+  },
+  {
     version: '3.48',
     date: '2026-08-13',
     changes: [
@@ -35,13 +45,6 @@ export const changelog: ChangelogEntry[] = [
       'Transfer has a new "Take / Upload Photo" tab: photograph implant labels and the printed REF, lot, and expiry are read automatically — several stickers in one photo are all read at once — then checked against the source distributor\'s stock, just like Scan',
       'Sharper label reading: photos are now upscaled and cleaned up before scanning, and the matcher recovers more common character mis-reads, so labels read correctly more often',
       'New in TrackerLabs: OCR Training (admin). Upload label photos, review what the scanner read, and correct any mistakes — each correction is remembered so the same label reads correctly next time',
-    ],
-  },
-  {
-    version: '3.44',
-    date: '2026-06-19',
-    changes: [
-      'New "Distributor" account type. A distributor logs into a focused home screen scoped to their own stock, where they can run a Cycle Count of their shelf, view their inventory, and record usage — without seeing the rest of the system. Create one under User Management by choosing the Distributor role and picking which distributor it belongs to',
     ],
   },
 ];

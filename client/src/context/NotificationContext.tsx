@@ -33,13 +33,16 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { user } = useAuth();
 
   const { data: expiring = [] } = useQuery({
-    queryKey: ['notifications', 'expiring'],
+    queryKey: ['expiring', 90],
     queryFn: () => getExpiring(90),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     // Expiry alerts come from company-wide reports, which distributor accounts
-    // can't access; skip the query for them.
-    enabled: user?.role !== 'distributor',
+    // can't access; skip the query for them. The `!!user` guard matters: while
+    // auth is still bootstrapping -- and permanently on /login -- `user` is
+    // null, and `null?.role !== 'distributor'` is true, so this used to fire
+    // unauthenticated on every cold load and 401 (then retry).
+    enabled: !!user && user.role !== 'distributor',
   });
 
   // Prune dismissed UDIs that are no longer in the expiring list

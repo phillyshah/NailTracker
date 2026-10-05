@@ -122,6 +122,7 @@ async function matchAtSource(
       usedAt: null,
       deletedAt: null,
     },
+    omit: { imageData: true },
   });
 
   const unclaimed = candidates.filter((c) => !claimed.has(c.id));

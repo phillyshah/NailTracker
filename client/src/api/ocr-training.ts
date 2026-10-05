@@ -1,5 +1,6 @@
 import { api } from './client';
 import type { ApiResponse } from '../types';
+import { asArray } from '../utils/asArray';
 
 /** One label within a sample's parsed / corrected guess. */
 export interface TrainingLabel {
@@ -32,7 +33,7 @@ export async function listSamples(status?: SampleStatus) {
   const res = await api<ApiResponse<TrainingSample[]>>('/ocr-training', {
     params: { status },
   });
-  return res.data!;
+  return asArray<NonNullable<typeof res.data>[number]>(res.data);
 }
 
 export async function createSample(input: {
@@ -64,5 +65,5 @@ export async function deleteSample(id: string) {
 
 export async function listAliases() {
   const res = await api<ApiResponse<OcrAlias[]>>('/ocr-training/aliases');
-  return res.data!;
+  return asArray<NonNullable<typeof res.data>[number]>(res.data);
 }

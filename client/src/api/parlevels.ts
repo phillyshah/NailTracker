@@ -1,5 +1,6 @@
 import { api } from './client';
 import type { ApiResponse } from '../types';
+import { asArray } from '../utils/asArray';
 
 export interface ParLevel {
   id: string;
@@ -25,7 +26,7 @@ export interface ReorderRow {
 
 export async function listParLevels() {
   const res = await api<ApiResponse<ParLevel[]>>('/par-levels');
-  return res.data!;
+  return asArray<NonNullable<typeof res.data>[number]>(res.data);
 }
 
 export async function setParLevel(

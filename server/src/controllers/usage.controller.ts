@@ -91,6 +91,7 @@ export async function preview(req: Request, res: Response) {
           usedAt: null,
           deletedAt: null,
         },
+        omit: { imageData: true },
       });
 
       const unclaimed = candidates.filter((c) => !claimed.has(c.id));
@@ -159,6 +160,7 @@ export async function commit(req: Request, res: Response) {
     const uniqueIds = [...new Set(itemIds)];
     const items = await prisma.inventoryItem.findMany({
       where: { id: { in: uniqueIds } },
+      omit: { imageData: true },
     });
     const byId = new Map(items.map((i) => [i.id, i]));
 

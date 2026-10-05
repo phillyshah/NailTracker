@@ -58,6 +58,18 @@ model InventoryItem {
   updatedAt     DateTime            @updatedAt
   history       AssignmentHistory[]
 
+  // NOTE: production also carries PARTIAL composite indexes that Prisma cannot
+  // express (see migrations/0011_perf_indexes/migration.sql) -- the live-stock
+  // indexes filtered on "deletedAt IS NULL AND usedAt IS NULL", the
+  // text_pattern_ops prefix indexes, and InventoryItem_createdAt_idx.
+  // They are applied by hand in the Supabase SQL Editor. Do not "tidy up" by
+  // running `prisma migrate diff` against this schema and applying the result:
+  // it will propose DROPping every one of them.
+  //
+  // 0011 also drops @@index([deletedAt]) and @@index([usedAt]) in production:
+  // both columns are too non-selective for a btree to help, and the partial
+  // indexes supersede them. They are left declared here only because removing
+  // them from the schema would make the same diff propose re-creating them.
   @@index([udi])
   @@index([distributorId])
   @@index([expDate])
