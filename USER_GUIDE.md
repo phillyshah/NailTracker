@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.44** | Summa Orthopaedics Inventory Management System
+**Version 3.50** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -470,13 +470,16 @@ You can also search by item number or description at the top, sort by any column
 
 **Usage Reports (how products are being used):**
 
-The Reports page has a **Usage** section with three reports that show what's actually being consumed — useful for planning orders and balancing stock between distributors. Each one has an **Excel** export button.
+The Reports page has a **Usage** section with four reports that show what's actually being consumed — useful for planning orders and balancing stock between distributors. Each one has an **Excel** export button.
 
+- **Usage by Item Number** — how many of *each item number* were used, broken down by distributor. Every row is one item number; every column is a distributor; the **Total** column on the right is the company-wide figure for that item. Use the **Year** button to pick a calendar year (this year gives you a year-to-date total; pick a past year for its full-year total), or switch to a rolling **3 / 6 / 12 mo** window. Search by item number or description, tap any column header to sort, and tap a number to see those exact units in Inventory. This is the report to use for "how many of this SKU did we go through this year, and who used them?"
 - **Monthly Usage Report** — pick *any* month and (optionally) a distributor to get a full itemized statement: every product used that month, grouped by distributor, with quantities, subtotals, and a grand total. This is your go-to "what did we use in May?" report.
 - **Usage Trends** — units consumed each month by product category (Short Nail, Long Nail, Lag Screw, Interlocking Screw, Cap Screw, Set Screw) over the last 3, 6, or 12 months. A bar chart shows the monthly totals; the table breaks it down by category. Filter to one distributor to see just their usage.
 - **Usage by Distributor** — a grid with product categories down the side and distributors across the top, showing how many of each were used over the window. Quickly compares who uses what.
 
 > Usage reports fill in as you record usage tickets (Usage tab). The more you record, the more useful the trends become.
+
+> **Usage by Item Number vs Stock by Item Number** — these look similar but answer opposite questions. *Stock* by Item Number is what you have on the shelf **right now**. *Usage* by Item Number is what you have **consumed** over a period. Use Stock to decide what to reorder, and Usage to see what is actually moving.
 
 ---
 

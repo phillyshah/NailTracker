@@ -19,6 +19,7 @@ const StockByItem = lazy(() => import('./pages/StockByItem'));
 const UsageTrends = lazy(() => import('./pages/UsageTrends'));
 const UsageMatrix = lazy(() => import('./pages/UsageMatrix'));
 const MonthlyUsage = lazy(() => import('./pages/MonthlyUsage'));
+const UsageByItem = lazy(() => import('./pages/UsageByItem'));
 const Distributors = lazy(() => import('./pages/Distributors'));
 const DistributorDetail = lazy(() => import('./pages/DistributorDetail'));
 const Users = lazy(() => import('./pages/Users'));
@@ -102,6 +103,7 @@ export default function App() {
         <Route path="reports/usage-trends" element={<UsageTrends />} />
         <Route path="reports/usage-by-distributor" element={<UsageMatrix />} />
         <Route path="reports/monthly-usage" element={<MonthlyUsage />} />
+        <Route path="reports/usage-by-item" element={<UsageByItem />} />
         <Route path="distributors" element={<Distributors />} />
         <Route path="distributors/:id" element={<DistributorDetail />} />
         <Route path="users" element={<Users />} />

@@ -6,7 +6,9 @@ import {
   monthBounds,
   buildTrends,
   buildMatrix,
+  buildItemMatrix,
   buildMonthlyUsage,
+  yearBounds,
   type UsedRow,
 } from './usageReport.js';
 
@@ -135,5 +137,131 @@ describe('buildMonthlyUsage', () => {
 
     const beta = r.groups.find((g) => g.distributorId === 'd2')!;
     expect(beta.subtotal).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// yearBounds
+// ---------------------------------------------------------------------------
+
+describe('yearBounds', () => {
+  it('spans Jan 1 of the year to Jan 1 of the next, in UTC', () => {
+    const { start, end } = yearBounds(2026);
+    expect(start.toISOString()).toBe('2026-01-01T00:00:00.000Z');
+    expect(end.toISOString()).toBe('2027-01-01T00:00:00.000Z');
+  });
+
+  it('is half-open: Dec 31 23:59:59Z is inside, Jan 1 00:00:00Z is not', () => {
+    const { start, end } = yearBounds(2026);
+    const lastMoment = new Date('2026-12-31T23:59:59.999Z');
+    const firstOfNext = new Date('2027-01-01T00:00:00.000Z');
+    expect(lastMoment >= start && lastMoment < end).toBe(true);
+    expect(firstOfNext >= start && firstOfNext < end).toBe(false);
+  });
+
+  it('abuts the following year with no gap or overlap', () => {
+    expect(yearBounds(2025).end.getTime()).toBe(yearBounds(2026).start.getTime());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildItemMatrix
+// ---------------------------------------------------------------------------
+
+const DISTS = [
+  { id: 'd1', name: 'Garcia Medical Solutions' },
+  { id: 'd2', name: 'Swede Creek' },
+];
+
+describe('buildItemMatrix', () => {
+  it('counts units per item per distributor, with a company-wide total', () => {
+    const out = buildItemMatrix(
+      [
+        row(REF.lag, 'd1', '2026-03-01'),
+        row(REF.lag, 'd1', '2026-04-01'),
+        row(REF.lag, 'd2', '2026-05-01'),
+        row(REF.short, 'd2', '2026-06-01'),
+      ],
+      DISTS,
+    );
+    expect(out.grandTotal).toBe(4);
+
+    const lagRow = out.rows.find((r) => r.gtinShort === REF.lag)!;
+    expect(lagRow.counts.d1).toBe(2);
+    expect(lagRow.counts.d2).toBe(1);
+    expect(lagRow.total).toBe(3);
+
+    expect(out.totalsByColumn.d1).toBe(2);
+    expect(out.totalsByColumn.d2).toBe(2);
+  });
+
+  it('keeps each item on its own row', () => {
+    const out = buildItemMatrix(
+      [row(REF.lag, 'd1', '2026-03-01'), row(REF.short, 'd1', '2026-03-02')],
+      DISTS,
+    );
+    expect(out.rows).toHaveLength(2);
+  });
+
+  it('zero-fills every distributor column', () => {
+    const out = buildItemMatrix([row(REF.lag, 'd1', '2026-03-01')], DISTS);
+    expect(out.rows[0].counts.d2).toBe(0);
+  });
+
+  it('adds an Unassigned column only when some usage has no distributor', () => {
+    const without = buildItemMatrix([row(REF.lag, 'd1', '2026-03-01')], DISTS);
+    expect(without.columns.map((c) => c.id)).toEqual(['d1', 'd2']);
+
+    const withUnassigned = buildItemMatrix(
+      [row(REF.lag, 'd1', '2026-03-01'), row(REF.lag, null, '2026-03-02')],
+      DISTS,
+    );
+    expect(withUnassigned.columns.map((c) => c.id)).toContain('unassigned');
+    expect(withUnassigned.rows[0].counts.unassigned).toBe(1);
+    expect(withUnassigned.rows[0].total).toBe(2);
+  });
+
+  it('labels a row with its item number, falling back to gtinShort', () => {
+    const known = buildItemMatrix([row(REF.lag, 'd1', '2026-03-01')], DISTS);
+    expect(known.rows[0].itemNumber).toBeTruthy();
+
+    const unknown = buildItemMatrix(
+      [{ gtinShort: '0000000', rawBarcode: '', distributorId: 'd1', usedAt: new Date('2026-03-01') }],
+      DISTS,
+    );
+    expect(unknown.rows[0].itemNumber).toBe('0000000');
+    expect(unknown.rows[0].productLabel).toBeTruthy();
+  });
+
+  it('sorts rows by item number', () => {
+    const out = buildItemMatrix(
+      [row(REF.short, 'd1', '2026-03-01'), row(REF.inter, 'd1', '2026-03-02'), row(REF.lag, 'd1', '2026-03-03')],
+      DISTS,
+    );
+    const nums = out.rows.map((r) => r.itemNumber);
+    expect(nums).toEqual([...nums].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it('returns an empty pivot for no usage', () => {
+    const out = buildItemMatrix([], DISTS);
+    expect(out.rows).toEqual([]);
+    expect(out.grandTotal).toBe(0);
+  });
+
+  it('agrees with buildMatrix on the totals for the same rows', () => {
+    // Same source rows, different grouping -- the company-wide figures must match.
+    // This is the invariant that catches a grouping bug in either report.
+    const rows = [
+      row(REF.lag, 'd1', '2026-03-01'),
+      row(REF.lag, 'd2', '2026-04-01'),
+      row(REF.short, 'd1', '2026-05-01'),
+      row(REF.inter, null, '2026-06-01'),
+    ];
+    const byItem = buildItemMatrix(rows, DISTS);
+    const byCategory = buildMatrix(rows, DISTS);
+
+    expect(byItem.grandTotal).toBe(byCategory.grandTotal);
+    expect(byItem.totalsByColumn).toEqual(byCategory.totalsByColumn);
+    expect(byItem.columns.map((c) => c.id)).toEqual(byCategory.columns.map((c) => c.id));
   });
 });

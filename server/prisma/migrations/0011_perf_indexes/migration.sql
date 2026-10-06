@@ -17,6 +17,10 @@
 --
 --   SELECT relname, indexrelname, idx_scan FROM pg_stat_user_indexes
 --   WHERE relname = 'InventoryItem' ORDER BY idx_scan;
+--
+-- Take that second query seriously rather than as a formality: when this file
+-- was first written it predicted two indexes would show 0 scans and could be
+-- dropped. They showed 70 and 229. See the note in section 4.
 
 -- ---------------------------------------------------------------------------
 -- 1. InventoryItem: partial composite indexes over live stock.
@@ -92,10 +96,10 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS "AssignmentHistory_changedAt_idx"
 -- ---------------------------------------------------------------------------
 -- 4. Drops. Run these only AFTER the creates above have completed.
 --
--- The four *_idx below each duplicate an existing UNIQUE constraint, which
--- already provides an index -- they are pure write cost. The two InventoryItem
--- drops are the non-selective columns superseded by the partial indexes above;
--- verify idx_scan = 0 for them in pg_stat_user_indexes first.
+-- Each of these is redundant BY STRUCTURE, not by usage statistics, so no query
+-- can regress: the first four duplicate a UNIQUE index on the identical column
+-- (the constraint already provides one), and AssignmentHistory_itemId_idx is a
+-- strict prefix of AssignmentHistory_itemId_changedAt_idx created above.
 -- ---------------------------------------------------------------------------
 
 DROP INDEX CONCURRENTLY IF EXISTS "Transfer_transferId_idx";
@@ -103,5 +107,32 @@ DROP INDEX CONCURRENTLY IF EXISTS "UsageTicket_ticketId_idx";
 DROP INDEX CONCURRENTLY IF EXISTS "AuditSession_auditId_idx";
 DROP INDEX CONCURRENTLY IF EXISTS "OcrAlias_token_idx";
 DROP INDEX CONCURRENTLY IF EXISTS "AssignmentHistory_itemId_idx";
-DROP INDEX CONCURRENTLY IF EXISTS "InventoryItem_deletedAt_idx";
-DROP INDEX CONCURRENTLY IF EXISTS "InventoryItem_usedAt_idx";
+
+-- ---------------------------------------------------------------------------
+-- DO NOT DROP InventoryItem_deletedAt_idx OR InventoryItem_usedAt_idx.
+--
+-- An earlier revision of this file told you to. That was wrong, and production
+-- statistics disproved it before it was run:
+--
+--     InventoryItem_deletedAt_idx   idx_scan =  70
+--     InventoryItem_usedAt_idx      idx_scan = 229     (2026-10-05)
+--
+-- The argument for dropping them was that "deletedAt IS NULL" matches nearly
+-- every live row, so a btree on that column cannot be used profitably. True for
+-- the IS NULL filter -- but not for the RANGE queries. The usage reports filter
+-- "usedAt >= <window start>", and since most rows have usedAt IS NULL that
+-- predicate is highly selective, so the planner uses the index exactly where it
+-- pays off. Dropping these would quietly slow the usage reports.
+--
+-- They may still be superseded by the partial indexes in section 1 over time.
+-- To find out, re-run the query below and compare against the counts above: if
+-- these two have stalled while InventoryItem_live_* climb, the drop becomes
+-- evidence-backed. Note idx_scan is cumulative since the last stats reset.
+--
+--   SELECT relname, indexrelname, idx_scan FROM pg_stat_user_indexes
+--   WHERE relname = 'InventoryItem' ORDER BY idx_scan;
+--
+-- Also worth watching in that recheck: InventoryItem_usageTicketId_idx showed
+-- 0 scans on 2026-10-05. Not acted on, since zero may simply reflect a recent
+-- statistics reset.
+-- ---------------------------------------------------------------------------

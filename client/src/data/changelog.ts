@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.50',
+    date: '2026-10-06',
+    changes: [
+      'New report — Usage by Item Number: how many of each item number were used, broken down by distributor, with a company-wide Total column. Pick a calendar year for a year-to-date or full-year total, or a rolling 3/6/12-month window. Search, sort any column, tap a number to see those units in Inventory, and export to Excel',
+    ],
+  },
+  {
     version: '3.49',
     date: '2026-10-05',
     changes: [
@@ -36,15 +43,6 @@ export const changelog: ChangelogEntry[] = [
     date: '2026-07-31',
     changes: [
       'Added Telescopic Lag Screw products (PFL-T085 through PFL-T110)',
-    ],
-  },
-  {
-    version: '3.45',
-    date: '2026-06-23',
-    changes: [
-      'Transfer has a new "Take / Upload Photo" tab: photograph implant labels and the printed REF, lot, and expiry are read automatically — several stickers in one photo are all read at once — then checked against the source distributor\'s stock, just like Scan',
-      'Sharper label reading: photos are now upscaled and cleaned up before scanning, and the matcher recovers more common character mis-reads, so labels read correctly more often',
-      'New in TrackerLabs: OCR Training (admin). Upload label photos, review what the scanner read, and correct any mistakes — each correction is remembered so the same label reads correctly next time',
     ],
   },
 ];

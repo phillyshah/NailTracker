@@ -43,6 +43,20 @@ export function windowStart(n: number, now: Date = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (n - 1), 1));
 }
 
+/**
+ * UTC [start, end) bounds for a calendar year.
+ *
+ * Half-open like monthBounds, so a unit used at 2026-12-31T23:59:59Z falls in
+ * 2026 and one used at 2027-01-01T00:00:00Z falls in 2027 — no overlap, no gap.
+ * usedAt is stored UTC-canonical, so the year boundary must be UTC too.
+ */
+export function yearBounds(year: number): { start: Date; end: Date } {
+  return {
+    start: new Date(Date.UTC(year, 0, 1)),
+    end: new Date(Date.UTC(year + 1, 0, 1)),
+  };
+}
+
 /** UTC [start, end) bounds for a 'YYYY-MM' month key. */
 export function monthBounds(key: string): { start: Date; end: Date } {
   const [y, m] = key.split('-').map(Number);
@@ -123,6 +137,74 @@ export function buildMatrix(rows: UsedRow[], distributors: NamedColumn[]) {
       const total = columns.reduce((s, c) => s + (counts[c.id] ?? 0), 0);
       return { category, counts, total };
     });
+
+  return { columns, rows: outRows, totalsByColumn, grandTotal };
+}
+
+/**
+ * Usage by item: item number (rows) x distributor (columns), units consumed in
+ * the period. Structurally the same pivot as buildMatrix, but keyed on the
+ * individual SKU rather than the product category — the `total` on each row is
+ * the company-wide figure for that item, and the columns break it down by who
+ * used it.
+ *
+ * Rows are grouped by gtinShort (the stable catalogue identity) and labelled
+ * with the item number, matching buildStockRows in stockReport.ts. The two are
+ * 1:1 in this catalogue, so a row is effectively one item number; if that ever
+ * stops holding it surfaces as two rows rather than silently merging two
+ * different products.
+ */
+export function buildItemMatrix(rows: UsedRow[], distributors: NamedColumn[]) {
+  const columns: NamedColumn[] = [...distributors];
+
+  interface ItemAgg {
+    gtinShort: string;
+    itemNumber: string;
+    productLabel: string;
+    counts: Record<string, number>;
+  }
+  const byItem = new Map<string, ItemAgg>();
+  const totalsByColumn: Record<string, number> = {};
+  let grandTotal = 0;
+  let sawUnassigned = false;
+
+  const blank = () => {
+    const o: Record<string, number> = {};
+    for (const c of distributors) o[c.id] = 0;
+    o[UNASSIGNED] = 0;
+    return o;
+  };
+
+  for (const r of rows) {
+    let item = byItem.get(r.gtinShort);
+    if (!item) {
+      item = {
+        gtinShort: r.gtinShort,
+        // Fall back to the gtinShort so a row is never unlabelled.
+        itemNumber: getItemNumber(r.gtinShort, r.rawBarcode) || r.gtinShort,
+        productLabel: getProductLabel(r.gtinShort, r.rawBarcode) || 'Unknown',
+        counts: blank(),
+      };
+      byItem.set(r.gtinShort, item);
+    }
+    const col = r.distributorId ?? UNASSIGNED;
+    if (col === UNASSIGNED) sawUnassigned = true;
+    item.counts[col] = (item.counts[col] ?? 0) + 1;
+    totalsByColumn[col] = (totalsByColumn[col] ?? 0) + 1;
+    grandTotal += 1;
+  }
+
+  if (sawUnassigned) columns.push({ id: UNASSIGNED, name: 'Unassigned' });
+
+  const outRows = Array.from(byItem.values())
+    .map((it) => ({
+      gtinShort: it.gtinShort,
+      itemNumber: it.itemNumber,
+      productLabel: it.productLabel,
+      counts: it.counts,
+      total: columns.reduce((sum, c) => sum + (it.counts[c.id] ?? 0), 0),
+    }))
+    .sort((a, b) => a.itemNumber.localeCompare(b.itemNumber));
 
   return { columns, rows: outRows, totalsByColumn, grandTotal };
 }

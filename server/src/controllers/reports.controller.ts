@@ -23,6 +23,8 @@ import {
   monthBounds,
   monthKey,
   type UsedRow,
+  buildItemMatrix,
+  yearBounds,
 } from '../utils/usageReport.js';
 
 export async function summary(_req: Request, res: Response) {
@@ -428,6 +430,100 @@ export async function usageMatrix(req: Request, res: Response) {
     return success(res, { window: months, ...data });
   } catch (err) {
     return error(res, 'Failed to build usage matrix', 500);
+  }
+}
+
+
+/**
+ * Resolve the reporting period from the query.
+ *
+ * `?year=2026` pins a calendar year; otherwise the rolling 3/6/12-month window
+ * the other usage reports use. A year outside a sane range is ignored rather
+ * than erroring, falling back to the months window.
+ */
+function parsePeriod(q: Request['query']) {
+  const rawYear = parseInt(str(q.year), 10);
+  const maxYear = new Date().getUTCFullYear() + 1;
+  if (Number.isFinite(rawYear) && rawYear >= 2020 && rawYear <= maxYear) {
+    const { start, end } = yearBounds(rawYear);
+    return { where: { gte: start, lt: end }, meta: { kind: 'year' as const, year: rawYear } };
+  }
+  const months = parseMonths(q.months);
+  return { where: { gte: windowStart(months) }, meta: { kind: 'months' as const, months } };
+}
+
+/** Shared gather for the usage-by-item pivot (JSON + xlsx variants). */
+async function gatherUsageByItem(req: Request) {
+  const period = parsePeriod(req.query);
+  const [rows, distributors] = await Promise.all([
+    prisma.inventoryItem.findMany({
+      where: { usedAt: period.where, deletedAt: null },
+      select: USED_SELECT,
+    }),
+    prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
+  ]);
+  const data = buildItemMatrix(
+    rows as unknown as UsedRow[],
+    distributors.map((d: { id: string; name: string }) => ({ id: d.id, name: d.name })),
+  );
+  return { period: period.meta, data };
+}
+
+/**
+ * GET /api/reports/usage-by-item
+ * Units consumed per item number (rows) x distributor (columns), with a
+ * company-wide Total per item. Answers both "how many of this SKU did we use"
+ * and "who used them".
+ */
+export async function usageByItem(req: Request, res: Response) {
+  try {
+    const { period, data } = await gatherUsageByItem(req);
+    return success(res, { period, ...data });
+  } catch (err) {
+    return error(res, 'Failed to build usage by item report', 500);
+  }
+}
+
+/** GET /api/reports/usage-by-item/export — same data as xlsx. */
+export async function exportUsageByItem(req: Request, res: Response) {
+  try {
+    const { period, data } = await gatherUsageByItem(req);
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Nail Tracker';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet('Usage by Item');
+    sheet.columns = [
+      { header: 'Item Number', key: 'itemNumber', width: 24 },
+      { header: 'Description', key: 'productLabel', width: 36 },
+      ...data.columns.map((c) => ({ header: c.name, key: c.id, width: 18 })),
+      { header: 'Total', key: 'total', width: 10 },
+    ];
+    sheet.getRow(1).font = { bold: true };
+    sheet.views = [{ state: 'frozen', ySplit: 1, xSplit: 1 }];
+
+    for (const r of data.rows) {
+      const row: Record<string, string | number> = {
+        itemNumber: r.itemNumber,
+        productLabel: r.productLabel,
+        total: r.total,
+      };
+      for (const c of data.columns) row[c.id] = r.counts[c.id] ?? 0;
+      sheet.addRow(row);
+    }
+    const totalsRow: Record<string, string | number> = {
+      itemNumber: 'Total',
+      productLabel: '',
+      total: data.grandTotal,
+    };
+    for (const c of data.columns) totalsRow[c.id] = data.totalsByColumn[c.id] ?? 0;
+    sheet.addRow(totalsRow).font = { bold: true };
+    sheet.getColumn('total').font = { bold: true };
+
+    const label = period.kind === 'year' ? String(period.year) : `${period.months}mo`;
+    return sendXlsx(res, workbook, `usage-by-item-${label}.xlsx`);
+  } catch (err) {
+    return error(res, 'Export failed', 500);
   }
 }
 

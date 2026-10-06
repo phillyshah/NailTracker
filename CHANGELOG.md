@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.50 — 2026-10-06
+New report: Usage by Item Number.
+
+- **Usage by Item Number (`/reports/usage-by-item`)** — units consumed per item number (rows) × distributor (columns), with a company-wide **Total** per item. This fills a real gap: the existing usage reports aggregate by product *category* (`buildTrends`/`buildMatrix` both call `getProductCategory`), and the only item-level report, Monthly Usage, covers a single month — so "how many of this SKU did we use this year, and who used them" could not be answered. One pivot answers both halves of that question: read the Total column for the company-wide figure, read across for the per-distributor split.
+- **Period controls** — a calendar **Year** picker (this year = year-to-date; a past year = its full-year total) *or* the rolling 3/6/12-month window the other usage reports use. The two are mutually exclusive by construction, so only one period is ever in effect.
+- **Server (`utils/usageReport.ts`, `controllers/reports.controller.ts`)** — new pure helpers `yearBounds(year)` (UTC half-open bounds, matching the existing `monthBounds` convention) and `buildItemMatrix`, which mirrors `buildMatrix` but keys rows on the SKU. Rows group by `gtinShort` and are labelled with the item number, falling back to the gtinShort when unresolvable — the same approach as `buildStockRows`. Endpoints `GET /api/reports/usage-by-item` and `/usage-by-item/export` (xlsx), both inheriting the router's existing `authMiddleware` + `denyDistributor`.
+- **Client (`pages/UsageByItem.tsx`)** — sortable on every column including each distributor, searchable by item number or description, a top-10 bar strip, drill-through to Inventory on any non-zero cell, mobile cards plus desktop matrix, and an Excel export. Footer totals are computed from the *visible* rows, so they stay consistent when a search narrows the table.
+
+No schema change and no SQL — this reads existing columns (`usedAt`, `deletedAt`, `gtinShort`, `rawBarcode`, `distributorId`) and is covered by the `InventoryItem_used_window_idx` index added in v3.49.
+
+
 ## v3.49 — 2026-10-05
 Reports crash fix plus a system-wide performance pass (schema change — see SQL below).
 
@@ -68,16 +79,39 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS "AssignmentHistory_itemId_changedAt_idx"
 CREATE INDEX CONCURRENTLY IF NOT EXISTS "AssignmentHistory_changedAt_idx"
   ON "AssignmentHistory" ("changedAt");
 
--- Only after the creates succeed. The first four duplicate a UNIQUE constraint
--- and are pure write cost; check idx_scan = 0 before dropping the last two.
+-- Only after the creates succeed. Each is redundant by STRUCTURE, not by usage
+-- statistics: the first four duplicate a UNIQUE index on the same column, and
+-- the fifth is a strict prefix of the composite created above. Nothing can
+-- regress. (Do NOT drop InventoryItem_deletedAt_idx / _usedAt_idx -- see the
+-- correction note below.)
 DROP INDEX CONCURRENTLY IF EXISTS "Transfer_transferId_idx";
 DROP INDEX CONCURRENTLY IF EXISTS "UsageTicket_ticketId_idx";
 DROP INDEX CONCURRENTLY IF EXISTS "AuditSession_auditId_idx";
 DROP INDEX CONCURRENTLY IF EXISTS "OcrAlias_token_idx";
 DROP INDEX CONCURRENTLY IF EXISTS "AssignmentHistory_itemId_idx";
-DROP INDEX CONCURRENTLY IF EXISTS "InventoryItem_deletedAt_idx";
-DROP INDEX CONCURRENTLY IF EXISTS "InventoryItem_usedAt_idx";
 ```
+
+### Correction (2026-10-05, after applying the above)
+
+An earlier revision of this SQL block, and of `0011_perf_indexes/migration.sql`, also told you
+to drop `InventoryItem_deletedAt_idx` and `InventoryItem_usedAt_idx`. **That was wrong**, and
+production statistics caught it before the drops were run:
+
+```
+InventoryItem_deletedAt_idx   idx_scan =  70
+InventoryItem_usedAt_idx      idx_scan = 229
+```
+
+The argument for dropping them was that `deletedAt IS NULL` matches nearly every live row, so a
+btree on that column cannot be used profitably. That holds for the `IS NULL` filter — but not
+for the *range* queries. The usage reports filter `usedAt >= <window start>`, and because most
+rows have `usedAt IS NULL` that predicate is highly selective, so Postgres uses the index
+precisely where it pays off. Dropping them would have quietly slowed the usage reports.
+
+Both indexes remain in production. They may still be superseded by the new partial indexes over
+time: re-run the `pg_stat_user_indexes` query and compare against the counts above — if these two
+have stalled while the `InventoryItem_live_*` indexes climb, the drop becomes evidence-backed.
+`InventoryItem_usageTicketId_idx` showed 0 scans and is worth including in that same recheck.
 
 ### Also worth doing on the VPS (nginx, not in this release)
 - `client_max_body_size 10m;` — nginx defaults to 1 MB but the server accepts 10 MB for OCR uploads, so OCR Training photo uploads are likely failing with 413 before Express sees them.
