@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.50 — 2026-10-06
+New report: Usage by Item Number.
+
+- **Usage by Item Number (`/reports/usage-by-item`)** — units consumed per item number (rows) × distributor (columns), with a company-wide **Total** per item. This fills a real gap: the existing usage reports aggregate by product *category* (`buildTrends`/`buildMatrix` both call `getProductCategory`), and the only item-level report, Monthly Usage, covers a single month — so "how many of this SKU did we use this year, and who used them" could not be answered. One pivot answers both halves of that question: read the Total column for the company-wide figure, read across for the per-distributor split.
+- **Period controls** — a calendar **Year** picker (this year = year-to-date; a past year = its full-year total) *or* the rolling 3/6/12-month window the other usage reports use. The two are mutually exclusive by construction, so only one period is ever in effect.
+- **Server (`utils/usageReport.ts`, `controllers/reports.controller.ts`)** — new pure helpers `yearBounds(year)` (UTC half-open bounds, matching the existing `monthBounds` convention) and `buildItemMatrix`, which mirrors `buildMatrix` but keys rows on the SKU. Rows group by `gtinShort` and are labelled with the item number, falling back to the gtinShort when unresolvable — the same approach as `buildStockRows`. Endpoints `GET /api/reports/usage-by-item` and `/usage-by-item/export` (xlsx), both inheriting the router's existing `authMiddleware` + `denyDistributor`.
+- **Client (`pages/UsageByItem.tsx`)** — sortable on every column including each distributor, searchable by item number or description, a top-10 bar strip, drill-through to Inventory on any non-zero cell, mobile cards plus desktop matrix, and an Excel export. Footer totals are computed from the *visible* rows, so they stay consistent when a search narrows the table.
+
+No schema change and no SQL — this reads existing columns (`usedAt`, `deletedAt`, `gtinShort`, `rawBarcode`, `distributorId`) and is covered by the `InventoryItem_used_window_idx` index added in v3.49.
+
+
 ## v3.49 — 2026-10-05
 Reports crash fix plus a system-wide performance pass (schema change — see SQL below).
 

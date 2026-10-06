@@ -61,6 +61,24 @@ export interface UsageMatrixResponse {
   grandTotal: number;
 }
 
+export interface UsageByItemRow {
+  gtinShort: string;
+  itemNumber: string;
+  productLabel: string;
+  counts: Record<string, number>;
+  total: number;
+}
+export type UsageByItemPeriod =
+  | { kind: 'year'; year: number }
+  | { kind: 'months'; months: number };
+export interface UsageByItemResponse {
+  period: UsageByItemPeriod;
+  columns: { id: string; name: string }[];
+  rows: UsageByItemRow[];
+  totalsByColumn: Record<string, number>;
+  grandTotal: number;
+}
+
 export interface MonthlyUsageItem {
   gtinShort: string;
   itemNumber: string | null;
@@ -93,6 +111,14 @@ export async function getUsageMatrix(params: { months: number }) {
   return res.data!;
 }
 
+/** Units consumed per item number x distributor. Pass `year` OR `months`. */
+export async function getUsageByItem(params: { year?: number; months?: number }) {
+  const res = await api<ApiResponse<UsageByItemResponse>>('/reports/usage-by-item', {
+    params: { year: params.year, months: params.months },
+  });
+  return res.data!;
+}
+
 export async function getMonthlyUsage(params: { month: string; distributorId?: string }) {
   const res = await api<ApiResponse<MonthlyUsageResponse>>('/reports/monthly-usage', {
     params: { month: params.month, distributorId: params.distributorId },
@@ -116,6 +142,9 @@ export function getUsageTrendsExportUrl(p: { months: number; distributorId?: str
 }
 export function getUsageMatrixExportUrl(p: { months: number }) {
   return exportUrl('usage-matrix/export', p);
+}
+export function getUsageByItemExportUrl(p: { year?: number; months?: number }) {
+  return exportUrl('usage-by-item/export', p);
 }
 export function getMonthlyUsageExportUrl(p: { month: string; distributorId?: string }) {
   return exportUrl('monthly-usage/export', p);

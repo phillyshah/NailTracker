@@ -19,6 +19,8 @@ router.get('/usage-trends', ctrl.usageTrends);
 router.get('/usage-trends/export', ctrl.exportUsageTrends);
 router.get('/usage-matrix', ctrl.usageMatrix);
 router.get('/usage-matrix/export', ctrl.exportUsageMatrix);
+router.get('/usage-by-item', ctrl.usageByItem);
+router.get('/usage-by-item/export', ctrl.exportUsageByItem);
 router.get('/monthly-usage', ctrl.monthlyUsage);
 router.get('/monthly-usage/export', ctrl.exportMonthlyUsage);
 router.get('/export', ctrl.exportExcel);

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { Package, Users, Clock, XCircle, Inbox, Download, Search, ArrowRightLeft, ChevronRight, LayoutGrid, TrendingUp, CalendarDays, ClipboardList } from 'lucide-react';
+import { Package, Users, Clock, XCircle, Inbox, Download, Search, ArrowRightLeft, ChevronRight, LayoutGrid, TrendingUp, CalendarDays, ClipboardList, Hash } from 'lucide-react';
 import { getSummary, getExpiring, getExportUrl } from '../api/reports';
 import { listDistributors } from '../api/distributors';
 import { listTransfers, type TransferRecord } from '../api/transfers';
@@ -123,6 +123,12 @@ export default function Reports() {
       {/* Usage */}
       <section className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Usage</h3>
+        <ReportCard
+          icon={Hash}
+          title="Usage by Item Number"
+          description="Units consumed for each item number, broken down by distributor, for a calendar year or a rolling window."
+          onClick={() => navigate('/reports/usage-by-item')}
+        />
         <ReportCard
           icon={CalendarDays}
           title="Monthly Usage Report"
