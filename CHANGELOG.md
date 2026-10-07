@@ -113,9 +113,26 @@ time: re-run the `pg_stat_user_indexes` query and compare against the counts abo
 have stalled while the `InventoryItem_live_*` indexes climb, the drop becomes evidence-backed.
 `InventoryItem_usageTicketId_idx` showed 0 scans and is worth including in that same recheck.
 
-### Also worth doing on the VPS (nginx, not in this release)
-- `client_max_body_size 10m;` — nginx defaults to 1 MB but the server accepts 10 MB for OCR uploads, so OCR Training photo uploads are likely failing with 413 before Express sees them.
-- `http2 on;` — now materially more valuable, since the bundle is split into many small chunks.
+### ~~Also worth doing on the VPS (nginx, not in this release)~~ — withdrawn, see below
+- ~~`client_max_body_size 10m;` — nginx defaults to 1 MB but the server accepts 10 MB for OCR uploads, so OCR Training photo uploads are likely failing with 413 before Express sees them.~~
+- ~~`http2 on;` — now materially more valuable, since the bundle is split into many small chunks.~~
+
+### Correction (2026-10-07) — neither nginx item applies
+
+**There is no nginx on the VPS.** The reverse proxy is **Traefik**, which terminates TLS and
+forwards to the PM2-managed Express process on `127.0.0.1:3045`. Both recommendations above were
+derived from `nginx.conf.example` in this repo — a template for a deployment that was never
+stood up. That file has been deleted and `README.md` now documents the real topology.
+
+- **The body-limit item was never a bug.** Traefik applies no default request body cap, unlike
+  nginx's 1 MB. Verified against the live site: a ~3 MB POST to `/api/ocr-training` returns
+  **401** (missing auth), not **413** — so the body reaches Express intact and the app's own
+  `10mb` route limit is the effective ceiling. OCR Training uploads were never being blocked.
+- **The HTTP/2 item was already satisfied.** Traefik serves HTTP/2 by default, which is why the
+  verification `curl` in this release returned `HTTP/2 200`.
+
+Compression and `Cache-Control` are applied by Express (see this release's entries), not at the
+proxy, so they took effect on deploy with no proxy configuration required.
 
 
 ## v3.48 — 2026-08-13
