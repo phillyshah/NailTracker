@@ -3,14 +3,21 @@ import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Download, PackageSearch } from 'lucide-react';
 import { getUsageByItem, getUsageByItemExportUrl } from '../api/reports';
-import { SortableTh } from '../components/SortableTh';
 import { SearchBar } from '../components/SearchBar';
 import { HelpBanner } from '../components/HelpBanner';
 import { MiniBars } from '../components/MiniBars';
-import { useSortable } from '../hooks/useSortable';
-import type { UsageByItemRow } from '../api/reports';
+import type { UsageByItemCategory } from '../api/reports';
 
-const UNASSIGNED = 'unassigned';
+/** Catalogue order, matching PRODUCT_CATEGORIES on the server. */
+const CATEGORIES = [
+  'Short Nail',
+  'Long Nail',
+  'Lag Screw',
+  'Interlocking Screw',
+  'Cap Screw',
+  'Set Screw',
+  'Other',
+];
 
 /** Years offered in the picker: this year back to 2024, newest first. */
 function yearOptions(): number[] {
@@ -23,79 +30,65 @@ function yearOptions(): number[] {
 export default function UsageByItem() {
   const navigate = useNavigate();
 
-  // The two time controls are mutually exclusive by construction: `mode` picks
-  // which one is live, so only one is ever sent to the API and only one is
-  // rendered. Having both visible at once would be ambiguous.
+  // The two period controls are mutually exclusive by construction: `mode`
+  // decides which one is live, so only one is ever sent and only one rendered.
   const [mode, setMode] = useState<'months' | 'year'>('year');
   const [months, setMonths] = useState(12);
   const [year, setYear] = useState(() => new Date().getUTCFullYear());
+  const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
 
-  const params = mode === 'year' ? { year } : { months };
+  const params = {
+    ...(mode === 'year' ? { year } : { months }),
+    ...(category ? { category } : {}),
+  };
 
   const { data, isLoading } = useQuery({
-    queryKey: ['usage-by-item', mode, mode === 'year' ? year : months],
+    queryKey: ['usage-by-item', mode, mode === 'year' ? year : months, category],
     queryFn: () => getUsageByItem(params),
   });
 
-  // Every array field defaults, per the v3.49 crash fix: a null or unexpected
-  // payload must not reach .map(). Memoized because a bare `?? []` mints a new
-  // array identity on every render, which would defeat the memos below (and in
-  // useSortable) exactly as it did before v3.49.
-  const columns = useMemo(() => data?.columns ?? [], [data]);
-  const rows = useMemo(() => data?.rows ?? [], [data]);
-  // Server-side period totals are available on `data` but the footer deliberately
-  // sums the visible rows instead -- see the tfoot comment below.
+  // Memoized rather than a bare `?? []`: a new array identity each render would
+  // defeat the memos below (see CLAUDE.md).
+  const categories = useMemo(() => data?.categories ?? [], [data]);
 
-  const filtered = useMemo(() => {
+  // Search narrows the items inside each group, dropping groups left empty.
+  const visible: UsageByItemCategory[] = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(
-      (r) =>
-        r.itemNumber.toLowerCase().includes(q) ||
-        r.productLabel.toLowerCase().includes(q),
-    );
-  }, [rows, search]);
+    if (!q) return categories;
+    return categories
+      .map((c) => ({
+        ...c,
+        items: c.items.filter(
+          (i) =>
+            i.itemNumber.toLowerCase().includes(q) ||
+            i.productLabel.toLowerCase().includes(q),
+        ),
+      }))
+      .map((c) => ({ ...c, subtotal: c.items.reduce((s, i) => s + i.qty, 0) }))
+      .filter((c) => c.items.length > 0);
+  }, [categories, search]);
 
-  // One getter per dynamic distributor column, memoized on `columns`.
-  const getters = useMemo(() => {
-    const g: Record<string, (r: UsageByItemRow) => string | number> = {
-      itemNumber: (r) => r.itemNumber,
-      productLabel: (r) => r.productLabel,
-      total: (r) => r.total,
-    };
-    for (const c of columns) g[c.id] = (r) => r.counts[c.id] ?? 0;
-    return g;
-  }, [columns]);
-
-  const { sorted, sortKey, sortDir, toggleSort } = useSortable(
-    filtered,
-    getters,
-    'total',
-    'desc',
+  const shownTotal = useMemo(
+    () => visible.reduce((s, c) => s + c.subtotal, 0),
+    [visible],
   );
 
+  // Top movers across every category — the "what do we use most" answer at a glance.
   const topTen = useMemo(
     () =>
-      [...rows]
-        .sort((a, b) => b.total - a.total)
+      visible
+        .flatMap((c) => c.items)
+        .sort((a, b) => b.qty - a.qty)
         .slice(0, 10)
-        .map((r) => ({ label: r.itemNumber, value: r.total })),
-    [rows],
+        .map((i) => ({ label: i.itemNumber, value: i.qty })),
+    [visible],
   );
 
-  const periodLabel =
-    mode === 'year' ? `${year}` : `last ${months} months`;
-
-  function drill(r: UsageByItemRow, columnId: string) {
-    const sp = new URLSearchParams({ gtinShort: r.gtinShort });
-    if (columnId === UNASSIGNED) sp.set('unassigned', 'true');
-    else if (columnId !== 'total') sp.set('distributorId', columnId);
-    navigate(`/inventory?${sp.toString()}`);
-  }
+  const periodLabel = mode === 'year' ? `${year}` : `last ${months} months`;
 
   return (
-    <div className="mx-auto max-w-4xl lg:max-w-7xl space-y-4">
+    <div className="mx-auto max-w-4xl lg:max-w-6xl space-y-4">
       <div className="flex items-center justify-between gap-3">
         <button
           onClick={() => navigate('/reports')}
@@ -115,13 +108,13 @@ export default function UsageByItem() {
       <h2 className="text-xl font-bold text-gray-900">Usage by Item Number</h2>
 
       <HelpBanner storageKey="usage-by-item">
-        Units consumed for each item number, broken down by distributor. The <strong>Total</strong>{' '}
-        column is the company-wide figure for that item. Pick a calendar year for a year-to-date
-        or full-year total, or switch to a rolling window. Tap any number to see those units in
-        Inventory, or a column header to sort.
+        Total units used for each item number across <strong>all</strong> distributors, grouped by
+        product category. Within each category the most-used items are listed first. Pick a
+        calendar year for a year-to-date or full-year total, or switch to a rolling window. The
+        Excel export follows whatever period and category you have selected.
       </HelpBanner>
 
-      {/* Period controls — only one is active at a time */}
+      {/* Period — only one control is active at a time */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex rounded-xl border border-gray-300 p-1">
           {[3, 6, 12].map((n) => (
@@ -161,6 +154,20 @@ export default function UsageByItem() {
             </select>
           </label>
         )}
+
+        <label className="flex items-center gap-2">
+          <span className="sr-only">Category</span>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="rounded-xl border border-gray-300 px-4 py-2.5 text-base focus:border-primary-500 focus:outline-none"
+          >
+            <option value="">All categories</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <SearchBar
@@ -173,11 +180,11 @@ export default function UsageByItem() {
         <div className="flex justify-center py-12">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
         </div>
-      ) : sorted.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
           <PackageSearch size={36} className="mx-auto text-gray-300" />
           <p className="mt-2 text-lg text-gray-500">
-            {rows.length === 0
+            {categories.length === 0
               ? `No usage recorded for ${periodLabel}`
               : 'No items match your search'}
           </p>
@@ -187,135 +194,77 @@ export default function UsageByItem() {
           {topTen.length > 1 && (
             <div className="rounded-2xl bg-white p-5 shadow-sm">
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-                Top {topTen.length} items — {periodLabel}
+                Most used — {periodLabel}
               </h3>
               <MiniBars data={topTen} />
             </div>
           )}
 
-          {/* Mobile cards */}
-          <div className="space-y-2 lg:hidden">
-            {sorted.map((r) => (
-              <div key={r.gtinShort} className="rounded-2xl bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-mono text-sm font-bold text-gray-900">
-                      {r.itemNumber}
-                    </p>
-                    <p className="truncate text-xs text-gray-500">{r.productLabel}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-primary-100 px-3 py-1 text-sm font-bold text-primary-700">
-                    {r.total}
-                  </span>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {columns
-                    .filter((c) => (r.counts[c.id] ?? 0) > 0)
-                    .map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => drill(r, c.id)}
-                        className="flex items-center justify-between rounded-lg bg-gray-50 px-2 py-1.5 text-left text-xs"
-                      >
-                        <span className="truncate text-gray-600">{c.name}</span>
-                        <span className="ml-2 shrink-0 font-semibold text-primary-700">
-                          {r.counts[c.id]}
-                        </span>
-                      </button>
-                    ))}
-                </div>
+          {visible.map((c) => (
+            <div key={c.category} className="rounded-2xl bg-white shadow-sm">
+              <div className="flex items-baseline justify-between gap-3 border-b border-gray-100 px-5 py-3">
+                <h3 className="text-base font-bold text-gray-900">{c.category}</h3>
+                <span className="shrink-0 rounded-full bg-primary-100 px-3 py-1 text-sm font-bold text-primary-700">
+                  {c.subtotal}
+                </span>
               </div>
-            ))}
-          </div>
 
-          {/* Desktop matrix */}
-          <div className="hidden lg:block overflow-x-auto rounded-2xl bg-white shadow-sm">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b">
-                  <SortableTh
-                    label="Item Number"
-                    sortKey="itemNumber"
-                    currentKey={sortKey}
-                    currentDir={sortDir}
-                    onSort={toggleSort}
-                    className="sticky left-0 bg-white px-3 py-3"
-                  />
-                  <SortableTh
-                    label="Description"
-                    sortKey="productLabel"
-                    currentKey={sortKey}
-                    currentDir={sortDir}
-                    onSort={toggleSort}
-                    className="px-3 py-3"
-                  />
-                  {columns.map((c) => (
-                    <SortableTh
-                      key={c.id}
-                      label={c.name}
-                      sortKey={c.id}
-                      currentKey={sortKey}
-                      currentDir={sortDir}
-                      onSort={toggleSort}
-                      className="px-3 py-3"
-                    />
-                  ))}
-                  <SortableTh
-                    label="Total"
-                    sortKey="total"
-                    currentKey={sortKey}
-                    currentDir={sortDir}
-                    onSort={toggleSort}
-                    className="bg-primary-50 px-3 py-3"
-                  />
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((r) => (
-                  <tr key={r.gtinShort} className="border-b hover:bg-gray-50">
-                    <td className="sticky left-0 bg-white px-3 py-2 font-mono font-semibold">
-                      {r.itemNumber}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600">{r.productLabel}</td>
-                    {columns.map((c) => {
-                      const n = r.counts[c.id] ?? 0;
-                      return (
-                        <td key={c.id} className="px-3 py-2">
-                          {n === 0 ? (
-                            <span className="text-gray-300">0</span>
-                          ) : (
-                            <button
-                              onClick={() => drill(r, c.id)}
-                              className="font-semibold text-primary-700 hover:underline"
-                            >
-                              {n}
-                            </button>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="bg-primary-50/40 px-3 py-2 font-bold">{r.total}</td>
-                  </tr>
+              {/* Mobile cards */}
+              <div className="space-y-2 p-3 lg:hidden">
+                {c.items.map((i) => (
+                  <button
+                    key={i.gtinShort}
+                    onClick={() => navigate(`/inventory?gtinShort=${i.gtinShort}`)}
+                    className="flex w-full items-baseline justify-between gap-3 rounded-xl border border-gray-200 p-3 text-left"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-mono text-sm font-semibold text-primary-700">
+                        {i.itemNumber}
+                      </p>
+                      <p className="truncate text-xs text-gray-500">{i.productLabel}</p>
+                    </div>
+                    <span className="shrink-0 text-base font-bold text-gray-900">{i.qty}</span>
+                  </button>
                 ))}
-              </tbody>
-              {/* Totals are computed from the VISIBLE rows, matching Stock by
-                  Item — so when a search narrows the table the footer agrees
-                  with what is on screen rather than the whole period. */}
-              <tfoot>
-                <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold">
-                  <td className="sticky left-0 bg-gray-50 px-3 py-3">Totals</td>
-                  <td className="px-3 py-3 text-gray-500">{sorted.length} item numbers</td>
-                  {columns.map((c) => (
-                    <td key={c.id} className="px-3 py-3">
-                      {sorted.reduce((s, r) => s + (r.counts[c.id] ?? 0), 0)}
-                    </td>
-                  ))}
-                  <td className="bg-primary-50 px-3 py-3">
-                    {sorted.reduce((s, r) => s + r.total, 0)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b text-gray-500">
+                      <th className="px-5 py-2 font-medium">Item Number</th>
+                      <th className="px-5 py-2 font-medium">Description</th>
+                      <th className="px-5 py-2 text-right font-medium">Qty Used</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {c.items.map((i) => (
+                      <tr key={i.gtinShort} className="border-b last:border-0 hover:bg-gray-50">
+                        <td className="px-5 py-2 font-mono font-semibold">
+                          <button
+                            onClick={() => navigate(`/inventory?gtinShort=${i.gtinShort}`)}
+                            className="text-primary-700 hover:underline"
+                          >
+                            {i.itemNumber}
+                          </button>
+                        </td>
+                        <td className="px-5 py-2 text-gray-600">{i.productLabel}</td>
+                        <td className="px-5 py-2 text-right font-bold">{i.qty}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex items-baseline justify-between rounded-2xl bg-gray-50 px-5 py-4">
+            <span className="font-bold text-gray-900">
+              Total units used — {periodLabel}
+              {category && ` · ${category}`}
+            </span>
+            <span className="text-xl font-bold text-primary-700">{shownTotal}</span>
           </div>
         </>
       )}

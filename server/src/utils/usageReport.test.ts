@@ -6,7 +6,7 @@ import {
   monthBounds,
   buildTrends,
   buildMatrix,
-  buildItemMatrix,
+  buildItemTotals,
   buildMonthlyUsage,
   yearBounds,
   type UsedRow,
@@ -22,8 +22,16 @@ const REF = {
   short: 'SO-SPFN-0180-10-25',
   long: 'SO-SPFN-0300-10L-25',
   lag: 'SO-SPFL-N70',
+  lagB: 'SO-SPFL-N75',   // a second Lag Screw, for within-category ranking
   inter: 'SO-S50I-SO-032-T',
 };
+
+// Distributors are irrelevant to buildItemTotals (it pools across them) but
+// buildMatrix still needs them for the cross-check invariant.
+const DISTS = [
+  { id: 'd1', name: 'Garcia Medical Solutions' },
+  { id: 'd2', name: 'Swede Creek' },
+];
 
 // Use the REF as the gtinShort key so each distinct product groups separately
 // (in production each gtinShort maps 1:1 to a REF). Category/itemNumber still
@@ -165,91 +173,99 @@ describe('yearBounds', () => {
 });
 
 // ---------------------------------------------------------------------------
-// buildItemMatrix
+// buildItemTotals
 // ---------------------------------------------------------------------------
 
-const DISTS = [
-  { id: 'd1', name: 'Garcia Medical Solutions' },
-  { id: 'd2', name: 'Swede Creek' },
-];
-
-describe('buildItemMatrix', () => {
-  it('counts units per item per distributor, with a company-wide total', () => {
-    const out = buildItemMatrix(
-      [
-        row(REF.lag, 'd1', '2026-03-01'),
-        row(REF.lag, 'd1', '2026-04-01'),
-        row(REF.lag, 'd2', '2026-05-01'),
-        row(REF.short, 'd2', '2026-06-01'),
-      ],
-      DISTS,
-    );
-    expect(out.grandTotal).toBe(4);
-
-    const lagRow = out.rows.find((r) => r.gtinShort === REF.lag)!;
-    expect(lagRow.counts.d1).toBe(2);
-    expect(lagRow.counts.d2).toBe(1);
-    expect(lagRow.total).toBe(3);
-
-    expect(out.totalsByColumn.d1).toBe(2);
-    expect(out.totalsByColumn.d2).toBe(2);
+describe('buildItemTotals', () => {
+  it('counts units per item and totals them', () => {
+    const out = buildItemTotals([
+      row(REF.lag, 'd1', '2026-03-01'),
+      row(REF.lag, 'd2', '2026-04-01'),
+      row(REF.short, 'd1', '2026-05-01'),
+    ]);
+    expect(out.grandTotal).toBe(3);
+    const lag = out.categories.flatMap((c) => c.items).find((i) => i.gtinShort === REF.lag)!;
+    expect(lag.qty).toBe(2);
   });
 
-  it('keeps each item on its own row', () => {
-    const out = buildItemMatrix(
-      [row(REF.lag, 'd1', '2026-03-01'), row(REF.short, 'd1', '2026-03-02')],
-      DISTS,
-    );
-    expect(out.rows).toHaveLength(2);
+  it('pools usage across distributors — there is no per-distributor split', () => {
+    // The whole point of this report: who used it does not matter, only how many.
+    const sameItemEverywhere = buildItemTotals([
+      row(REF.lag, 'd1', '2026-03-01'),
+      row(REF.lag, 'd2', '2026-03-02'),
+      row(REF.lag, null, '2026-03-03'),
+    ]);
+    const items = sameItemEverywhere.categories.flatMap((c) => c.items);
+    expect(items).toHaveLength(1);
+    expect(items[0].qty).toBe(3);
   });
 
-  it('zero-fills every distributor column', () => {
-    const out = buildItemMatrix([row(REF.lag, 'd1', '2026-03-01')], DISTS);
-    expect(out.rows[0].counts.d2).toBe(0);
+  it('groups items under their product category', () => {
+    const out = buildItemTotals([
+      row(REF.lag, 'd1', '2026-03-01'),
+      row(REF.short, 'd1', '2026-03-02'),
+      row(REF.inter, 'd1', '2026-03-03'),
+    ]);
+    const names = out.categories.map((c) => c.category);
+    expect(names).toContain('Lag Screw');
+    expect(names).toContain('Short Nail');
+    expect(names).toContain('Interlocking Screw');
   });
 
-  it('adds an Unassigned column only when some usage has no distributor', () => {
-    const without = buildItemMatrix([row(REF.lag, 'd1', '2026-03-01')], DISTS);
-    expect(without.columns.map((c) => c.id)).toEqual(['d1', 'd2']);
-
-    const withUnassigned = buildItemMatrix(
-      [row(REF.lag, 'd1', '2026-03-01'), row(REF.lag, null, '2026-03-02')],
-      DISTS,
-    );
-    expect(withUnassigned.columns.map((c) => c.id)).toContain('unassigned');
-    expect(withUnassigned.rows[0].counts.unassigned).toBe(1);
-    expect(withUnassigned.rows[0].total).toBe(2);
+  it('orders categories by the catalogue, not by volume', () => {
+    // One Short Nail against many Lag Screws: Short Nail still comes first,
+    // because PRODUCT_CATEGORIES lists it first.
+    const out = buildItemTotals([
+      row(REF.short, 'd1', '2026-03-01'),
+      ...Array.from({ length: 5 }, () => row(REF.lag, 'd1', '2026-03-02')),
+    ]);
+    expect(out.categories.map((c) => c.category)).toEqual(['Short Nail', 'Lag Screw']);
   });
 
-  it('labels a row with its item number, falling back to gtinShort', () => {
-    const known = buildItemMatrix([row(REF.lag, 'd1', '2026-03-01')], DISTS);
-    expect(known.rows[0].itemNumber).toBeTruthy();
-
-    const unknown = buildItemMatrix(
-      [{ gtinShort: '0000000', rawBarcode: '', distributorId: 'd1', usedAt: new Date('2026-03-01') }],
-      DISTS,
-    );
-    expect(unknown.rows[0].itemNumber).toBe('0000000');
-    expect(unknown.rows[0].productLabel).toBeTruthy();
+  it('ranks items most-used first WITHIN a category', () => {
+    const out = buildItemTotals([
+      row(REF.lag, 'd1', '2026-03-01'),
+      ...Array.from({ length: 4 }, () => row(REF.lagB, 'd1', '2026-03-02')),
+    ]);
+    const lagItems = out.categories.find((c) => c.category === 'Lag Screw')!.items;
+    expect(lagItems.map((i) => i.qty)).toEqual([4, 1]);
   });
 
-  it('sorts rows by item number', () => {
-    const out = buildItemMatrix(
-      [row(REF.short, 'd1', '2026-03-01'), row(REF.inter, 'd1', '2026-03-02'), row(REF.lag, 'd1', '2026-03-03')],
-      DISTS,
-    );
-    const nums = out.rows.map((r) => r.itemNumber);
-    expect(nums).toEqual([...nums].sort((a, b) => a.localeCompare(b)));
+  it('subtotals equal the sum of their items, and grandTotal the sum of subtotals', () => {
+    const out = buildItemTotals([
+      row(REF.lag, 'd1', '2026-03-01'),
+      row(REF.lagB, 'd2', '2026-03-02'),
+      row(REF.short, 'd1', '2026-03-03'),
+      row(REF.inter, null, '2026-03-04'),
+    ]);
+    for (const c of out.categories) {
+      expect(c.subtotal).toBe(c.items.reduce((s, i) => s + i.qty, 0));
+    }
+    expect(out.grandTotal).toBe(out.categories.reduce((s, c) => s + c.subtotal, 0));
   });
 
-  it('returns an empty pivot for no usage', () => {
-    const out = buildItemMatrix([], DISTS);
-    expect(out.rows).toEqual([]);
+  it('omits categories with no usage', () => {
+    const out = buildItemTotals([row(REF.lag, 'd1', '2026-03-01')]);
+    expect(out.categories.map((c) => c.category)).toEqual(['Lag Screw']);
+  });
+
+  it('returns nothing for no usage', () => {
+    const out = buildItemTotals([]);
+    expect(out.categories).toEqual([]);
     expect(out.grandTotal).toBe(0);
   });
 
-  it('agrees with buildMatrix on the totals for the same rows', () => {
-    // Same source rows, different grouping -- the company-wide figures must match.
+  it('labels an unresolvable item with its gtinShort rather than leaving it blank', () => {
+    const out = buildItemTotals([
+      { gtinShort: '0000000', rawBarcode: '', distributorId: 'd1', usedAt: new Date('2026-03-01') },
+    ]);
+    const item = out.categories.flatMap((c) => c.items)[0];
+    expect(item.itemNumber).toBe('0000000');
+    expect(item.productLabel).toBeTruthy();
+  });
+
+  it('agrees with buildMatrix on the grand total for the same rows', () => {
+    // Same source rows, different grouping — the company-wide figure must match.
     // This is the invariant that catches a grouping bug in either report.
     const rows = [
       row(REF.lag, 'd1', '2026-03-01'),
@@ -257,11 +273,6 @@ describe('buildItemMatrix', () => {
       row(REF.short, 'd1', '2026-05-01'),
       row(REF.inter, null, '2026-06-01'),
     ];
-    const byItem = buildItemMatrix(rows, DISTS);
-    const byCategory = buildMatrix(rows, DISTS);
-
-    expect(byItem.grandTotal).toBe(byCategory.grandTotal);
-    expect(byItem.totalsByColumn).toEqual(byCategory.totalsByColumn);
-    expect(byItem.columns.map((c) => c.id)).toEqual(byCategory.columns.map((c) => c.id));
+    expect(buildItemTotals(rows).grandTotal).toBe(buildMatrix(rows, DISTS).grandTotal);
   });
 });
