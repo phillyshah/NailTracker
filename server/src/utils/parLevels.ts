@@ -20,6 +20,8 @@ export interface ParLevelRow {
   gtinShort: string | null;
   distributorId: string | null; // null = global default
   minStock: number;
+  /** Months of stock to hold. When set it wins over minStock. */
+  coverMonths?: number | null;
 }
 
 export interface ReorderItem {
@@ -38,36 +40,93 @@ export interface ReorderRow {
   current: number;
   par: number;
   shortage: number;
-  usagePerMonth: number; // context only — not part of the suggested qty
+  usagePerMonth: number;
+  /** How `par` was arrived at: a fixed quantity, or N months of cover. */
+  parBasis: 'qty' | 'cover';
+  /** Set when parBasis === 'cover' — the months requested. */
+  parCoverMonths?: number;
+}
+
+/** The par row that applies, before any cover-months arithmetic. */
+function matchingLevel(
+  itemNumber: string,
+  group: string,
+  distributorId: string,
+  levels: ParLevelRow[],
+): ParLevelRow | null {
+  const skuOverride = levels.find(
+    (l) => l.scope === 'item' && l.itemNumber === itemNumber && l.distributorId === distributorId,
+  );
+  if (skuOverride) return skuOverride;
+
+  const skuGlobal = levels.find(
+    (l) => l.scope === 'item' && l.itemNumber === itemNumber && l.distributorId === null,
+  );
+  if (skuGlobal) return skuGlobal;
+
+  const groupGlobal = levels.find(
+    (l) => l.scope === 'category' && l.category === group && l.distributorId === null,
+  );
+  if (groupGlobal) return groupGlobal;
+
+  return null;
+}
+
+export interface ResolvedPar {
+  par: number;
+  basis: 'qty' | 'cover';
+  /** Set when basis === 'cover'. */
+  coverMonths?: number;
 }
 
 /**
- * Effective par for an item at a specific distributor. Checks, in order:
- * SKU+distributor override → SKU global → group global. Returns null if the
- * item has no par at any level.
+ * Effective par for an item at a distributor, resolved most-specific-first:
+ * SKU+distributor override → SKU global → group global.
+ *
+ * A row expressed in **months of cover** is converted here, against that
+ * item/distributor's own usage rate: `ceil(usagePerMonth * coverMonths)`. That
+ * is the point of storing cover rather than a number — one "12 months" entry on
+ * a category gives every SKU at every distributor a par sized to its own demand,
+ * and it keeps tracking demand as usage shifts.
+ *
+ * Returns null when no par applies. A cover-based par with no usage history
+ * also returns null: with no demand signal there is nothing to infer, and
+ * guessing 0 would silently suppress the item from the reorder report.
+ */
+export function resolvePar(
+  itemNumber: string,
+  group: string,
+  distributorId: string,
+  levels: ParLevelRow[],
+  usagePerMonth = 0,
+): ResolvedPar | null {
+  const level = matchingLevel(itemNumber, group, distributorId, levels);
+  if (!level) return null;
+
+  if (level.coverMonths != null && level.coverMonths > 0) {
+    if (usagePerMonth <= 0) return null; // no demand signal -> no inferable par
+    return {
+      par: Math.ceil(usagePerMonth * level.coverMonths),
+      basis: 'cover',
+      coverMonths: level.coverMonths,
+    };
+  }
+
+  return { par: level.minStock, basis: 'qty' };
+}
+
+/**
+ * Effective par as a plain number. Thin wrapper over resolvePar for callers
+ * that don't care how it was derived.
  */
 export function effectivePar(
   itemNumber: string,
   group: string,
   distributorId: string,
   levels: ParLevelRow[],
+  usagePerMonth = 0,
 ): number | null {
-  const skuOverride = levels.find(
-    (l) => l.scope === 'item' && l.itemNumber === itemNumber && l.distributorId === distributorId,
-  );
-  if (skuOverride) return skuOverride.minStock;
-
-  const skuGlobal = levels.find(
-    (l) => l.scope === 'item' && l.itemNumber === itemNumber && l.distributorId === null,
-  );
-  if (skuGlobal) return skuGlobal.minStock;
-
-  const groupGlobal = levels.find(
-    (l) => l.scope === 'category' && l.category === group && l.distributorId === null,
-  );
-  if (groupGlobal) return groupGlobal.minStock;
-
-  return null;
+  return resolvePar(itemNumber, group, distributorId, levels, usagePerMonth)?.par ?? null;
 }
 
 const key = (itemNumber: string, distributorId: string) => `${itemNumber}|${distributorId}`;
@@ -89,8 +148,10 @@ export function buildReorderRows(params: {
 
   for (const item of items) {
     for (const d of distributors) {
-      const par = effectivePar(item.itemNumber, item.group, d.id, levels);
-      if (par == null || par <= 0) continue;
+      const perMonth = usage[key(item.itemNumber, d.id)] ?? 0;
+      const resolved = resolvePar(item.itemNumber, item.group, d.id, levels, perMonth);
+      if (resolved == null || resolved.par <= 0) continue;
+      const par = resolved.par;
       const onHand = current[key(item.itemNumber, d.id)] ?? 0;
       if (onHand >= par) continue;
       rows.push({
@@ -102,7 +163,9 @@ export function buildReorderRows(params: {
         current: onHand,
         par,
         shortage: par - onHand,
-        usagePerMonth: usage[key(item.itemNumber, d.id)] ?? 0,
+        usagePerMonth: perMonth,
+        parBasis: resolved.basis,
+        ...(resolved.coverMonths != null ? { parCoverMonths: resolved.coverMonths } : {}),
       });
     }
   }

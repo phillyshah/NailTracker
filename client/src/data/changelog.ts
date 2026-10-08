@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.52',
+    date: '2026-10-08',
+    changes: [
+      'Par levels can now be set as "months of cover" instead of a fixed quantity — enter 12 and the system works out the quantity from how fast that item actually moves, and keeps it in step as usage changes. Set it on a whole product group and every size gets a par sized to its own demand',
+      'While you type, each par shows what it works out to (e.g. "12 mo ≈ 24 units (2/mo)"), so you can see the number before you save',
+      'The Reorder Report and its Excel export now show whether a par was a fixed quantity or months of cover',
+    ],
+  },
+  {
     version: '3.51',
     date: '2026-10-08',
     changes: [
@@ -37,14 +46,6 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       'Fixed: pressing "View ticket" after recording usage opened a blank screen you could only escape by closing the app. The ticket now opens correctly. The same crash on transfer detail pages is fixed too',
       'If a page ever fails to load, you now get a "This page didn\'t load" screen with Try again and Go to home buttons, instead of a blank page — the menu stays available so you are never stuck',
-    ],
-  },
-  {
-    version: '3.47',
-    date: '2026-08-10',
-    changes: [
-      'Added project README with setup instructions, architecture diagram, and local development guide',
-      'ESLint now enforces security rules (no-eval, no-implied-eval) across both workspaces',
     ],
   },
 ];

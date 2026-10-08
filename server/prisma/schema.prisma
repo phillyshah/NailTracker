@@ -151,7 +151,12 @@ model ParLevel {
   category      String? // group name; set when scope = "category" (and on item rows for reference)
   gtinShort     String?
   distributorId String? // null = global default; otherwise a per-distributor override (item scope only)
+  // A par is expressed EITHER as a fixed quantity (minStock) OR as months of
+  // cover (coverMonths). When coverMonths is set it wins, and the effective par
+  // is computed at report time as ceil(usagePerMonth * coverMonths) — so it
+  // tracks demand instead of going stale. See utils/parLevels.ts.
   minStock      Int      @default(0)
+  coverMonths   Int? // months of stock to hold; null = use minStock
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
