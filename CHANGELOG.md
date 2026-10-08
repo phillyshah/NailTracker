@@ -1,5 +1,37 @@
 # Changelog
 
+## v3.52 — 2026-10-08
+Par levels can be expressed as **months of cover** instead of a fixed quantity (schema change — see SQL below).
+
+### Why
+A flat par ("keep 10") has to be guessed and then maintained by hand as demand shifts. Expressing it as cover ("hold 12 months") lets the quantity be derived from each item's actual consumption and stay in step on its own.
+
+### How it works
+- **`ParLevel.coverMonths`** (new, nullable). A row is EITHER a fixed `minStock` OR a `coverMonths`; when cover is set it wins. Existing pars are untouched — `NULL` means "use minStock".
+- **Resolution is per item, per distributor, at report time** (`resolvePar` in `server/src/utils/parLevels.ts`): `ceil(usagePerMonth × coverMonths)`, against that specific item-and-distributor's own rate. So one "12 months" entry on a *category* gives every SKU at every distributor a par sized to its own demand — and it keeps tracking demand rather than going stale.
+- **A cover par with no usage history yields no par at all**, deliberately. With no demand signal there is nothing to infer, and silently resolving to 0 would drop the item off the Reorder Report with no indication. Use a fixed quantity for brand-new products.
+- `effectivePar` is retained as a thin wrapper over `resolvePar` for callers that only want the number, so its existing tests stay meaningful.
+
+### Par Levels screen
+- An **Enter pars as: Quantity / Months of cover** switch governs what the next number you type means. Saved rows keep their own basis, so flipping it never reinterprets an existing par.
+- Each box carries a caption saying what its number actually means — `10 units`, or `12 mo ≈ 24 units (2/mo)` — computed live as you type. Without it, a bare "12" is ambiguous between twelve units and twelve months.
+- A **group** box in cover mode says *"each size sized from its own usage"* rather than a quantity. An earlier draft averaged the rate across the group and showed a single number; that was actively misleading, because most sizes have little usage and the average collapsed toward zero (2/mo became 0.1/mo in testing). A group cover par genuinely has no single quantity.
+- New `GET /api/par-levels/usage` supplies the rates for the preview — per item+distributor, plus a per-item average across *field* distributors (Home Office excluded, as it never carries a par).
+
+### Reorder Report
+- A cover-derived par carries a **"12 mo"** tag, so a moving number isn't mistaken for one somebody typed.
+- The Excel export gains a **Par Basis** column (`Fixed quantity` / `N months cover`), so the sheet explains itself away from the app.
+
+### SQL to run in Supabase
+Additive and nullable, so it is safe to run before or after the deploy — existing pars keep working either way.
+
+```sql
+ALTER TABLE "ParLevel" ADD COLUMN IF NOT EXISTS "coverMonths" INTEGER;
+```
+
+Also recorded at `server/prisma/migrations/0012_par_cover_months/migration.sql`. **This release needs `npm run db:generate` on deploy** (the schema changed), which the documented deploy command already includes.
+
+
 ## v3.51 — 2026-10-08
 Report filters, a restructured Usage by Item, and a catalogue bug that was misfiling five products.
 

@@ -43,7 +43,7 @@ export default function ReorderReport() {
         Every item that's below its par level, by distributor. <strong>Suggested Order</strong> is
         how many units would bring it back up to par. <strong>Usage / mo</strong> is the recent
         average consumption ({data?.windowMonths ?? 3}-month) for context. Set pars on the{' '}
-        <strong>Par Levels</strong> page.
+        <strong>Par Levels</strong> page. A <strong>“12 mo”</strong> tag next to a par means it was set as months of cover, so the quantity is derived from that item's own usage rate and moves with it.
       </HelpBanner>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -102,7 +102,19 @@ export default function ReorderReport() {
                     <span className="block truncate text-xs text-gray-500">{r.productLabel}</span>
                   </td>
                   <td className="px-3 py-3 text-right text-gray-700">{r.current}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">{r.par}</td>
+                  <td className="px-3 py-3 text-right text-gray-700">
+                    {r.par}
+                    {/* A cover-derived par is a moving number — say where it came
+                        from so it isn't mistaken for something someone typed. */}
+                    {r.parBasis === 'cover' && (
+                      <span
+                        className="ml-1 rounded bg-gray-100 px-1 py-0.5 text-[10px] font-medium text-gray-500"
+                        title={`${r.parCoverMonths} months of cover at ${r.usagePerMonth}/mo`}
+                      >
+                        {r.parCoverMonths} mo
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-3 text-right font-bold text-primary-700">{r.shortage}</td>
                   <td className="px-3 py-3 text-right text-gray-400">{r.usagePerMonth || '—'}</td>
                 </tr>

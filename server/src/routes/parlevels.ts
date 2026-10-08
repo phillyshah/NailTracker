@@ -11,6 +11,7 @@ router.use(adminOnly);
 
 router.get('/', ctrl.list);
 router.put('/', ctrl.upsert);
+router.get('/usage', ctrl.usageRates);
 router.get('/reorder', ctrl.reorderReport);
 router.get('/reorder/export', ctrl.exportReorder);
 

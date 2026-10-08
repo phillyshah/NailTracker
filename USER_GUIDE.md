@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.51** | Summa Orthopaedics Inventory Management System
+**Version 3.52** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -590,7 +590,22 @@ This experiment helps you answer "what do I need to order?" instead of just "wha
 
 So pars resolve from most specific to least: a per-distributor item value wins, then the item's own value, then the group par. Set a group par once and only touch the items that are exceptions.
 
-The Reorder Report shows, for each low item: how many are **on hand**, the **par** level, a **suggested order** quantity (how many to bring it back up to par), and the recent **usage per month** for context. You can search, filter to one distributor, and **download the report as an Excel file** to use as an order sheet.
+**Quantity, or months of cover:**
+
+At the top of the Par Levels page there's a switch — **Enter pars as: Quantity / Months of cover**. It decides what the next number you type means.
+
+- **Quantity** is a flat number: "keep at least 10 of these".
+- **Months of cover** is the smarter option: type **12** and the system works out the quantity from how fast that item actually moves. If a distributor uses 2 a month, 12 months of cover is a par of 24. It is not a one-off calculation — the par keeps tracking usage, so as demand rises or falls the par follows without you editing anything.
+
+As you type, the line under each box shows what the number works out to, e.g. *"12 mo ≈ 24 units (2/mo)"*, so you see the quantity before you save.
+
+Set months of cover on a **whole group** and it's sized per item: every size gets its own par based on its own usage, rather than one blanket number. Because of that, a group box in months mode says *"each size sized from its own usage"* rather than a single quantity — there isn't one number that's true for the whole group.
+
+The switch only affects what you type next. Pars you've already saved keep whatever basis they were set with, and the line under each box always tells you which it is.
+
+> An item set to months of cover but with **no usage recorded yet** gets no par at all, and won't appear on the Reorder Report. With nothing to measure there's nothing to infer — use a flat quantity for brand-new products until they've been used a few times.
+
+The Reorder Report shows, for each low item: how many are **on hand**, the **par** level, a **suggested order** quantity (how many to bring it back up to par), and the recent **usage per month** for context. A par set as months of cover carries a small **"12 mo"** tag so you can tell at a glance that it's demand-driven rather than hand-typed; the Excel export has a **Par Basis** column saying the same. You can search, filter to one distributor, and **download the report as an Excel file** to use as an order sheet.
 
 > Par levels apply to distributors (the field sites you replenish), not to Home Office — Home Office is the warehouse you reorder into.
 
