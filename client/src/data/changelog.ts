@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.51',
+    date: '2026-10-08',
+    changes: [
+      'Fixed: the five Telescopic Lag Screws (PFL-T085 to PFL-T110) were showing as "Unknown" in the "Other" category in every report. They now show their correct name and group under Lag Screw',
+      'Stock by Item Number has a new Location filter — pick Home Office or a single distributor to see just their stock, and the Excel export matches whatever you pick',
+      'Usage by Item Number is now grouped by product category, with the most-used items listed first in each group and a total for every item across all distributors. Added a category filter; the per-distributor columns have been removed',
+    ],
+  },
+  {
     version: '3.50',
     date: '2026-10-06',
     changes: [
@@ -36,13 +45,6 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       'Added project README with setup instructions, architecture diagram, and local development guide',
       'ESLint now enforces security rules (no-eval, no-implied-eval) across both workspaces',
-    ],
-  },
-  {
-    version: '3.46',
-    date: '2026-07-31',
-    changes: [
-      'Added Telescopic Lag Screw products (PFL-T085 through PFL-T110)',
     ],
   },
 ];

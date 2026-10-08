@@ -13,11 +13,11 @@ flowchart LR
     Prisma["Prisma 7"]
     DB[("Supabase\nPostgreSQL")]
     PM2["PM2\n(process mgr)"]
-    nginx["nginx\n(reverse proxy)"]
+    Traefik["Traefik\n(TLS + reverse proxy)"]
     OCR["Tesseract.js\n(in-browser OCR)"]
 
-    Browser -- "httpOnly JWT cookie" --> nginx
-    nginx --> API
+    Browser -- "httpOnly JWT cookie" --> Traefik
+    Traefik --> API
     API --> Prisma --> DB
     PM2 -. manages .-> API
     Browser -. "label photos" .-> OCR
@@ -187,12 +187,31 @@ RLS may be enabled on your project; Prisma connects as the table owner (`postgre
 
 ## Deployment (VPS)
 
-The live site runs on a VPS managed by PM2 behind nginx.
+The live site runs on a VPS, with the Express server managed by PM2 and fronted by Traefik.
+
+### Reverse proxy
+
+Traefik terminates TLS for `inventory.phillyshah.com` and forwards to the PM2-managed Express
+process on `127.0.0.1:3045`. **Traefik's configuration lives on the VPS and is not in this
+repository** — nothing here describes it, so check the server itself before assuming anything
+about routing or middleware.
+
+What has been verified against the live site:
+
+| | |
+|---|---|
+| Protocol | HTTP/2 (Traefik enables it by default) |
+| Request body limit | none at the proxy — Traefik applies no default cap, unlike nginx's 1 MB. A ~3 MB POST reaches Express, so the app's own `10mb` limit on the OCR upload route is the effective ceiling |
+| Compression | gzip, applied by **Express** (`compression` middleware, v3.49), not by the proxy |
+| Static caching | `Cache-Control` headers are set by **Express**, not the proxy — see `server/src/index.ts` |
+
+Because compression and caching are handled in the application rather than at the edge, they
+ship with a normal deploy and need no proxy changes.
 
 **Shortcut alias** (add to `~/.bashrc` or `~/.zshrc` on the VPS):
 
 ```bash
-alias deploy-nail='cd /var/www/summa-inventory && git pull origin main && npm install && npm run build && pm2 restart summa-inventory'
+alias deploy-nail='cd /var/www/summa-inventory && git pull origin main && npm install --include=dev && npm run db:generate --workspace=server && npm run build && pm2 restart summa-inventory'
 ```
 
 **Full manual command:**

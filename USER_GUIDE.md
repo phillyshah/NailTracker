@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.50** | Summa Orthopaedics Inventory Management System
+**Version 3.51** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -464,6 +464,8 @@ Tap the **Stock by Item Number** button to open a detailed matrix view. This is 
 - Tap an **item number** in the leftmost column (or its Total) → see all units of that product across all locations
 - Tap a **specific count** (e.g., the "13" under a distributor's column) → see only that product at that location
 
+Use the **Location** dropdown to narrow the report to a single place — pick **Home Office** to see only what is in stock at Home Office, or any distributor to see only theirs. The Excel download always matches whatever you have selected, so you can send one distributor just their own stock list.
+
 You can also search by item number or description at the top, sort by any column, and download the whole matrix as an Excel file.
 
 ---
@@ -472,7 +474,7 @@ You can also search by item number or description at the top, sort by any column
 
 The Reports page has a **Usage** section with four reports that show what's actually being consumed — useful for planning orders and balancing stock between distributors. Each one has an **Excel** export button.
 
-- **Usage by Item Number** — how many of *each item number* were used, broken down by distributor. Every row is one item number; every column is a distributor; the **Total** column on the right is the company-wide figure for that item. Use the **Year** button to pick a calendar year (this year gives you a year-to-date total; pick a past year for its full-year total), or switch to a rolling **3 / 6 / 12 mo** window. Search by item number or description, tap any column header to sort, and tap a number to see those exact units in Inventory. This is the report to use for "how many of this SKU did we go through this year, and who used them?"
+- **Usage by Item Number** — how many of *each item number* were used in total, grouped by product category (Short Nail, Long Nail, Lag Screw, Interlocking Screw, Cap Screw, Set Screw). Within each category the **most-used items are listed first**, so the biggest movers are at the top of their group. Each item shows one quantity: the total used across **all** distributors — this report intentionally does not break usage down by distributor. Use the **Year** button to pick a calendar year (this year gives you the year to date; pick a past year for its full-year total), or switch to a rolling **3 / 6 / 12 mo** window. Use the **category** dropdown to look at just one product type — e.g. to see which lag screws move most. Search by item number or description, tap an item to see those units in Inventory, and export the whole thing to Excel (the export follows whichever period and category you have selected).
 - **Monthly Usage Report** — pick *any* month and (optionally) a distributor to get a full itemized statement: every product used that month, grouped by distributor, with quantities, subtotals, and a grand total. This is your go-to "what did we use in May?" report.
 - **Usage Trends** — units consumed each month by product category (Short Nail, Long Nail, Lag Screw, Interlocking Screw, Cap Screw, Set Screw) over the last 3, 6, or 12 months. A bar chart shows the monthly totals; the table breaks it down by category. Filter to one distributor to see just their usage.
 - **Usage by Distributor** — a grid with product categories down the side and distributors across the top, showing how many of each were used over the window. Quickly compares who uses what.

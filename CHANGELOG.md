@@ -1,5 +1,37 @@
 # Changelog
 
+## v3.51 — 2026-10-08
+Report filters, a restructured Usage by Item, and a catalogue bug that was misfiling five products.
+
+### Fixed — Telescopic Lag Screws were "Unknown" in every report
+The GTIN catalogue is duplicated: `client/src/utils/gtin-map.ts` drives scanning, `server/src/utils/gtin-map.ts` drives every report. The five Telescopic Lag Screws added in v3.46 went into the **client copy only**. The server therefore resolved them as `Unknown — GTIN: 9454785` in the `Other` category — in Usage Trends, Usage by Distributor, Monthly Usage, Stock by Item, the Reorder Report and Usage by Item — for two months, silently.
+
+`server/src/utils/gtin-map.ts` now carries the five products (`PFL-T085`…`PFL-T110`), the `PFL-T` extraction pattern, the category mapping and the `parseRefCode` handler. The legacy `SO-SPFL-T` form still resolves, so old scans are unaffected.
+
+**`server/src/utils/gtin-map.catalogue.test.ts` (new)** parses the GTIN keys out of *both* catalogue files and fails if they diverge, naming the consequence. Verified to fail when an entry is removed. Inelegant — it reads a sibling workspace's source as text — but it is what turns this class of drift from silent into loud. Delete it if the catalogues are ever merged into one shared module.
+
+### Stock by Item Number — location filter
+- A **Location** dropdown: *All locations* (unchanged default), *Home Office*, or any distributor. Selecting one narrows the table to that column and the **Excel export follows the same filter**, so a single distributor's stock list can be sent on its own. The export filename includes the location.
+- Applied in the Prisma `where` (`distributorId: null` for Home Office) rather than filtered afterwards, so a single-location report also scans fewer rows.
+- The **Total** column is hidden when one location is selected, where it would merely repeat that column.
+- `getStockByItemExportUrl` was hand-rolled and took no arguments; it now uses the shared `exportUrl()` helper like every other export wrapper.
+
+### Usage by Item Number — restructured
+Replaces the v3.50 item × distributor pivot:
+- **Grouped by product category**, in catalogue order (`PRODUCT_CATEGORIES`), not by volume — so the report reads the same way every time.
+- **Most-used items first within each category**, with the item number breaking ties for a stable order.
+- **One total per item across all distributors.** The per-distributor columns are gone by design: this report answers "how many did we go through", not "who used them".
+- **Category filter** to look at one product type — e.g. which lag screws move most.
+- Only items with usage appear; a category nobody used is omitted entirely.
+- Excel export follows the grouped shape used by Monthly Usage: flat rows with a Category column, a bold subtotal per category, and a bold grand total.
+- `buildItemMatrix` is replaced by `buildItemTotals` in `server/src/utils/usageReport.ts`.
+
+### Also
+- Memoized the `?? []` defaults in `StockByItem.tsx` that were defeating its `useMemo`/`useSortable` memos — the pattern CLAUDE.md warns about. Lint warnings 51 → 48.
+
+No schema change and no SQL.
+
+
 ## v3.50 — 2026-10-06
 New report: Usage by Item Number.
 
@@ -113,9 +145,26 @@ time: re-run the `pg_stat_user_indexes` query and compare against the counts abo
 have stalled while the `InventoryItem_live_*` indexes climb, the drop becomes evidence-backed.
 `InventoryItem_usageTicketId_idx` showed 0 scans and is worth including in that same recheck.
 
-### Also worth doing on the VPS (nginx, not in this release)
-- `client_max_body_size 10m;` — nginx defaults to 1 MB but the server accepts 10 MB for OCR uploads, so OCR Training photo uploads are likely failing with 413 before Express sees them.
-- `http2 on;` — now materially more valuable, since the bundle is split into many small chunks.
+### ~~Also worth doing on the VPS (nginx, not in this release)~~ — withdrawn, see below
+- ~~`client_max_body_size 10m;` — nginx defaults to 1 MB but the server accepts 10 MB for OCR uploads, so OCR Training photo uploads are likely failing with 413 before Express sees them.~~
+- ~~`http2 on;` — now materially more valuable, since the bundle is split into many small chunks.~~
+
+### Correction (2026-10-07) — neither nginx item applies
+
+**There is no nginx on the VPS.** The reverse proxy is **Traefik**, which terminates TLS and
+forwards to the PM2-managed Express process on `127.0.0.1:3045`. Both recommendations above were
+derived from `nginx.conf.example` in this repo — a template for a deployment that was never
+stood up. That file has been deleted and `README.md` now documents the real topology.
+
+- **The body-limit item was never a bug.** Traefik applies no default request body cap, unlike
+  nginx's 1 MB. Verified against the live site: a ~3 MB POST to `/api/ocr-training` returns
+  **401** (missing auth), not **413** — so the body reaches Express intact and the app's own
+  `10mb` route limit is the effective ceiling. OCR Training uploads were never being blocked.
+- **The HTTP/2 item was already satisfied.** Traefik serves HTTP/2 by default, which is why the
+  verification `curl` in this release returned `HTTP/2 200`.
+
+Compression and `Cache-Control` are applied by Express (see this release's entries), not at the
+proxy, so they took effect on deploy with no proxy configuration required.
 
 
 ## v3.48 — 2026-08-13
