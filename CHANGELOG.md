@@ -1,5 +1,556 @@
 # Changelog
 
+## v3.53 — 2026-10-10
+**Order Planner** (TrackerLabs, admin-only) — manufacturer purchasing on a 6-12 month lead time, plus a fix to the usage-rate arithmetic. Schema change: new `OpenOrder` table (SQL below).
+
+### Why this is not the Reorder Report
+The Reorder Report compares each *distributor's* shelf to a par over a few weeks and excludes Home Office. A manufacturer order has a 6-12 month lead time and lands *in* Home Office. Different scope, horizon and failure mode, so it is separate code (`server/src/utils/orderPlan.ts`), not a flag on the existing report.
+
+### Why it is driven by typed assumptions, not a forecast
+The product line is new: a few months of history spread over ~110 SKUs, so the modal SKU cell is zero. Fitting a demand curve per SKU to that is self-deception. What is reliable:
+
+- **Procedure volume** — the sales team knows it; the database does not. So it is typed in.
+- **Companion ratios** — one case consumes one nail and a near-fixed set of screws. A ratio has *one* parameter and converges in a few dozen cases, where a per-SKU size curve has twenty and needs hundreds. So companion demand is exploded from case volume, never forecast from its own sparse history. One usage ticket = one surgical case (confirmed with the user), which is what makes this measurable.
+- **Size mix** — pooled across the whole network, not per distributor. The size a patient needs does not depend on who supplies it.
+
+### How a suggestion is computed
+`horizon = lead time + cover` → `nails = cases/month × horizon` → split short/long by the observed share → companions = `nails × ratio` → each category split across sizes by the observed mix → `gap = required − on hand − on order` → capped by `shelf life × demand/month`.
+
+The **shelf-life cap** is what stops the plan degenerating into "order more of everything" on the tail: there is no point buying four of a size that will see one use before it expires. Capped rows are flagged in the UI and the export.
+
+### Honest about its own evidence
+- **Companion ratios are reported as a LOWER bound.** A usage-ticket line whose unit was not in recorded stock is dropped rather than consumed, so a case whose screws were missing logs the nail alone. The screen says so rather than presenting the ratio as fact.
+- **Under 20 cases, the screen says the size mix is the weakest part of the plan** and to treat the category totals as the real output.
+- **A catalogue size never used gets no suggestion.** Holding one for set completeness is a service-level decision, not a forecast, so the planner counts them and says so instead of inventing demand.
+- The Excel export carries a second **Assumptions** sheet listing every input and where it came from. A plan read six months later without them is unauditable.
+
+### Usage-rate fix (affects par levels too)
+`units / windowMonths` divided by the *nominal* look-back window regardless of how much history an item had — so six units from an item first used last month read as 2/month against a 3-month window when the real rate is 6. On a ramping line that understated demand systematically, and it fed `resolvePar`, so a months-of-cover par under-ordered exactly when getting it right matters most. Now in `server/src/utils/usageRate.ts`: divide by the months an item has actually been observed, measured from first use to **now** (not to its last use, so a genuinely dormant item still reads as slow), floored at 1 so a busy fortnight is not extrapolated into a permanent demand step. Both call sites in `parlevel.controller.ts` use it.
+
+### Open orders
+A deliberately minimal `OpenOrder` table: one typed quantity per item number, optional expected date and note. Not a purchase-order subsystem — just enough for the plan to net out what is already coming instead of re-ordering it. Edit it inline in the plan table; 0 clears the row.
+
+### Endpoints
+`GET /api/order-plan` (assumptions as query params — nothing is stored, so the screen re-plans freely), `GET /api/order-plan/basis`, `GET /api/order-plan/export`, `GET|PUT /api/order-plan/open-orders`. All behind `authMiddleware` + `adminOnly`, like Par Levels.
+
+### SQL to run in Supabase
+Additive — a new table only, nothing existing is touched. The planner treats a missing row as zero on order, so running this before or after the deploy is equally safe.
+
+```sql
+CREATE TABLE IF NOT EXISTS "OpenOrder" (
+  "id"         TEXT NOT NULL,
+  "itemNumber" TEXT NOT NULL,
+  "quantity"   INTEGER NOT NULL DEFAULT 0,
+  "expectedAt" TIMESTAMP(3),
+  "note"       TEXT,
+  "createdAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "OpenOrder_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "OpenOrder_itemNumber_key" ON "OpenOrder"("itemNumber");
+```
+
+### Tests
+`server`: 239 passing (26 new for `orderPlan`, 9 for `usageRate`). `client`: 72 passing. Lint 0 errors / 48 warnings (baseline). `tsc -p server` is now **0 errors** — the 35-error baseline was the Prisma client being ungenerated; `npm run db:generate` succeeds in this container, so compare against 0 from here on.
+
+## v3.52 — 2026-10-08
+Par levels can be expressed as **months of cover** instead of a fixed quantity (schema change — see SQL below).
+
+### Why
+A flat par ("keep 10") has to be guessed and then maintained by hand as demand shifts. Expressing it as cover ("hold 12 months") lets the quantity be derived from each item's actual consumption and stay in step on its own.
+
+### How it works
+- **`ParLevel.coverMonths`** (new, nullable). A row is EITHER a fixed `minStock` OR a `coverMonths`; when cover is set it wins. Existing pars are untouched — `NULL` means "use minStock".
+- **Resolution is per item, per distributor, at report time** (`resolvePar` in `server/src/utils/parLevels.ts`): `ceil(usagePerMonth × coverMonths)`, against that specific item-and-distributor's own rate. So one "12 months" entry on a *category* gives every SKU at every distributor a par sized to its own demand — and it keeps tracking demand rather than going stale.
+- **A cover par with no usage history yields no par at all**, deliberately. With no demand signal there is nothing to infer, and silently resolving to 0 would drop the item off the Reorder Report with no indication. Use a fixed quantity for brand-new products.
+- `effectivePar` is retained as a thin wrapper over `resolvePar` for callers that only want the number, so its existing tests stay meaningful.
+
+### Par Levels screen
+- An **Enter pars as: Quantity / Months of cover** switch governs what the next number you type means. Saved rows keep their own basis, so flipping it never reinterprets an existing par.
+- Each box carries a caption saying what its number actually means — `10 units`, or `12 mo ≈ 24 units (2/mo)` — computed live as you type. Without it, a bare "12" is ambiguous between twelve units and twelve months.
+- A **group** box in cover mode says *"each size sized from its own usage"* rather than a quantity. An earlier draft averaged the rate across the group and showed a single number; that was actively misleading, because most sizes have little usage and the average collapsed toward zero (2/mo became 0.1/mo in testing). A group cover par genuinely has no single quantity.
+- New `GET /api/par-levels/usage` supplies the rates for the preview — per item+distributor, plus a per-item average across *field* distributors (Home Office excluded, as it never carries a par).
+
+### Reorder Report
+- A cover-derived par carries a **"12 mo"** tag, so a moving number isn't mistaken for one somebody typed.
+- The Excel export gains a **Par Basis** column (`Fixed quantity` / `N months cover`), so the sheet explains itself away from the app.
+
+### SQL to run in Supabase
+Additive and nullable, so it is safe to run before or after the deploy — existing pars keep working either way.
+
+```sql
+ALTER TABLE "ParLevel" ADD COLUMN IF NOT EXISTS "coverMonths" INTEGER;
+```
+
+Also recorded at `server/prisma/migrations/0012_par_cover_months/migration.sql`. **This release needs `npm run db:generate` on deploy** (the schema changed), which the documented deploy command already includes.
+
+
+## v3.51 — 2026-10-08
+Report filters, a restructured Usage by Item, and a catalogue bug that was misfiling five products.
+
+### Fixed — Telescopic Lag Screws were "Unknown" in every report
+The GTIN catalogue is duplicated: `client/src/utils/gtin-map.ts` drives scanning, `server/src/utils/gtin-map.ts` drives every report. The five Telescopic Lag Screws added in v3.46 went into the **client copy only**. The server therefore resolved them as `Unknown — GTIN: 9454785` in the `Other` category — in Usage Trends, Usage by Distributor, Monthly Usage, Stock by Item, the Reorder Report and Usage by Item — for two months, silently.
+
+`server/src/utils/gtin-map.ts` now carries the five products (`PFL-T085`…`PFL-T110`), the `PFL-T` extraction pattern, the category mapping and the `parseRefCode` handler. The legacy `SO-SPFL-T` form still resolves, so old scans are unaffected.
+
+**`server/src/utils/gtin-map.catalogue.test.ts` (new)** parses the GTIN keys out of *both* catalogue files and fails if they diverge, naming the consequence. Verified to fail when an entry is removed. Inelegant — it reads a sibling workspace's source as text — but it is what turns this class of drift from silent into loud. Delete it if the catalogues are ever merged into one shared module.
+
+### Stock by Item Number — location filter
+- A **Location** dropdown: *All locations* (unchanged default), *Home Office*, or any distributor. Selecting one narrows the table to that column and the **Excel export follows the same filter**, so a single distributor's stock list can be sent on its own. The export filename includes the location.
+- Applied in the Prisma `where` (`distributorId: null` for Home Office) rather than filtered afterwards, so a single-location report also scans fewer rows.
+- The **Total** column is hidden when one location is selected, where it would merely repeat that column.
+- `getStockByItemExportUrl` was hand-rolled and took no arguments; it now uses the shared `exportUrl()` helper like every other export wrapper.
+
+### Usage by Item Number — restructured
+Replaces the v3.50 item × distributor pivot:
+- **Grouped by product category**, in catalogue order (`PRODUCT_CATEGORIES`), not by volume — so the report reads the same way every time.
+- **Most-used items first within each category**, with the item number breaking ties for a stable order.
+- **One total per item across all distributors.** The per-distributor columns are gone by design: this report answers "how many did we go through", not "who used them".
+- **Category filter** to look at one product type — e.g. which lag screws move most.
+- Only items with usage appear; a category nobody used is omitted entirely.
+- Excel export follows the grouped shape used by Monthly Usage: flat rows with a Category column, a bold subtotal per category, and a bold grand total.
+- `buildItemMatrix` is replaced by `buildItemTotals` in `server/src/utils/usageReport.ts`.
+
+### Also
+- Memoized the `?? []` defaults in `StockByItem.tsx` that were defeating its `useMemo`/`useSortable` memos — the pattern CLAUDE.md warns about. Lint warnings 51 → 48.
+
+No schema change and no SQL.
+
+
+## v3.50 — 2026-10-06
+New report: Usage by Item Number.
+
+- **Usage by Item Number (`/reports/usage-by-item`)** — units consumed per item number (rows) × distributor (columns), with a company-wide **Total** per item. This fills a real gap: the existing usage reports aggregate by product *category* (`buildTrends`/`buildMatrix` both call `getProductCategory`), and the only item-level report, Monthly Usage, covers a single month — so "how many of this SKU did we use this year, and who used them" could not be answered. One pivot answers both halves of that question: read the Total column for the company-wide figure, read across for the per-distributor split.
+- **Period controls** — a calendar **Year** picker (this year = year-to-date; a past year = its full-year total) *or* the rolling 3/6/12-month window the other usage reports use. The two are mutually exclusive by construction, so only one period is ever in effect.
+- **Server (`utils/usageReport.ts`, `controllers/reports.controller.ts`)** — new pure helpers `yearBounds(year)` (UTC half-open bounds, matching the existing `monthBounds` convention) and `buildItemMatrix`, which mirrors `buildMatrix` but keys rows on the SKU. Rows group by `gtinShort` and are labelled with the item number, falling back to the gtinShort when unresolvable — the same approach as `buildStockRows`. Endpoints `GET /api/reports/usage-by-item` and `/usage-by-item/export` (xlsx), both inheriting the router's existing `authMiddleware` + `denyDistributor`.
+- **Client (`pages/UsageByItem.tsx`)** — sortable on every column including each distributor, searchable by item number or description, a top-10 bar strip, drill-through to Inventory on any non-zero cell, mobile cards plus desktop matrix, and an Excel export. Footer totals are computed from the *visible* rows, so they stay consistent when a search narrows the table.
+
+No schema change and no SQL — this reads existing columns (`usedAt`, `deletedAt`, `gtinShort`, `rawBarcode`, `distributorId`) and is covered by the `InventoryItem_used_window_idx` index added in v3.49.
+
+
+## v3.49 — 2026-10-05
+Reports crash fix plus a system-wide performance pass (schema change — see SQL below).
+
+### Fixes
+- **Reports crash on an unexpected API response (`client/src/utils/asArray.ts`, 5 API modules)** — `const { data: xs = [] } = useQuery(...)` only falls back when the value is `undefined`, so a `null` or non-array payload passed the default straight into `.map()` and took the page down. Reproduced in a headless browser: `{data:null}` gave `Cannot read properties of null (reading 'map')`, a non-array object gave `r.map is not a function`. The pattern existed at 17 call sites, so it is now normalised once at the API boundary via `asArray()`.
+- **Error screen is now diagnosable (`components/ErrorBoundary.tsx`)** — shows the error *name* (a SyntaxError and a TypeError point at completely different causes), the React component stack, app version and route, plus a **Copy error details** button.
+- **Expiry query fired while logged out (`context/NotificationContext.tsx`)** — the guard was `user?.role !== 'distributor'`, which is `true` when `user` is `null`, so the request fired unauthenticated on every cold load and permanently on the login screen, 401ing and retrying.
+- **`ecosystem.config.js` → `.cjs`** — the file uses `module.exports`, but `"type": "module"` was added to the root `package.json` in v3.47, so Node parses it as ESM. It happens to work on Node 22 (CommonJS syntax detection) but **not on Node 20, which is what the VPS runs** — meaning the `pm2 start ecosystem.config.js` recovery path would fail after a reboot.
+
+### Performance
+- **Response compression (`server/src/index.ts`)** — nothing in the stack compressed anything. The client bundle alone goes **969 kB → 262 kB** (73%); every JSON report payload benefits equally.
+- **Cache headers (`server/src/index.ts`)** — `/assets` (content-hashed by Vite) is now `max-age=1y, immutable`; unhashed public files get 1h; `index.html` is `no-cache` so deploys always land.
+- **Scanner library deferred (`utils/barcodeDetector.ts`, `components/BarcodeScanner.tsx`)** — `html5-qrcode` imports the entire zxing UMD via a namespace import that cannot tree-shake: **369 kB raw / 107 kB gzip, 39% of the bundle** — for a library that is only the fallback after the native `BarcodeDetector` API, used on scan screens only. Now loaded on demand.
+- **Route-level code splitting (`App.tsx`, `vite.config.ts`)** — 24 routes moved to `React.lazy` behind a `<Suspense>` boundary in `Layout`, with a stable react/query vendor chunk. Admin-only TrackerLabs pages and the reports sub-pages no longer ship to every user. Measured first load for `/reports`: **969 kB → 425 kB of JavaScript**.
+- **Stopped sending label photos with list data (9 queries)** — `imageData` holds a base64 photo per unit. Two call sites already excluded it deliberately; nine did not, including the unpaginated `GET /api/reports/expiring`. Now `omit`ed everywhere except the JSON backup, where images are the point.
+- **`stock-by-item` aggregates in SQL (`reports.controller.ts`, `utils/stockReport.ts`)** — was fetching one row per physical unit to build a pivot of SKUs × locations, roughly an 80× over-fetch. Now a `groupBy`, with the pivot extracted into a unit-tested pure helper shared by the JSON and xlsx variants.
+- **Point-in-time holdings (`holdings.controller.ts`)** — was filtering history by `itemId: { in: [...every id...] }`, a multi-hundred-kB statement that also forced the two queries to run in series. Now bounded by date and run in parallel.
+- **Row ceilings** — `expiring` and the distributor report are capped at 5,000 rows. Deliberately *not* applied to holdings, where truncation would produce wrong totals rather than partial ones.
+- **Scoped the 10 MB body limit** to the two routes that need it, rather than every endpoint.
+- **Connection pool (`utils/prisma.ts`)** — added `keepAlive` (idle sockets to Supabase were being silently reaped, surfacing as intermittent "Connection terminated unexpectedly") plus explicit pool and statement timeouts.
+
+### SQL to run in Supabase (after deploy; indexes are additive and safe on live data)
+
+Run each statement **on its own** — `CREATE INDEX CONCURRENTLY` cannot run inside a transaction block, and the SQL Editor wraps multi-statement scripts in one.
+
+**First, confirm what actually exists.** The migration history has drifted from production (`User.distributorId` was added by hand and never recorded), so the schema is not evidence of the live index set:
+
+```sql
+SELECT tablename, indexname, indexdef FROM pg_indexes
+WHERE schemaname = 'public' ORDER BY tablename, indexname;
+
+SELECT relname, indexrelname, idx_scan FROM pg_stat_user_indexes
+WHERE relname = 'InventoryItem' ORDER BY idx_scan;
+```
+
+Then apply `server/prisma/migrations/0011_perf_indexes/migration.sql`. In short:
+
+```sql
+-- Live-stock partial indexes. deletedAt/usedAt are the least selective columns
+-- in the table, so a plain btree on them cannot help; restricting the index to
+-- live rows is what makes these queries index-usable.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_live_dist_idx"
+  ON "InventoryItem" ("distributorId") WHERE "deletedAt" IS NULL AND "usedAt" IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_live_match_idx"
+  ON "InventoryItem" ("gtinShort", "lot", "distributorId") WHERE "deletedAt" IS NULL AND "usedAt" IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_live_exp_idx"
+  ON "InventoryItem" ("expDate") WHERE "deletedAt" IS NULL AND "usedAt" IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_live_gtin_idx"
+  ON "InventoryItem" ("gtinShort") WHERE "deletedAt" IS NULL AND "usedAt" IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_used_window_idx"
+  ON "InventoryItem" ("usedAt", "distributorId") WHERE "deletedAt" IS NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "InventoryItem_createdAt_idx"
+  ON "InventoryItem" ("createdAt");
+
+-- The daily TRF-/USE-/AUD- id generators do LIKE 'prefix%' on the write path;
+-- under the default collation a plain btree cannot serve that.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "Transfer_transferId_pattern_idx"
+  ON "Transfer" ("transferId" text_pattern_ops);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "UsageTicket_ticketId_pattern_idx"
+  ON "UsageTicket" ("ticketId" text_pattern_ops);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "AuditSession_auditId_pattern_idx"
+  ON "AuditSession" ("auditId" text_pattern_ops);
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "AssignmentHistory_itemId_changedAt_idx"
+  ON "AssignmentHistory" ("itemId", "changedAt");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "AssignmentHistory_changedAt_idx"
+  ON "AssignmentHistory" ("changedAt");
+
+-- Only after the creates succeed. Each is redundant by STRUCTURE, not by usage
+-- statistics: the first four duplicate a UNIQUE index on the same column, and
+-- the fifth is a strict prefix of the composite created above. Nothing can
+-- regress. (Do NOT drop InventoryItem_deletedAt_idx / _usedAt_idx -- see the
+-- correction note below.)
+DROP INDEX CONCURRENTLY IF EXISTS "Transfer_transferId_idx";
+DROP INDEX CONCURRENTLY IF EXISTS "UsageTicket_ticketId_idx";
+DROP INDEX CONCURRENTLY IF EXISTS "AuditSession_auditId_idx";
+DROP INDEX CONCURRENTLY IF EXISTS "OcrAlias_token_idx";
+DROP INDEX CONCURRENTLY IF EXISTS "AssignmentHistory_itemId_idx";
+```
+
+### Correction (2026-10-05, after applying the above)
+
+An earlier revision of this SQL block, and of `0011_perf_indexes/migration.sql`, also told you
+to drop `InventoryItem_deletedAt_idx` and `InventoryItem_usedAt_idx`. **That was wrong**, and
+production statistics caught it before the drops were run:
+
+```
+InventoryItem_deletedAt_idx   idx_scan =  70
+InventoryItem_usedAt_idx      idx_scan = 229
+```
+
+The argument for dropping them was that `deletedAt IS NULL` matches nearly every live row, so a
+btree on that column cannot be used profitably. That holds for the `IS NULL` filter — but not
+for the *range* queries. The usage reports filter `usedAt >= <window start>`, and because most
+rows have `usedAt IS NULL` that predicate is highly selective, so Postgres uses the index
+precisely where it pays off. Dropping them would have quietly slowed the usage reports.
+
+Both indexes remain in production. They may still be superseded by the new partial indexes over
+time: re-run the `pg_stat_user_indexes` query and compare against the counts above — if these two
+have stalled while the `InventoryItem_live_*` indexes climb, the drop becomes evidence-backed.
+`InventoryItem_usageTicketId_idx` showed 0 scans and is worth including in that same recheck.
+
+### ~~Also worth doing on the VPS (nginx, not in this release)~~ — withdrawn, see below
+- ~~`client_max_body_size 10m;` — nginx defaults to 1 MB but the server accepts 10 MB for OCR uploads, so OCR Training photo uploads are likely failing with 413 before Express sees them.~~
+- ~~`http2 on;` — now materially more valuable, since the bundle is split into many small chunks.~~
+
+### Correction (2026-10-07) — neither nginx item applies
+
+**There is no nginx on the VPS.** The reverse proxy is **Traefik**, which terminates TLS and
+forwards to the PM2-managed Express process on `127.0.0.1:3045`. Both recommendations above were
+derived from `nginx.conf.example` in this repo — a template for a deployment that was never
+stood up. That file has been deleted and `README.md` now documents the real topology.
+
+- **The body-limit item was never a bug.** Traefik applies no default request body cap, unlike
+  nginx's 1 MB. Verified against the live site: a ~3 MB POST to `/api/ocr-training` returns
+  **401** (missing auth), not **413** — so the body reaches Express intact and the app's own
+  `10mb` route limit is the effective ceiling. OCR Training uploads were never being blocked.
+- **The HTTP/2 item was already satisfied.** Traefik serves HTTP/2 by default, which is why the
+  verification `curl` in this release returned `HTTP/2 200`.
+
+Compression and `Cache-Control` are applied by Express (see this release's entries), not at the
+proxy, so they took effect on deploy with no proxy configuration required.
+
+
+## v3.48 — 2026-08-13
+Fixes the blank-screen crash on "View ticket" after recording usage.
+
+- **Blank screen on usage/transfer detail (`pages/UsageDetail.tsx`, `pages/TransferDetail.tsx`)** — both pages called the `useSortable` hook *after* their `isLoading` / `error` early returns. On mount the query is pending, so the component returned early having run fewer hooks; when the data arrived the next render ran three more (`useState` ×2, `useMemo`). React rejects a changing hook count and threw **"Rendered more hooks than during the previous render"**, and with no error boundary in the tree React unmounted the entire app — the blank page users got stuck on after pressing **View ticket**. Both pages now run every hook before any conditional return, deriving items from `ticket?` / `transfer?` so the call is safe while the query is pending.
+- **`react-hooks/rules-of-hooks` enforced (`eslint.config.js`)** — added `eslint-plugin-react-hooks` and turned this rule on as a hard **error** for `client/src`. It flags the exact defect above ("Did you accidentally call a React Hook after an early return?"), so this class of crash can no longer reach `main`. `exhaustive-deps` is enabled as a warning.
+- **Error boundary (`components/ErrorBoundary.tsx`)** — new boundary wrapping the routed `<Outlet />` in `Layout`. Any future render crash now shows a "This page didn't load" screen with **Try again** / **Go to home** instead of a white page, and because it wraps only the page content the header and navigation stay mounted — the user is never stuck having to close the app. Navigating to another route clears the error automatically.
+
+No schema changes. No SQL needed.
+
+## v3.47 — 2026-08-10
+README, ESLint security rules, and TypeScript strict extras.
+
+- **README (`README.md`)** — new project README with setup instructions, Mermaid architecture diagram, environment variable table, project structure, available scripts, database schema overview, and VPS deployment guide.
+- **ESLint flat config (`eslint.config.js`)** — `no-eval` + `no-implied-eval` enforced as hard errors across both workspaces; `typescript-eslint` recommended rules wired in; `lint` scripts added to root, client, and server `package.json`. Zero lint errors.
+- **TypeScript strictness (`tsconfig.base.json`)** — added `noImplicitReturns` and `noFallthroughCasesInSwitch`; fixed the one real code path in `roles.ts` that was missing a `return`.
+
+No schema changes. No SQL needed.
+
+## v3.46 — 2026-07-31
+Added Telescopic Lag Screw products (PFL-T085 through PFL-T110) to the GTIN catalog.
+
+- **New products** — five Telescopic Lag Screw sizes (85 mm, 90 mm, 100 mm, 105 mm, 110 mm) added to `gtin-map.ts`: GTIN short codes, REF codes (`PFL-T085` … `PFL-T110`), display labels, and OCR pattern matching.
+- Non-sterile barcode format (AI 11 production date) already handled by the existing `parseRawStream` parser — no parser changes needed.
+
+No schema changes. No SQL needed.
+
+## v3.45 — 2026-06-23
+OCR accuracy, a Transfer photo tab, and an admin OCR Training lab (schema change — see SQL below).
+
+- **OCR accuracy (`client/src/utils/ocrBarcode.ts`, `gtin-map.ts`)** — rebuilt the image preprocessing pipeline: small crops are upscaled, then grayscale → contrast-stretch → Bradley **adaptive (local) threshold** (with an Otsu global fallback), replacing the old fixed global cutoff that failed on uneven lighting. Tesseract now runs via a reused worker configured **PSM 6 / OEM 1** with a REF/lot/date character whitelist. The matcher gained extra OCR character folds (D→0, G→6, T→7, plus the existing O/I/S/B/Z) and a deterministic single-error **Levenshtein** fallback (unique match only — ties rejected). Pure pixel/matcher helpers are unit-tested; a guard test asserts the catalog stays collision-free under the new folds.
+- **Transfer → "Take / Upload Photo" tab (`pages/Transfer.tsx`)** — a fourth transfer mode that reuses the Scan OCR path (Take Photo / Upload Photo / Live Scan / Batch Photos) and feeds the shared staged-preview + commit flow. `canReviewTransfer` extended to gate the new mode.
+- **OCR Training lab (`/labs/ocr-training`, admin/Beta)** — batch-upload label photos, see the raw OCR text + parsed REF/lot/expiry, and confirm/correct each. Confirmed corrections persist as `OcrAlias` rows; the client loads the alias overlay at boot (`AuthContext`) and the matcher consults it to resolve mis-reads it would otherwise miss. **This is not model retraining** — it's a growing correction dictionary + (via `export-fixtures`) a Vitest corpus. New `OcrTrainingSample` + `OcrAlias` tables, `routes/ocr-training.ts` + `controllers/ocrTraining.controller.ts` (alias reads open to any authed user; writes admin-only), pure `deriveAliases` helper with tests. `express.json` limit raised to 10 mb for single-image uploads.
+
+### SQL to run in Supabase (before/with deploy)
+```sql
+CREATE TABLE "OcrTrainingSample" (
+    "id" TEXT NOT NULL,
+    "imageData" TEXT NOT NULL,
+    "rawText" TEXT NOT NULL,
+    "parsedJson" JSONB NOT NULL,
+    "correctedJson" JSONB,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "createdBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "OcrTrainingSample_pkey" PRIMARY KEY ("id")
+);
+CREATE TABLE "OcrAlias" (
+    "id" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "canonicalRef" TEXT NOT NULL,
+    "source" TEXT NOT NULL DEFAULT 'training',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "OcrAlias_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX "OcrTrainingSample_status_idx" ON "OcrTrainingSample"("status");
+CREATE INDEX "OcrTrainingSample_createdAt_idx" ON "OcrTrainingSample"("createdAt");
+CREATE UNIQUE INDEX "OcrAlias_token_key" ON "OcrAlias"("token");
+CREATE INDEX "OcrAlias_token_idx" ON "OcrAlias"("token");
+```
+> After deploy the VPS build needs the Prisma client regenerated (schema change): `cd server && npx prisma generate --schema=prisma/schema.prisma`.
+
+## v3.44 — 2026-06-19
+New account type: **Distributor** (schema change — see SQL below).
+
+- **Distributor role** — a field-rep login scoped to ONE distributor. They land on a focused home dashboard (`/home`) with three actions — **Cycle Count** (locked to their own shelf), **My Inventory** (read-only, their own stock), **Record Usage** (their own stock only) — and do not see admin nav or other distributors' data.
+- **Schema:** `User.distributorId` (nullable FK → `Distributor`). A distributor account must be linked to a distributor; other roles can't carry one.
+- **Auth:** JWT + login response now include `distributorId`. Users must re-login after deploy to pick it up.
+- **Scoping/guards:** usage + cycle-count controllers reject a distributor acting on another distributor; new `GET /api/inventory/mine` forces the caller's own scope; transfers and reports now reject distributor accounts (`denyDistributor`); the three inline `adminOnly` copies are consolidated into `server/src/middleware/roles.ts`.
+- **UI:** User Management gained the Distributor role + a distributor picker; CycleCount and Usage lock their distributor selector for distributor accounts; the nav and notification bell adapt to the role.
+
+### SQL to run in Supabase (before/with deploy)
+```sql
+ALTER TABLE "User" ADD COLUMN "distributorId" TEXT;
+ALTER TABLE "User" ADD CONSTRAINT "User_distributorId_fkey"
+  FOREIGN KEY ("distributorId") REFERENCES "Distributor"("id")
+  ON DELETE SET NULL ON UPDATE CASCADE;
+CREATE INDEX "User_distributorId_idx" ON "User"("distributorId");
+```
+
+## v3.43 — 2026-06-19
+New TrackerLabs feature: Who Has What.
+
+- **Who Has What (`/labs/who-has-what`, admin/Beta)** — who holds each item, grouped by distributor (with per-location counts), plus a point-in-time **"As of a date"** mode that reconstructs holdings from assignment history. Search + Excel export.
+- **Point-in-time caveat (documented in-app):** `AssignmentHistory` is not a complete ledger — items first received to Home Office and direct deletes write no history row — so `holdingsAsOf` resolves a past location from placement history when available and otherwise falls back to the item's current location (correct for items that never moved). Usage/removal history rows (identified by note) are not treated as placements.
+- New pure helper `server/src/utils/holdings.ts` (`holdingsAsOf`, `groupHoldings`) with 8 unit tests; `controllers/holdings.controller.ts` + `routes/holdings.ts` mounted at `/api/holdings` (auth + admin). Client `pages/labs/WhoHasWhat.tsx` + `api/holdings.ts`, linked from the TrackerLabs hub.
+
+## v3.42 — 2026-06-19
+New TrackerLabs feature: Inventory Backup.
+
+- **Inventory Backup (`/labs/inventory-backup`, admin/Beta)** — download a backup of inventory received over an arbitrary window (Last 6 months / Last year / All time / custom from–to). The window filters on each item's `createdAt` and **includes items since used, transferred, or removed**, so the export is a faithful record of what was received in the period.
+- **Two formats:** an **Excel** workbook (Item #, Product, GTIN, Lot, Expiry, Current Status, Current Location, and the created/assigned/used/removed dates) for reading, and a **JSON** snapshot (every `InventoryItem` field + full assignment history) for archiving. JSON supports `?includeImages=false` to drop base64 photo data. (Re-import/restore is out of scope — the JSON is a snapshot only.)
+- New `server/src/controllers/backup.controller.ts` + `routes/backup.ts` mounted at `/api/backup` (auth + admin). Client page `client/src/pages/labs/InventoryBackup.tsx` + `api/backup.ts`, linked from the TrackerLabs hub. Reuses the ExcelJS export pattern and token-in-URL download convention.
+
+## v3.41 — 2026-06-17
+UI consistency refactor (the deferred follow-up to v3.40).
+
+- **Shared `Button` component** (`client/src/components/Button.tsx`) with `variant` (primary / secondary / danger / warning) and `size` (sm / md / lg). Ends the hand-rolled padding/size/colour drift across pages. Defaults `type="button"` so a Button inside a `<form>` can't submit by accident.
+- **Shared `SuccessCard`** (`client/src/components/SuccessCard.tsx`) so the Transfer / Usage / Cycle Count "done" screens are identical.
+- **Colour convention applied:** advance/confirm actions are primary-blue everywhere; green is reserved for success/done states only. Migrated the green action buttons (Scan "Add to Inventory", Usage "Consume" ×3, Transfer/Usage/CycleCount confirms) and the divergent header CTAs (Banks, Distributors, Users, ParLevels, Inventory) and back buttons.
+- **Verification:** independent agent review of the full diff (no behaviour/handler/layout-class/`type` dropped, no dead imports). Client build + client 56 tests + server 147 tests + server `tsc --noEmit` all green.
+- Not changed: "Mark as Used" keeps its deliberate solid-amber emphasis; tiny icon/ghost buttons left as-is. `cn` remains plain clsx (Button only accepts layout-only `className`).
+
+## v3.40 — 2026-06-17
+UI consistency: make the primary action discoverable across the staged/multi-step flows.
+
+- **Inline primary CTA at the top of the list, not only a sticky bottom bar.** Following a UI-consistency review, Transfer, Usage, and Cycle Count now render the primary action (Review / Consume / Finish) inline near the top of the staged list in addition to the sticky bar — so it isn't missed below a long list (notably on desktop, where the page scrolls and a 60+ row list pushes a bottom-only button off-screen).
+- **Explain why an action is blocked instead of hiding it.** Transfer's Import-from-Excel and Manual flows show an amber "Pick a To Distributor to continue" hint when items are staged but no destination is chosen (the staged list renders before a destination is required, which made the missing Review button look like a bug). Usage shows "nothing to consume" when no scanned line is in stock.
+- **Cycle Count finish bar** now uses the same sticky offset as Transfer/Usage (`bottom-20 lg:bottom-4`, `z-30`) so it clears the mobile tab bar consistently.
+- Deferred (recommended follow-up from the review): a shared `Button` component to end primary-button padding/size drift, a documented green-vs-primary color convention, a shared SuccessCard for the three "done" screens, and standardized back-button affordance.
+
+## v3.39 — 2026-06-17
+Bug-fix sweep from a full server + client + TrackerLabs/OCR audit. (Builds + suites green: server 147, client 56.)
+
+- **Receive → "Assign to bank" over-assigned by UDI.** It matched on UDI (`gtinShort+lot+expiry`, not unique per unit), so `addItems`' `updateMany({ udi: { in }, bankId: null })` swept in *every* un-banked unit of that product+lot at the site, not just the ones received. `assign` now runs in a single `$transaction` and returns the created item ids; Receive tracks each unit's `serverId` and assigns to a bank by exact `itemIds`. (Also makes assign all-or-nothing, fixing a partial-commit/double-stock risk.)
+- **Inventory list stale after detail reassign.** `InventoryDetail` reassign only invalidated `['inventory-item', id]`; now also invalidates `['inventory']` and `['inventory-all']` so the list and pickers reflect the new distributor.
+- **Reorder Report listed Home Office.** `gatherReorderData` passed all active distributors to `buildReorderRows`; Home Office is now excluded by name, matching the documented "distributors only" rule (and group pars no longer flood the report with Home-Office rows).
+- **OCR dropped duplicate stickers.** `parseLabelsFromText` de-duped on GS1 content, collapsing two identical lot stickers in one photo into one unit. `findRefs` now advances past exactly the matched REF (no overlapping hits), the content de-dup is removed (each REF occurrence = one physical unit), and fields printed above the first REF no longer get claimed.
+- **OCR could store a manufacture date as the expiry.** `findExps` now tags EXP-labeled dates and `chooseExp` prefers a labeled value, otherwise the latest date under the REF — so an `MFG` date above the `EXP` no longer wins.
+- **Verified working (no change):** inventory transfer + audit trail (reassign is transactional with `AssignmentHistory`; `TRF-…` persisted); Excel and Manual transfers share one commit path; Receive photos persist (per-item `imageData`); par 3-tier precedence; audit-commit atomicity + missing re-scoping. Deferred (documented follow-ups): reassign TOCTOU guard, usage-commit snapshot under concurrency, sequential-ID ceiling/race, Inventory page-scoped "select all", bulk partial-failure reporting, audit-route validation schemas.
+
+## v3.38 — 2026-06-17
+Bug fix: Import-from-Excel transfers couldn't be completed.
+
+- **Transfer → Import from Excel: "Review Transfer" button restored.** The `canReview` gate only handled the `pick` and `manual` modes, so in `excel` mode the sticky Review button never rendered and a staged Excel transfer (e.g. "61 Ready") had no way to proceed to Confirm. The gate is now a pure, unit-tested helper `canReviewTransfer({ mode, selectedCount, includedCount, hasDestination })` that covers all three modes (`manual` and `excel` share the staged-preview path). The underlying inventory move + audit trail (`reassign` → `AssignmentHistory` + `createTransfer` → `TRF-…`) were never affected — only the client button gate.
+- Tests: `transferBatch.test.ts` gains `canReviewTransfer` coverage incl. the excel regression. Client suite 53 green; build green.
+- **TrackerLabs landing now links Audit History.** A full feature-parity audit against the user guide found every documented feature implemented and wired; the one gap was that Audit History was only reachable from inside Cycle Count. Added an Audit History card to the Labs hub so it's a peer entry as the guide describes.
+
+## v3.37 — 2026-06-12
+A diagnostic aid for the new label OCR.
+
+- **OCR debug toggle.** Under the photo scanner (Usage / Receive / Transfer) there's now a small **OCR debug** switch. When on, after each Take Photo / Upload Photo it shows the exact raw text Tesseract read, how many labels were parsed from it, and a **Copy** button — so an unreadable sticker can be reported with the actual OCR output to tune the patterns. The setting persists in `localStorage` (`ocrDebug`). `ocrBarcode` exposes `getLastOcrText()` for the panel.
+
+## v3.36 — 2026-06-12
+Usage can now read implant stickers that have **no barcode** — only printed REF / lot / expiry text.
+
+- **OCR label reading.** The photo path (Take Photo / Upload Photo) now extracts the printed label text. When OCR finds Summa REF codes, each is mapped to its GTIN via the catalog and turned into a GS1 string the rest of the pipeline already understands. The REF matcher is fuzzy — it folds the digit/letter pairs Tesseract confuses (O↔0, I↔1, S↔5, B↔8, Z↔2) against the known catalog, so a slightly mis-read `S0-S5OI-SO-O44-T` still resolves to `SO-S50I-SO-044-T`.
+- **Multiple labels per photo.** A single photo of a usage sheet with several stickers now yields several items — each REF heading is paired with the lot and expiry printed beneath it (`parseLabelsFromText`). `detectBarcodesFromImage` returns the full list, and the Usage page adds each one.
+- **Better manual fallback.** When a label won't read, the Usage manual entry now takes **Item number / Lot / Expiry** straight off the sticker (or a pasted full barcode) instead of asking for a barcode that isn't there — built client-side with `buildBarcodeFromFields` and the same catalog mapping. Expiry accepts `2030-10-20`, `10/20/2030`, or `301020`.
+- **Tests:** new `ocrBarcode.test.ts` (single label, 4-label sheet, OCR-confusion tolerance, lot-less skip, no-REF, double-"SO" de-dup) and `buildBarcodeFromFields` cases in `parseGS1.test.ts`. Client suite 50 green; build green.
+
+## v3.35 — 2026-06-12
+Par Levels gains **product-group pars** (admin-only, Beta).
+
+- **Group pars.** The Par Levels editor now organizes items into product groups (Proximal Femur Nail, Lag Screw, Interlocking Screw, Cap Screw, Set Screw). Setting a **Group par** on a group's header applies that minimum to *every* SKU in the group — so an admin can cover the whole catalog with five numbers instead of one per item.
+- **Three-level resolution.** Effective par resolves most-specific-first: a per-distributor item override → the item's own (global) par → the group par. Individual item boxes show the inherited group value as a placeholder. Clearing a field falls back to the level above it. The nail family (Short + Long) is intentionally one group, matching how it's reordered.
+- **Schema:** `ParLevel` gains `scope` (`item` | `category`) and a nullable `category`; `itemNumber`/`gtinShort` are now nullable so a group row can omit them (`prisma/migrations/0009_add_par_category`). The old `(itemNumber, distributorId)` unique is dropped — dedup is handled in the controller (the same find-then-write pattern already in use).
+- **Server:** `getParGroup` + a server `productCatalog` in `gtin-map.ts` (nails merged); `parLevels.ts` `effectivePar` is now 3-tier and `buildReorderRows` iterates the full catalog so a group par reaches every SKU. `parlevel.controller.ts` `upsert` branches on scope. Helper tests expanded to 12 (group fallback, SKU-beats-group, group applied per-SKU). Both build + both test suites green.
+
+## v3.34 — 2026-06-12
+Second TrackerLabs feature: **Cycle Count / Physical Audit** (admin-only, Beta).
+
+- **Cycle Count** (`TrackerLabs → Cycle Count`). Pick a distributor, scan everything physically on the shelf, then tap **Review** to reconcile against the system into three buckets: **matched** (scan found a unit), **missing** (in the system but not scanned), and **extra** (scanned but not in the system). Resolve in one step — check which extras to add as stock and which missing units to remove — then **Finish** saves it as an audit.
+- **One-tap fixes are atomic.** Commit creates the chosen extras as new stock at the distributor (with assignment history) and soft-deletes the chosen missing units, all in a single `$transaction` (the same all-or-nothing pattern as bank moves). Missing removals are re-scoped at commit time to units still present, so a unit moved/used between Review and Finish is never wrongly deleted.
+- **Audit History** (`TrackerLabs → … → Audit History`). Every count is saved as an `AuditSession` (`AUD-YYYYMMDD-NNNN`) with matched/missing/extra counts and a snapshot — backed by `prisma/migrations/0008_add_audit_session`.
+- **Server:** `audit.controller.ts` (`preview` / `commit` / `list` + `generateAuditId`) + `routes/audits.ts` at `/api/audits`, behind `authMiddleware` + `adminOnly`. Reconciliation is a pure helper `utils/auditReconcile.ts` (FIFO match, per-request claim) with 6 unit tests; commit has 6 controller tests (atomic add/remove, re-scoped missing, failure rolls back, audit-only, id sequencing). Reuses `parseGS1`, `BarcodeScanner`, and the Usage preview/commit shape.
+
+## v3.33 — 2026-06-12
+First TrackerLabs feature: **Par Levels & Reorder** (admin-only, Beta).
+
+- **Par Levels editor** (`TrackerLabs → Par Levels`). Set a minimum stock level per item number: a **Global** default that applies to every distributor, plus optional **per-distributor overrides** (expand an item to set them). Values save on blur; clearing a field (or 0) removes it. Backed by a new `ParLevel` table (`prisma/migrations/0007_add_par_level`) — `distributorId = null` is the global default; a real id is an override.
+- **Reorder Report** (`TrackerLabs → Reorder Report`). Lists every item below its effective par, by distributor, with **Suggested Order** = par − on-hand, plus recent **Usage / mo** (3-month average from `usedAt`) as context. Distributor filter, search, and Excel export. Par scope is distributors only (Home Office is the warehouse you replenish from).
+- **Server:** `parlevel.controller.ts` (`list` / `upsert` / `reorderReport` / `exportReorder`) + `routes/parlevels.ts` mounted at `/api/par-levels`, behind `authMiddleware` + `adminOnly`. Pure helper `utils/parLevels.ts` (`effectivePar` — override beats global; `buildReorderRows`) with 8 unit tests. Reorder aggregation reuses the `stockByItem` pivot approach and `usageReport` windowing.
+
+## v3.32 — 2026-06-12
+Introduces **TrackerLabs**, an admin-only section for features that are still in testing.
+
+- **New TrackerLabs section (admin-only).** Added a new nav group, `TrackerLabs`, visible only to users with `role === 'admin'` (filtered in `Layout.tsx` via `buildMoreGroups`). A signed-in non-admin who navigates directly to a `/labs/*` URL is redirected home by a new `AdminRoute` guard in `App.tsx`.
+- **TrackerLabs hub (`client/src/pages/Labs.tsx`).** A landing page with a dismissible help banner explaining the area is experimental/in-testing, and a "Beta"-badged card for each upcoming experiment. The first two — **Par Levels & Reorder** and **Cycle Count** — are wired into the nav as placeholders (`client/src/pages/labs/ComingSoon.tsx`) and will ship in the following releases.
+- Groundwork only — no behavior change for existing users; field reps (non-admins) see nothing new.
+
+## v3.31 — 2026-06-11
+Banks can now be renamed and re-described after creation, so their names match the terminology used on the floor.
+
+- **Edit a bank's name and description any time.** Added an **Edit** affordance in two places: each card in the Banks list and the header of a bank's detail page. Both open a modal pre-filled with the current name/description; saving calls the existing `PATCH /api/banks/:id`. Previously name and description could only be set at creation, with no way to correct a typo or adopt a real-world label.
+- **Server `update` hardened.** A rename can no longer blank out the name (empty/whitespace → **400 "Bank name is required"**, matching `create`); descriptions are trimmed and an all-whitespace description is stored as `null` (clears it). Existing duplicate-name (P2002 → 400) and missing-bank (P2025 → 404) handling unchanged.
+- Both edit mutations invalidate `banks` (and `bank` on the detail page) so the new name shows immediately everywhere.
+- New tests in `server/src/controllers/bank.controller.test.ts` (5): rename trims name + description; blank description clears to null; empty name → 400 with no DB write; missing bank → 404; duplicate name → 400. Server suite now 123 tests.
+
+## v3.30 — 2026-06-08
+Production bug-fix release for the Banks feature (reported: "Move Bank says items are moving but they don't move"; "Add Items shows nothing selectable").
+
+- **Move Bank silent no-op fixed.** Both Move Bank modals (Banks list + Bank detail) preselected the bank's **current** distributor and enabled "Move All Items" immediately — moving Berwyn→Berwyn "succeeded" with a "31 items moved" toast while changing nothing. Now: the destination dropdown starts **empty**, only lists **other** distributors, and the server's `transferBank` returns **400 "Bank is already at X"** for same-distributor moves instead of reporting success.
+- **Bank moves are now atomic.** `transferBank` previously ran one transaction **per item** plus a separate bank update — a mid-way failure could leave a half-moved bank (items at the new site, bank record at the old, which also empties the Add-Items picker). The whole move (every item update + assignment history + the bank's own distributor + the audit record) is now a **single `$transaction`**.
+- **Bank moves now write a TRF record** (same `generateTransferId` as regular transfers, now exported) with a full item snapshot — verifiable under Reports → Transfer History. Success toast shows the destination and TRF id; client invalidates `banks`/`bank`/`inventory`/`inventory-all`.
+- **Receive → "Assign received items to a bank" fixed.** It sent **UDIs** to an endpoint matching row **ids**, so it has always assigned **0** items. `POST /api/banks/:id/add` now accepts `itemIds` and/or `udis` (UDI matches are scoped to the bank's distributor and only claim **unbanked** units); the picker keeps sending ids, Receive sends `{ udis }`.
+- **Add Items picker empty state explains itself** ("every item at X is already in a bank — receive or transfer stock into X first") instead of a bare message users read as a bug.
+- New tests `server/src/controllers/bank.controller.test.ts` (7): same-distributor 400 + no transaction; 31-item move = one transaction, correct from→to on every history row, bank updated, TRF with 31-item snapshot; failed transaction → 500 with nothing moved; missing destination 404; add-by-id scoped to distributor; add-by-UDI claims only unbanked; 400 on empty body.
+
+## v3.29 — 2026-06-07
+- **Consistent quick-search across the item-selection surfaces.** Lifted the Inventory search box into a shared `client/src/components/SearchBar.tsx` and rolled it out to: Transfer **Pick from list**, the **Manual Transfer** staged list, the Bank **Add Items** picker (instant in-browser filtering of the already-loaded full sets), and **Distributor detail** (server-side, reusing the existing `/inventory` `search` param, scoped to the distributor). Inventory now uses the same shared component (single source of truth; added an inline clear button).
+- **Pure, unit-tested matcher** `client/src/utils/itemSearch.ts` (`textMatch`, `matchesItemSearch`) covers item number/REF, lot, product, UDI, gtinShort — matching the fields the server search covers — with `itemSearch.test.ts` (11 cases). Follows the repo's pure-helper test convention (no React-component test infra exists).
+- **Pick/Bank Select-All semantics:** "Select All" now selects the *currently visible (filtered)* rows and merges into the existing selection, so you can search → select → search → select; "Clear" clears all. Added Select All/Clear to the Bank picker.
+- **Consistency:** added the dismissible `HelpBanner` to Bank detail, Distributor detail, and the Distributors list (the pages that were missing it).
+- Counters and "Add all missing" in Manual Transfer continue to act on the full staged set; search only narrows what's displayed.
+
+## v3.28 — 2026-06-06
+- **Transfer page redesigned to mirror the Receive experience, with a new "Manual Transfer" mode.** The mode toggle above the From/To selectors is now three tabs: **Pick from list | Manual Transfer | Import from Excel**. Pick-from-list and Import-from-Excel are unchanged (Excel keeps its own dedicated tab). Manual Transfer brings the Receive-style input cards to transfers — **Live Scan**, **Take Photo**, **Upload Photo**, **Batch Photos**, and **Manual Entry** (paste a QR/barcode string, or type Item Number / Lot / Expiry + quantity) — purpose-built for quick transfers of a few parts without a spreadsheet.
+  - **One unified staging list.** Every input (scan/photo/paste/typed fields/spreadsheet) becomes a staged entry; the whole list is re-checked against the **source** site's stock on every change and rendered as **Available / Not in stock / Error** rows. Re-previewing the full list (rather than incrementally) lets the server's per-request dedup resolve two identical scans to one Available + one Not-in-stock instead of both claiming the same unit.
+  - **Missing-item handling reused from Excel mode:** each *Not in stock* row has inline **"Add to source"** / **"Skip"**, plus an **"Add all missing to source & include"** shortcut. Removing a row drops only one copy of a duplicate.
+  - **One race-safe TRF record** for the whole staged batch, committed via `reassignItem(..., { expectedFromDistributorId })` — anything moved out of source between preview and commit is reported as skipped, never silently relocated.
+  - **Server:** `POST /api/transfers/preview-batch` now also accepts already-parsed `items[]` (for Manual Entry "fields", whose `rawBarcode` is a REF code that can't go through `parseGS1`); barcode and item inputs share one `claimed` set so they dedup against each other. Shared `matchAtSource` helper for both paths.
+  - **Client:** new pure, unit-tested `client/src/utils/transferStaging.ts` (`addBarcode` / `addManual` / `removeByKey` / `removeMatchingLine` / `toPreviewPayload`); `Transfer.tsx` select step rebuilt around it while the confirm/done steps, printed report, and `transferBatch` commit helpers are unchanged.
+  - New tests: `client/src/utils/transferStaging.test.ts`; extended `server/src/controllers/transfer.controller.test.ts` (parsed-item match / not-in-stock / missing-field error / cross-input dedup).
+
+## v3.27 — 2026-06-04
+- **Fixed list truncation on the selection screens.** The server caps `/api/inventory` at 100 rows/request, so screens that requested `limit: 200` and rendered the result directly were silently showing only the first 100:
+  - **Transfer → Pick from list** — only the first 100 of a distributor's items were selectable (the reported bug).
+  - **Bank detail → Add items** picker — same cap.
+- Added `listAllInventory(filters)` (`client/src/api/inventory.ts`) which pages through the 100-row cap and returns the complete set; both selection screens now use it, so "Select All" and the on-screen count cover everything even with thousands of items.
+- Audited the other item/record lists: **Inventory**, **Distributor detail**, **Usage History**, and **Transfer History** already paginate correctly (Prev/Next driven by `meta.total`) — no change needed.
+- New test `client/src/api/inventory.listAll.test.ts` (pages through 250 items → 3 requests, single page when it fits, empty result, forwards filters).
+
+## v3.26 — 2026-06-03
+- **Interactive "Repair Barcodes" stepper** (admin → User Management → Maintenance). Instead of a single bulk fire-and-forget, the admin now reviews each damaged item one at a time — a Find & Replace–style modal showing the stored vs. re-parsed **lot / expiry / product / item #**, with **Repair**, **Skip**, and **Repair all remaining** actions plus a running repaired/skipped tally.
+  - New read-only endpoint `GET /api/inventory/reparse-preview` (returns before/after for every item whose stored fields disagree with a fresh parse of its barcode) and `POST /api/inventory/reparse-apply` `{ ids }` (repairs only the chosen items, re-parsed server-side from `rawBarcode` — client values are never trusted; idempotent).
+  - Refactored the existing one-shot `backfill-reparse` and the new endpoints onto a shared `reparsePatch` / `reparseCandidate` helper so the diff logic lives in one place.
+  - New client component `RepairBarcodesModal.tsx`; the Maintenance button now opens the stepper.
+  - Tests extended in `server/src/controllers/inventory.reparse.test.ts` (preview lists only drifted rows with before/after; apply repairs chosen ids, 400s on empty, idempotent on already-correct rows).
+
+## v3.25 — 2026-06-03
+- **Batch transfer from an Excel/CSV file** on the Transfer page. A new **"Pick from list / Import from Excel"** mode toggle lets users move many items between distributors at once. Upload a spreadsheet of barcodes → the server resolves each one against the **source distributor's** stock (gtinShort + lot, FIFO, with within-batch dedup so two identical stickers each claim a distinct unit) → the page shows a per-row preview with **Available / Not in stock / Error** badges.
+  - **Per-row missing-item handling:** every *Not in stock* row has inline **"Add to source"** and **"Skip"** buttons. A single **"Add all missing to source & include"** shortcut is shown when any are flagged. Both reuse the existing `assignItems()` Receive path (creates the row at source, then re-runs the preview to refresh matched IDs).
+  - **Race-safe commit:** each item is moved via `reassignItem(..., { expectedFromDistributorId })`. The server `reassign` controller gained an optional `expectedFromDistributorId` guard — if the item is no longer at source (someone else moved it between preview and commit), it returns **409** and the commit reports the row as skipped in the success screen rather than silently relocating it. Transfers never create stock — that's the missing-item affordance's job.
+  - New server endpoint `POST /api/transfers/preview-batch` (mirrors the Usage Tickets preview pattern); new helpers `client/src/utils/transferBatch.ts` (pure, unit-tested); reuses `parseSpreadsheet`, `parseGS1`, `pickFifo`, `assignItems`, `reassignItem`, `createTransfer`.
+  - New tests: `server/src/controllers/transfer.controller.test.ts` (preview match / not-in-stock / within-batch dedup / parse error / 404, plus the 409 source guard on reassign); `client/src/utils/transferBatch.test.ts` (status counts, include/exclude, commit payload).
+- Pick-mode Transfer flow is unchanged (the existing UI is wrapped by the new mode toggle but behaves identically).
+
+## v3.24 — 2026-06-03
+- **Inventory list state is preserved across navigation.** Opening an item and tapping **Back to Inventory** previously dropped the user on page 1 — painful with 1,600 items across 60+ pages. The Inventory page now serializes its full state (page, sort, search, and all filters) to the URL query string via `client/src/utils/inventoryUrl.ts` (`filtersToSearchParams` / `searchParamsToFilters`), and the detail page's back button uses `navigate(-1)` (falling back to `/inventory` when opened directly). The view now survives navigation, refresh, bookmarking, and sharing.
+  - New round-trip tests: `client/src/utils/inventoryUrl.test.ts`.
+- Item-number (REF) search shipped in v3.23 and is included here — searching e.g. `SO-SPFN-0380-10L-30` returns the matching scanned items.
+
+## v3.23 — 2026-06-03
+- **Fixed a serious GS1 barcode-parsing bug that corrupted imported lot numbers and expiry dates.** The raw-stream parser located AI 17 (expiry) with a naive `indexOf('17')`, so any lot containing the digits `17` (e.g. `J260225-L170`, where `L170` contains `17`) was split mid-lot: the lot was truncated to `J260225-L` and `017310` was read as the date — month `73`, which JavaScript's `Date` overflowed into Jan 2007, showing the item as "Expired". (Lots containing `10` had the analogous failure.)
+  - Replaced the `indexOf`-based heuristic in both `server/src/utils/parseGS1.ts` and `client/src/utils/parseGS1.ts` with a proper **left-to-right Application Identifier walker**: AI 01/17 are fixed-length; AI 10 (lot) is variable and is terminated by an FNC1 separator when present, otherwise by peeling a trailing, **date-validated** `17YYMMDD` off the end. This fixes the whole class (lot contains `17`/`10`, expiry-before-lot order, FNC1-separated streams, production-date AI 11).
+  - New tests: `server/src/utils/parseGS1.test.ts` (incl. a data-driven pass over every distinct barcode from the real `Lag_Screw_Restocks` file) and `client/src/utils/parseGS1.test.ts`, run under multiple timezones.
+- **Admin "Repair Barcodes" maintenance action** (`POST /api/inventory/backfill-reparse`, button on User Management). Re-derives lot / expiry / GTIN / label from each item's stored `rawBarcode` to repair rows imported before the fix. Idempotent; skips un-parseable manual REF entries. Guarded by `server/src/controllers/inventory.reparse.test.ts`.
+- **Fixed item-number (REF) search.** Inventory search ignored the REF code, so searching `SO-SPFN-0380-10L-30` returned nothing (scanned items store only the gtinShort). Search now also matches `rawBarcode` and resolves a REF (full or partial) back to its gtinShort(s) via the catalog (`findGtinShortsByItemNumber`). Covered in `server/src/controllers/inventory.list.test.ts`.
+
+## v3.22 — 2026-06-03
+- **Fixed distributor detail item count/visibility.** The Distributor Detail page hardcoded `limit: 100` and rendered `Assigned Items ({items.length})`, so a distributor with more than 100 assigned items showed only 100 and an incorrect total (the list-page `_count` badge and the Excel export were already correct — no data was lost).
+  - `client/src/pages/DistributorDetail.tsx` now uses the same server-side paging + sorting as the main Inventory page: the header shows the true `meta.total`, columns sort across the full set, and a **Prev/Next** control pages through everything. No server change — `/api/inventory` already returns `meta.total` and supports `page`/`limit`/`sortBy`/`sortDir`.
+  - Regression guard `server/src/controllers/inventory.list.test.ts`: asserts `meta.total` comes from `count()` (105) and is independent of the returned page length (100), and that the list and count use the same `where` filter so the badge and detail always agree.
+
+## v3.21 — 2026-06-03
+- **Consolidated Batch Upload into Receive.** The standalone Batch Upload page and its More-menu item are gone; everything it did now lives in the **Receive** screen, which already housed scanning, photo batch upload, and manual entry. This removes the two-places-called-"Batch Upload" confusion.
+  - Receive gains a **"Receive into" distributor selector** (defaults to Home Office) — received items, batch photos, and spreadsheet imports all land in the chosen distributor's inventory. Previously Receive was hardcoded to Home Office and only the standalone page could target other distributors.
+  - Receive gains **Import CSV / Excel** (server-side parsing via the existing `/inventory/parse-spreadsheet`, so `.csv`/`.txt`/`.xlsx` all work on desktop and mobile). Each imported barcode is received immediately, consistent with Receive's scan flow.
+  - Bank-assignment prompt now follows the selected distributor's banks rather than Home Office's.
+  - `/batch` route redirects to `/receive` so existing links/bookmarks keep working; `client/src/pages/BatchUpload.tsx` deleted.
+
+## v3.20 — 2026-06-02
+- **New usage analytics reports** (Reports → Usage), built on consumption data (`InventoryItem.usedAt`, aggregated in-memory and bucketed by UTC month):
+  - **Monthly Usage Report** — pick any month for a full itemized statement of every product consumed, grouped by distributor, with subtotals and a grand total. Item-level (one row per REF), shows each item's category. Excel export.
+  - **Usage Trends** — units consumed per month by the six product categories over a selectable 3/6/12-month window, with a dependency-free bar chart + a category × month table. Optional distributor filter. Excel export.
+  - **Usage by Distributor** — category × distributor matrix of units consumed over the window (mirrors Stock by Item). Excel export.
+  - New endpoints `GET /api/reports/usage-trends`, `/usage-matrix`, `/monthly-usage` (+ `/export` variants). New `getProductCategory` (six Summa types + Other) and pure `utils/usageReport.ts` aggregators, both timezone-stable.
+- **Navigation cleanup** so the growing feature set stays usable:
+  - Bottom bar trimmed to four daily pillars — **Receive · Usage · Inventory · Reports** — plus a **grouped More** menu (Tools / Organize / Admin).
+  - **Lookup** moved into More and surfaced as a **Scan** button on the Inventory page.
+  - The **Reports** hub reorganized into **Stock / Usage / Movement** sections; Usage History and Transfer History now both live under Reports (More holds only actions/setup).
+- New tests: `utils/usageReport.test.ts`, `utils/gtinCategory.test.ts`, `controllers/usageReports.controller.test.ts` (run under multiple timezones).
+
+## v3.19 — 2026-06-02
+- **New Usage Tickets feature** — record daily inventory consumption. Pick one distributor, scan the ticket's product stickers, and the app confirms each item is actually in that distributor's available stock before deducting it.
+  - Two-phase flow: `POST /api/usage/preview` (read-only — parses each sticker and FIFO-matches it against the distributor's stock) then `POST /api/usage/commit` (consumes the confirmed units in one transaction).
+  - **Matching:** by Item # + Lot within the chosen distributor's active stock; when several identical units exist, the oldest-expiry unit is consumed first (FIFO), then oldest received. Each sticker consumes exactly one unit; identical stickers on the same ticket each claim a distinct unit.
+  - **Blocked, never guessed:** items not found in that distributor's stock are flagged "not in stock" and cannot be deducted. Race-safe — a unit used between preview and commit is reported as skipped, never double-consumed.
+  - Consumption reuses the existing "used" status (so consumed units leave inventory) and writes a per-item audit-history entry plus a grouped **UsageTicket** record (`USE-YYYYMMDD-NNNN`).
+  - New **Usage** tab (scan + confirm flow, mobile-first) and **Usage History** list + printable ticket detail.
+  - New `UsageTicket` table + `InventoryItem.usageTicketId` — **run `server/prisma/migrations/0006_add_usage_ticket/migration.sql` in the Supabase SQL Editor before deploying**, then `npx prisma generate`.
+  - New tests: `server/src/utils/usageMatch.test.ts` (FIFO), `server/src/controllers/usage.controller.test.ts` (preview/commit, dedup, blocking, 409).
+
+## v3.18 — 2026-06-02
+- **Properly fixed the expiry off-by-one bug.** The v3.17 server-side change (parse bare dates at *local* midnight) was a no-op on the UTC production server and never addressed the real cause, which was on the **display** side: a UTC-midnight value rendered with `toLocaleDateString()` shows the previous day in negative-offset timezones (e.g. US Eastern).
+- Adopted one canonical representation end-to-end: expiry is stored as **UTC midnight** of the calendar day (`Date.UTC(...)` in both `parseDateOnly` and `parseGS1`, client and server) and always **rendered in UTC** (`{ timeZone: 'UTC' }`).
+- New client helper `utils/expiry.ts` (`formatExpiry`, `daysUntilExpiry`) — the single place that knows expiry is UTC-canonical. `ExpiryBadge`, Transfer, and Transfer Detail now use it.
+- `formatDateOnly` (audit notes) now reads the UTC day; the `backfill-manual-expiry` endpoint now normalizes **every** stored expiry to UTC midnight (idempotent), not just manual entries.
+- Added timezone-parameterized test suites (run under America/New_York, UTC, Asia/Tokyo): `server/src/utils/date.test.ts`, `server/src/utils/parseGS1.test.ts`, `client/src/utils/expiry.test.ts`, `client/src/utils/parseGS1.test.ts`. Added a `test` script + Vitest config to the client workspace.
+- **Fixed Excel (.xlsx) Batch Upload.** The client read every imported file with `file.text()` and split it as CSV — fine for .csv/.txt, but .xlsx/.xls are binary, so real Excel files parsed to nothing and behaved inconsistently across desktop/mobile pickers. Files are now parsed **server-side** with the existing `exceljs` dependency via `POST /api/inventory/parse-spreadsheet`, with **content-signature detection** (PK = xlsx, D0CF11E0 = legacy .xls) so the result never depends on the reported extension. One code path → consistent on every platform. Legacy .xls returns a clear "re-save as .xlsx or .csv" message. New `server/src/utils/spreadsheet.ts` + `spreadsheet.test.ts` (real exceljs round-trip).
+
+## v3.17 — 2026-06-01
+- Fixed: expiration dates on **manually-entered** items were displayed one day early. A bare calendar date was being interpreted as UTC midnight, then shown in local time. Manual entry (and editing) now interprets the date at local midnight, matching scanned items.
+- Added a maintenance endpoint (`POST /api/inventory/backfill-manual-expiry`) to correct expiry dates on manual items that were already saved with the off-by-one value.
+- Added an admin-only **Fix Manual Expiry Dates** button on the User Management page to run that correction with one click.
+
+## v3.16 — 2026-06-01
+- Fixed: after tapping **Save Receipt** for a manually-entered item, the "Assign received items to a bank?" prompt now appears as expected. Previously the still-open entry form pushed the prompt off-screen, so it looked like it was never offered. The manual entry panel now collapses on a successful save, surfacing the received items and the bank-assignment prompt (matching the post-scan flow).
+
+## v3.15 — 2026-06-01
+- Receive Inventory **Manual Entry** now offers two methods when a barcode/QR code can't be scanned:
+  - **Paste QR Code Data** — paste or type the full raw GS1/QR string (existing behavior)
+  - **Enter Item Info Manually** — type Item Number (Summa REF code), Lot Number, Expiration Date, and Quantity Received as individual fields
+- Manual field entry resolves the REF code to a GTIN server-side and is processed exactly like a scan (same product label / UDI derivation)
+- Quantity Received creates one inventory record per unit, mirroring scanning the same label multiple times
+- Added `POST /api/inventory/scan-manual` endpoint to resolve manually-entered fields into a parsed item
+
 ## v3.14 — 2026-05-14
 - Fixed mobile bulk reassign bar — the Reassign button and distributor dropdown are now fully visible without swiping
 - User Guide rewritten for inventory staff with plain-English instructions and troubleshooting section

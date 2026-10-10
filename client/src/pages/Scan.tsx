@@ -12,6 +12,7 @@ import { scanBarcode, assignItems, reassignItem, markAsUsed } from '../api/inven
 import { listDistributors } from '../api/distributors';
 import { ExpiryBadge } from '../components/ExpiryBadge';
 import { BarcodeScanner } from '../components/BarcodeScanner';
+import { Button } from '../components/Button';
 import { HelpBanner } from '../components/HelpBanner';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -237,14 +238,14 @@ export default function Scan() {
                 ))}
               </select>
             </label>
-            <button
+            <Button
+              className="w-full"
               onClick={() => assignMutation.mutate()}
               disabled={assignMutation.isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
             >
               <Package size={20} />
               {assignMutation.isPending ? 'Assigning...' : 'Add to Inventory'}
-            </button>
+            </Button>
           </div>
 
           <button

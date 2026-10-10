@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getExpiring } from '../api/reports';
+import { useAuth } from './AuthContext';
 import type { ExpiringItem } from '../types';
 
 const STORAGE_KEY = 'dismissed_notifications';
@@ -29,12 +30,19 @@ function saveDismissed(udis: string[]) {
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [dismissed, setDismissed] = useState<string[]>(loadDismissed);
+  const { user } = useAuth();
 
   const { data: expiring = [] } = useQuery({
-    queryKey: ['notifications', 'expiring'],
+    queryKey: ['expiring', 90],
     queryFn: () => getExpiring(90),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
+    // Expiry alerts come from company-wide reports, which distributor accounts
+    // can't access; skip the query for them. The `!!user` guard matters: while
+    // auth is still bootstrapping -- and permanently on /login -- `user` is
+    // null, and `null?.role !== 'distributor'` is true, so this used to fire
+    // unauthenticated on every cold load and 401 (then retry).
+    enabled: !!user && user.role !== 'distributor',
   });
 
   // Prune dismissed UDIs that are no longer in the expiring list
@@ -45,7 +53,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setDismissed(pruned);
       saveDismissed(pruned);
     }
-  }, [expiring]); // eslint-disable-line react-hooks/exhaustive-deps
+  // `dismissed` intentionally omitted — including it re-runs this effect on the
+  // very state it sets, which loops forever.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expiring]);
 
   const dismissNotification = useCallback((udi: string) => {
     setDismissed((prev) => {

@@ -1,5 +1,6 @@
 import { api } from './client';
 import type { ApiResponse, SummaryReport, ExpiringItem } from '../types';
+import { asArray } from '../utils/asArray';
 
 export async function getSummary() {
   const res = await api<ApiResponse<SummaryReport>>('/reports/summary');
@@ -10,7 +11,7 @@ export async function getExpiring(days = 90) {
   const res = await api<ApiResponse<ExpiringItem[]>>('/reports/expiring', {
     params: { days },
   });
-  return res.data!;
+  return asArray<NonNullable<typeof res.data>[number]>(res.data);
 }
 
 export interface StockLocation {
@@ -29,16 +30,134 @@ export interface StockByItemResponse {
   rows: StockByItemRow[];
 }
 
-export async function getStockByItem() {
-  const res = await api<ApiResponse<StockByItemResponse>>('/reports/stock-by-item');
+export async function getStockByItem(params: { locationId?: string } = {}) {
+  const res = await api<ApiResponse<StockByItemResponse>>('/reports/stock-by-item', {
+    params: { locationId: params.locationId },
+  });
   return res.data!;
 }
 
-export function getStockByItemExportUrl() {
+/** `locationId`: 'home', a distributor id, or omitted for every location. */
+export function getStockByItemExportUrl(p: { locationId?: string } = {}) {
+  return exportUrl('stock-by-item/export', p);
+}
+
+// ---- Usage analytics ------------------------------------------------------
+
+export interface UsageTrendsResponse {
+  window: number;
+  months: string[];
+  categories: string[];
+  series: { category: string; byMonth: Record<string, number>; total: number }[];
+  totalsByMonth: Record<string, number>;
+  total: number;
+}
+
+export interface UsageMatrixResponse {
+  window: number;
+  columns: { id: string; name: string }[];
+  rows: { category: string; counts: Record<string, number>; total: number }[];
+  totalsByColumn: Record<string, number>;
+  grandTotal: number;
+}
+
+export interface UsageByItemEntry {
+  gtinShort: string;
+  itemNumber: string;
+  productLabel: string;
+  qty: number;
+}
+export interface UsageByItemCategory {
+  category: string;
+  items: UsageByItemEntry[];
+  subtotal: number;
+}
+export type UsageByItemPeriod =
+  | { kind: 'year'; year: number }
+  | { kind: 'months'; months: number };
+export interface UsageByItemResponse {
+  period: UsageByItemPeriod;
+  categories: UsageByItemCategory[];
+  grandTotal: number;
+}
+
+export interface MonthlyUsageItem {
+  gtinShort: string;
+  itemNumber: string | null;
+  productLabel: string;
+  category: string;
+  qty: number;
+}
+export interface MonthlyUsageResponse {
+  month: string;
+  groups: {
+    distributorId: string | null;
+    distributorName: string;
+    items: MonthlyUsageItem[];
+    subtotal: number;
+  }[];
+  grandTotal: number;
+}
+
+export async function getUsageTrends(params: { months: number; distributorId?: string }) {
+  const res = await api<ApiResponse<UsageTrendsResponse>>('/reports/usage-trends', {
+    params: { months: params.months, distributorId: params.distributorId },
+  });
+  return res.data!;
+}
+
+export async function getUsageMatrix(params: { months: number }) {
+  const res = await api<ApiResponse<UsageMatrixResponse>>('/reports/usage-matrix', {
+    params: { months: params.months },
+  });
+  return res.data!;
+}
+
+/** Units consumed per item number x distributor. Pass `year` OR `months`. */
+export async function getUsageByItem(params: {
+  year?: number;
+  months?: number;
+  category?: string;
+}) {
+  const res = await api<ApiResponse<UsageByItemResponse>>('/reports/usage-by-item', {
+    params: { year: params.year, months: params.months, category: params.category },
+  });
+  return res.data!;
+}
+
+export async function getMonthlyUsage(params: { month: string; distributorId?: string }) {
+  const res = await api<ApiResponse<MonthlyUsageResponse>>('/reports/monthly-usage', {
+    params: { month: params.month, distributorId: params.distributorId },
+  });
+  return res.data!;
+}
+
+/** Build an authed export URL (token as a query param, like the other exports). */
+function exportUrl(path: string, params: Record<string, string | number | undefined> = {}) {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== '') sp.set(k, String(v));
+  }
   const token = localStorage.getItem('token');
-  const params = new URLSearchParams();
-  if (token) params.set('token', token);
-  return `/api/reports/stock-by-item/export?${params.toString()}`;
+  if (token) sp.set('token', token);
+  return `/api/reports/${path}?${sp.toString()}`;
+}
+
+export function getUsageTrendsExportUrl(p: { months: number; distributorId?: string }) {
+  return exportUrl('usage-trends/export', p);
+}
+export function getUsageMatrixExportUrl(p: { months: number }) {
+  return exportUrl('usage-matrix/export', p);
+}
+export function getUsageByItemExportUrl(p: {
+  year?: number;
+  months?: number;
+  category?: string;
+}) {
+  return exportUrl('usage-by-item/export', p);
+}
+export function getMonthlyUsageExportUrl(p: { month: string; distributorId?: string }) {
+  return exportUrl('monthly-usage/export', p);
 }
 
 export function getExportUrl(filters?: Record<string, unknown>) {

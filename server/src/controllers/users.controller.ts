@@ -3,10 +3,19 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 
+const USER_SELECT = {
+  id: true,
+  username: true,
+  role: true,
+  distributorId: true,
+  distributor: { select: { name: true } },
+  createdAt: true,
+} as const;
+
 export async function listUsers(_req: Request, res: Response) {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, username: true, role: true, createdAt: true },
+      select: USER_SELECT,
       orderBy: { createdAt: 'asc' },
     });
     return success(res, users);
@@ -15,14 +24,33 @@ export async function listUsers(_req: Request, res: Response) {
   }
 }
 
+/**
+ * A distributor account must point at a real distributor; any other role must
+ * not carry one. Returns the distributorId to persist, or an error message.
+ */
+async function resolveDistributorId(
+  role: string,
+  distributorId: string | null | undefined,
+): Promise<{ value: string | null } | { error: string }> {
+  if (role !== 'distributor') return { value: null };
+  if (!distributorId) return { error: 'A distributor must be selected for a distributor account' };
+  const exists = await prisma.distributor.findUnique({ where: { id: distributorId } });
+  if (!exists) return { error: 'Selected distributor not found' };
+  return { value: distributorId };
+}
+
 export async function createUser(req: Request, res: Response) {
   try {
-    const { username, password, role } = req.body;
-    const hash = await bcrypt.hash(password, 12);
+    const { username, password, role, distributorId } = req.body;
+    const finalRole = role || 'user';
 
+    const resolved = await resolveDistributorId(finalRole, distributorId);
+    if ('error' in resolved) return error(res, resolved.error);
+
+    const hash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
-      data: { username, password: hash, role: role || 'user' },
-      select: { id: true, username: true, role: true, createdAt: true },
+      data: { username, password: hash, role: finalRole, distributorId: resolved.value },
+      select: USER_SELECT,
     });
 
     return success(res, user, undefined, 201);
@@ -57,12 +85,16 @@ export async function updatePassword(req: Request, res: Response) {
 export async function updateRole(req: Request, res: Response) {
   try {
     const id = str(req.params.id);
-    const { role } = req.body;
+    const { role, distributorId } = req.body;
+
+    const resolved = await resolveDistributorId(role, distributorId);
+    if ('error' in resolved) return error(res, resolved.error);
 
     const user = await prisma.user.update({
       where: { id },
-      data: { role },
-      select: { id: true, username: true, role: true, createdAt: true },
+      // Switching away from distributor clears the scope; switching to it sets it.
+      data: { role, distributorId: resolved.value },
+      select: USER_SELECT,
     });
 
     return success(res, user);

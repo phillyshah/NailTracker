@@ -140,6 +140,13 @@ export const gtinMap: Record<string, string> = {
   '9462193': 'Interlocking Screw 85mm',
   '9462247': 'Interlocking Screw 90mm',
 
+  // ── Lag Screws — Telescopic (PFL-T) ────────────────────────────────
+  '9454785': 'Lag Screw Telescopic 85mm',
+  '9454792': 'Lag Screw Telescopic 90mm',
+  '9454815': 'Lag Screw Telescopic 100mm',
+  '9454822': 'Lag Screw Telescopic 105mm',
+  '9454839': 'Lag Screw Telescopic 110mm',
+
   // ── Cap Screws (SO-SPFC) ───────────────────────────────────────────
   '9462551': 'Cap Screw 0mm',
   '9462568': 'Cap Screw 5mm',
@@ -223,6 +230,12 @@ export const gtinToRef: Record<string, string> = {
   '9461004': 'SO-SPFN-0420-11L-25',
   '9461066': 'SO-SPFN-0400-11L-30',
   '9461073': 'SO-SPFN-0420-11L-30',
+  // Lag Screw (Telescopic)
+  '9454785': 'PFL-T085',
+  '9454792': 'PFL-T090',
+  '9454815': 'PFL-T100',
+  '9454822': 'PFL-T105',
+  '9454839': 'PFL-T110',
   // Lag Screw (Normal)
   '9461370': 'SO-SPFL-N070',
   '9461387': 'SO-SPFL-N075',
@@ -281,6 +294,44 @@ export function gtinShortToFullGtin(gtinShort: string): string {
   return '08800089' + gtinShort.slice(-6);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// OCR alias overlay — the "training" feedback loop.
+//
+// Admins review mis-read labels in the OCR Training lab and confirm what each
+// mangled REF token should have been. Those corrections are persisted server-side
+// and loaded here once at app boot via setAliasOverlay. The OCR matcher
+// (ocrBarcode) consults this overlay to resolve tokens it would otherwise miss,
+// so accuracy improves as the correction set grows — no model retraining.
+//
+// Defaults empty: with no aliases loaded the matcher behaves exactly as before,
+// which keeps the pure parse path deterministic for tests.
+// ─────────────────────────────────────────────────────────────────────────────
+export interface OcrAliasEntry {
+  /** The mis-read REF text exactly as OCR produced it. */
+  token: string;
+  /** The catalog REF it should resolve to. */
+  canonicalRef: string;
+}
+
+let aliasOverlay: OcrAliasEntry[] = [];
+
+/** Replace the active alias overlay (keeps only entries whose REF is catalogued). */
+export function setAliasOverlay(entries: OcrAliasEntry[]): void {
+  aliasOverlay = entries.filter(
+    (e) => e.token && e.canonicalRef && refToGtinShort[e.canonicalRef.toUpperCase()],
+  );
+}
+
+/** Current alias overlay (the matcher reads this; tests can assert against it). */
+export function getAliasOverlay(): OcrAliasEntry[] {
+  return aliasOverlay;
+}
+
+/** Clear the overlay — used by tests to avoid cross-test leakage. */
+export function clearAliasOverlay(): void {
+  aliasOverlay = [];
+}
+
 /**
  * Extract a Summa item number (REF code) from raw barcode/label text.
  * Returns the full REF code if found, else null.
@@ -292,6 +343,7 @@ export function extractItemNumber(text: string): string | null {
   const patterns = [
     /\bSO-SPFN-\d{3,4}-\d{1,2}[LR]?-\d{2}\b/i,
     /\bSO-SPFL-[NAT]\d{2,3}\b/i,
+    /\bPFL-T\d{3}\b/i,
     /\bSO-S50I-SO-\d{2,3}-T\b/i,
     /\bSO-SPFC-\d{3}\b/i,
     /\bSO-SPFS-\d{3}\b/i,
@@ -325,6 +377,7 @@ const refCategories: [RegExp, string][] = [
   [/SO-SPFL-N/i, 'Lag Screw (Normal)'],
   [/SO-SPFL-A/i, 'Lag Screw (Anti-Rotation)'],
   [/SO-SPFL-T/i, 'Lag Screw (Telescopic)'],
+  [/PFL-T/i, 'Lag Screw (Telescopic)'],
   [/SO-S50I/i, 'Interlocking Screw'],
   [/SO-IS/i, 'Interlocking Screw'],
   [/SO-SPFC/i, 'Cap Screw'],
@@ -374,6 +427,12 @@ function parseRefCode(text: string): string | null {
     const angle = parseInt(lpfnMatch[3], 10) + 100;
     const side = lpfnMatch[4].toUpperCase() === 'L' ? 'Left' : 'Right';
     return `Long Nail ${length}/${diameter}mm ${side} ${angle}°`;
+  }
+
+  // Telescopic lag screw (short REF): PFL-T{length}
+  const pflTMatch = text.match(/PFL-T(\d{3})/i);
+  if (pflTMatch) {
+    return `Lag Screw Telescopic ${parseInt(pflTMatch[1], 10)}mm`;
   }
 
   // Lag screw: SO-SPFL-{type}{length}
