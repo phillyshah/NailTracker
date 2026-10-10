@@ -5,6 +5,7 @@ import { success, error } from '../utils/response.js';
 import { getItemNumber, getParGroup, productCatalog } from '../utils/gtin-map.js';
 import { buildReorderRows, type ParLevelRow } from '../utils/parLevels.js';
 import { windowStart } from '../utils/usageReport.js';
+import { usageRates as computeRates } from '../utils/usageRate.js';
 
 const REORDER_WINDOW_MONTHS = 3;
 
@@ -126,7 +127,7 @@ async function gatherReorderData() {
     }),
     prisma.inventoryItem.findMany({
       where: { deletedAt: null, usedAt: { gte: since }, distributorId: { not: null } },
-      select: { gtinShort: true, rawBarcode: true, distributorId: true },
+      select: { gtinShort: true, rawBarcode: true, distributorId: true, usedAt: true },
     }),
     prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
     prisma.parLevel.findMany(),
@@ -139,14 +140,25 @@ async function gatherReorderData() {
     current[k] = (current[k] ?? 0) + 1;
   }
 
-  // Per-month usage average over the window (context column).
+  // Per-month usage rate. Divided by the months each item has ACTUALLY been
+  // observed, not by the nominal window — see utils/usageRate.ts. Dividing by
+  // the window understated a ramping product, which then under-ordered via
+  // cover-months pars.
+  const rates = computeRates(
+    used.flatMap((it) =>
+      it.usedAt
+        ? [
+            {
+              key: `${getItemNumber(it.gtinShort, it.rawBarcode) || it.gtinShort}|${it.distributorId}`,
+              usedAt: it.usedAt,
+            },
+          ]
+        : [],
+    ),
+    REORDER_WINDOW_MONTHS,
+  );
   const usage: Record<string, number> = {};
-  for (const it of used) {
-    const itemNumber = getItemNumber(it.gtinShort, it.rawBarcode) || it.gtinShort;
-    const k = `${itemNumber}|${it.distributorId}`;
-    usage[k] = (usage[k] ?? 0) + 1;
-  }
-  for (const k of Object.keys(usage)) usage[k] = +(usage[k] / REORDER_WINDOW_MONTHS).toFixed(1);
+  for (const k of Object.keys(rates)) usage[k] = rates[k].perMonth;
 
   const levels: ParLevelRow[] = levelRows.map((l) => ({
     scope: l.scope === 'category' ? 'category' : 'item',
@@ -191,7 +203,7 @@ export async function usageRates(_req: Request, res: Response) {
     const [used, distributors] = await Promise.all([
       prisma.inventoryItem.findMany({
         where: { deletedAt: null, usedAt: { gte: since }, distributorId: { not: null } },
-        select: { gtinShort: true, rawBarcode: true, distributorId: true },
+        select: { gtinShort: true, rawBarcode: true, distributorId: true, usedAt: true },
       }),
       prisma.distributor.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
     ]);
@@ -204,26 +216,39 @@ export async function usageRates(_req: Request, res: Response) {
         .map((d: { id: string }) => d.id),
     );
 
-    const perPair: Record<string, number> = {};
-    const perItemTotal: Record<string, number> = {};
-    for (const it of used) {
-      if (!it.distributorId || !fieldIds.has(it.distributorId)) continue;
-      const itemNumber = getItemNumber(it.gtinShort, it.rawBarcode) || it.gtinShort;
-      perPair[`${itemNumber}|${it.distributorId}`] =
-        (perPair[`${itemNumber}|${it.distributorId}`] ?? 0) + 1;
-      perItemTotal[itemNumber] = (perItemTotal[itemNumber] ?? 0) + 1;
-    }
+    // Rates divide by months actually observed, not the nominal window — see
+    // utils/usageRate.ts for why that distinction matters on a new product line.
+    // `usedAt` is non-null by the query's own filter, but narrow it here rather
+    // than asserting it so the compiler keeps checking.
+    const fieldRows = used.flatMap((it) =>
+      it.usedAt && it.distributorId && fieldIds.has(it.distributorId)
+        ? [{ ...it, usedAt: it.usedAt }]
+        : [],
+    );
 
-    const round1 = (n: number) => +n.toFixed(1);
+    const pairRates = computeRates(
+      fieldRows.map((it) => ({
+        key: `${getItemNumber(it.gtinShort, it.rawBarcode) || it.gtinShort}|${it.distributorId}`,
+        usedAt: it.usedAt,
+      })),
+      REORDER_WINDOW_MONTHS,
+    );
     const byPair: Record<string, number> = {};
-    for (const k of Object.keys(perPair)) byPair[k] = round1(perPair[k] / REORDER_WINDOW_MONTHS);
+    for (const k of Object.keys(pairRates)) byPair[k] = pairRates[k].perMonth;
 
-    // Average across FIELD distributors (not just those that used it), so the
-    // preview reflects what one distributor would typically hold.
+    // Per item across all field distributors, then divided by how many there
+    // are — the preview is "what would ONE distributor hold", not the network.
+    const itemRates = computeRates(
+      fieldRows.map((it) => ({
+        key: getItemNumber(it.gtinShort, it.rawBarcode) || it.gtinShort,
+        usedAt: it.usedAt,
+      })),
+      REORDER_WINDOW_MONTHS,
+    );
     const divisor = Math.max(1, fieldIds.size);
     const byItem: Record<string, number> = {};
-    for (const k of Object.keys(perItemTotal)) {
-      byItem[k] = round1(perItemTotal[k] / REORDER_WINDOW_MONTHS / divisor);
+    for (const k of Object.keys(itemRates)) {
+      byItem[k] = +(itemRates[k].perMonth / divisor).toFixed(2);
     }
 
     return success(res, { byPair, byItem, windowMonths: REORDER_WINDOW_MONTHS });

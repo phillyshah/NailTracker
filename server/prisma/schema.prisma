@@ -165,6 +165,23 @@ model ParLevel {
   @@index([category])
 }
 
+/**
+ * Stock already purchased from the manufacturer but not yet received.
+ *
+ * Deliberately NOT a purchase-order subsystem: one typed number per item
+ * number, so the Order Planner can net out what is already coming instead of
+ * re-ordering it. Whoever placed the order keeps it current.
+ */
+model OpenOrder {
+  id         String    @id @default(cuid())
+  itemNumber String    @unique
+  quantity   Int       @default(0)
+  expectedAt DateTime? // when the manufacturer says it lands, if known
+  note       String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
 model AuditSession {
   id              String   @id @default(cuid())
   auditId         String   @unique

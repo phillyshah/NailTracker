@@ -1,5 +1,59 @@
 # Changelog
 
+## v3.53 — 2026-10-10
+**Order Planner** (TrackerLabs, admin-only) — manufacturer purchasing on a 6-12 month lead time, plus a fix to the usage-rate arithmetic. Schema change: new `OpenOrder` table (SQL below).
+
+### Why this is not the Reorder Report
+The Reorder Report compares each *distributor's* shelf to a par over a few weeks and excludes Home Office. A manufacturer order has a 6-12 month lead time and lands *in* Home Office. Different scope, horizon and failure mode, so it is separate code (`server/src/utils/orderPlan.ts`), not a flag on the existing report.
+
+### Why it is driven by typed assumptions, not a forecast
+The product line is new: a few months of history spread over ~110 SKUs, so the modal SKU cell is zero. Fitting a demand curve per SKU to that is self-deception. What is reliable:
+
+- **Procedure volume** — the sales team knows it; the database does not. So it is typed in.
+- **Companion ratios** — one case consumes one nail and a near-fixed set of screws. A ratio has *one* parameter and converges in a few dozen cases, where a per-SKU size curve has twenty and needs hundreds. So companion demand is exploded from case volume, never forecast from its own sparse history. One usage ticket = one surgical case (confirmed with the user), which is what makes this measurable.
+- **Size mix** — pooled across the whole network, not per distributor. The size a patient needs does not depend on who supplies it.
+
+### How a suggestion is computed
+`horizon = lead time + cover` → `nails = cases/month × horizon` → split short/long by the observed share → companions = `nails × ratio` → each category split across sizes by the observed mix → `gap = required − on hand − on order` → capped by `shelf life × demand/month`.
+
+The **shelf-life cap** is what stops the plan degenerating into "order more of everything" on the tail: there is no point buying four of a size that will see one use before it expires. Capped rows are flagged in the UI and the export.
+
+### Honest about its own evidence
+- **Companion ratios are reported as a LOWER bound.** A usage-ticket line whose unit was not in recorded stock is dropped rather than consumed, so a case whose screws were missing logs the nail alone. The screen says so rather than presenting the ratio as fact.
+- **Under 20 cases, the screen says the size mix is the weakest part of the plan** and to treat the category totals as the real output.
+- **A catalogue size never used gets no suggestion.** Holding one for set completeness is a service-level decision, not a forecast, so the planner counts them and says so instead of inventing demand.
+- The Excel export carries a second **Assumptions** sheet listing every input and where it came from. A plan read six months later without them is unauditable.
+
+### Usage-rate fix (affects par levels too)
+`units / windowMonths` divided by the *nominal* look-back window regardless of how much history an item had — so six units from an item first used last month read as 2/month against a 3-month window when the real rate is 6. On a ramping line that understated demand systematically, and it fed `resolvePar`, so a months-of-cover par under-ordered exactly when getting it right matters most. Now in `server/src/utils/usageRate.ts`: divide by the months an item has actually been observed, measured from first use to **now** (not to its last use, so a genuinely dormant item still reads as slow), floored at 1 so a busy fortnight is not extrapolated into a permanent demand step. Both call sites in `parlevel.controller.ts` use it.
+
+### Open orders
+A deliberately minimal `OpenOrder` table: one typed quantity per item number, optional expected date and note. Not a purchase-order subsystem — just enough for the plan to net out what is already coming instead of re-ordering it. Edit it inline in the plan table; 0 clears the row.
+
+### Endpoints
+`GET /api/order-plan` (assumptions as query params — nothing is stored, so the screen re-plans freely), `GET /api/order-plan/basis`, `GET /api/order-plan/export`, `GET|PUT /api/order-plan/open-orders`. All behind `authMiddleware` + `adminOnly`, like Par Levels.
+
+### SQL to run in Supabase
+Additive — a new table only, nothing existing is touched. The planner treats a missing row as zero on order, so running this before or after the deploy is equally safe.
+
+```sql
+CREATE TABLE IF NOT EXISTS "OpenOrder" (
+  "id"         TEXT NOT NULL,
+  "itemNumber" TEXT NOT NULL,
+  "quantity"   INTEGER NOT NULL DEFAULT 0,
+  "expectedAt" TIMESTAMP(3),
+  "note"       TEXT,
+  "createdAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt"  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "OpenOrder_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "OpenOrder_itemNumber_key" ON "OpenOrder"("itemNumber");
+```
+
+### Tests
+`server`: 239 passing (26 new for `orderPlan`, 9 for `usageRate`). `client`: 72 passing. Lint 0 errors / 48 warnings (baseline). `tsc -p server` is now **0 errors** — the 35-error baseline was the Prisma client being ungenerated; `npm run db:generate` succeeds in this container, so compare against 0 from here on.
+
 ## v3.52 — 2026-10-08
 Par levels can be expressed as **months of cover** instead of a fixed quantity (schema change — see SQL below).
 

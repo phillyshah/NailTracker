@@ -32,6 +32,7 @@ const UsageDetail = lazy(() => import('./pages/UsageDetail'));
 const Labs = lazy(() => import('./pages/Labs'));
 const ParLevels = lazy(() => import('./pages/labs/ParLevels'));
 const ReorderReport = lazy(() => import('./pages/labs/ReorderReport'));
+const OrderPlanner = lazy(() => import('./pages/labs/OrderPlanner'));
 const CycleCount = lazy(() => import('./pages/labs/CycleCount'));
 const AuditHistory = lazy(() => import('./pages/labs/AuditHistory'));
 const InventoryBackup = lazy(() => import('./pages/labs/InventoryBackup'));
@@ -120,6 +121,7 @@ export default function App() {
         <Route path="labs" element={<AdminRoute><Labs /></AdminRoute>} />
         <Route path="labs/par-levels" element={<AdminRoute><ParLevels /></AdminRoute>} />
         <Route path="labs/reorder" element={<AdminRoute><ReorderReport /></AdminRoute>} />
+        <Route path="labs/order-planner" element={<AdminRoute><OrderPlanner /></AdminRoute>} />
         <Route path="labs/cycle-count" element={<RoleRoute roles={['admin', 'distributor']}><CycleCount /></RoleRoute>} />
         <Route path="labs/audits" element={<AdminRoute><AuditHistory /></AdminRoute>} />
         <Route path="labs/inventory-backup" element={<AdminRoute><InventoryBackup /></AdminRoute>} />

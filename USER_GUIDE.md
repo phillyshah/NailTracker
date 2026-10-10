@@ -1,6 +1,6 @@
 # Nail Tracker — User Guide
 
-**Version 3.52** | Summa Orthopaedics Inventory Management System
+**Version 3.53** | Summa Orthopaedics Inventory Management System
 
 ---
 
@@ -608,6 +608,27 @@ The switch only affects what you type next. Pars you've already saved keep whate
 The Reorder Report shows, for each low item: how many are **on hand**, the **par** level, a **suggested order** quantity (how many to bring it back up to par), and the recent **usage per month** for context. A par set as months of cover carries a small **"12 mo"** tag so you can tell at a glance that it's demand-driven rather than hand-typed; the Excel export has a **Par Basis** column saying the same. You can search, filter to one distributor, and **download the report as an Excel file** to use as an order sheet.
 
 > Par levels apply to distributors (the field sites you replenish), not to Home Office — Home Office is the warehouse you reorder into.
+
+**Order Planner (Beta):**
+
+Par Levels and the Reorder Report answer *"what should I send a distributor this month?"* The Order Planner answers a different question: ***"what should I buy from the manufacturer?"*** — the one where the factory quotes six to twelve months and getting it wrong means a back order you can't recover from.
+
+It doesn't try to forecast each size from its own history, because on a new product line there isn't enough of it. Instead it uses the one thing you know that the database doesn't — how many cases you expect — and derives everything else from the usage you *do* have.
+
+1. From TrackerLabs, open **Order Planner**
+2. Enter the **cases per month** you expect across the whole network. The box is pre-filled with what your recorded usage works out to; override it with what you actually expect
+3. Enter the **lead time** your factory is quoting (e.g. 9 months) and how much **cover** you want still on the shelf when the order lands (e.g. 6 months). Those two added together are the **planning horizon**
+4. **Usable shelf life** caps slow movers — there's no point buying four of a size that will see one use before it expires
+5. **Long nails (%)** splits nail demand between long and short. It's pre-filled from your own usage
+6. The table lists every item: what's **needed** over the horizon, what's **on hand**, what's **on order**, and what to **order**
+7. Type what's **already on order** against any item and the plan subtracts it. Enter 0 to clear it
+8. **Download as Excel** to send to the manufacturer — there's a second sheet listing every assumption the plan used
+
+**How it gets from cases to screws:** your cases per month × the horizon gives the number of nails. Each case consumes one nail plus a near-fixed set of screws, so the planner measures that ratio from your own tickets (one ticket = one case) and multiplies. Each category is then split across sizes using the mix you've actually used. Finally it subtracts stock on hand and anything on order.
+
+> **Two things to be aware of, because the planner says so on screen too.** First, the screw-per-nail ratios are a **lower bound** — a screw that was used but never recorded in stock is invisible, so the real number can only be higher. Second, with fewer than 20 recorded cases the **per-size split is the weakest part of the plan**: trust the category totals and adjust individual sizes by hand. Sizes you've never used get no suggestion at all — ordering one of those for set completeness is your call, not something demand can tell you.
+
+> An **Order** quantity marked **cap** means demand wanted more, but the extra couldn't be used before it expired. Hover (or long-press) the tag to see both numbers.
 
 **Cycle Count (Beta):**
 

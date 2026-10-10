@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { FlaskConical, PackageCheck, ClipboardList, History, ChevronRight, DatabaseBackup, Users, ScanText } from 'lucide-react';
+import { FlaskConical, PackageCheck, ClipboardList, History, ChevronRight, DatabaseBackup, Users, ScanText, Factory } from 'lucide-react';
 import { HelpBanner } from '../components/HelpBanner';
 
 interface LabFeature {
@@ -18,6 +18,13 @@ const features: LabFeature[] = [
     description:
       'Set a minimum stock level per item (globally or per distributor) and get a reorder report that flags everything running low.',
     icon: PackageCheck,
+  },
+  {
+    to: '/labs/order-planner',
+    title: 'Order Planner',
+    description:
+      'What to buy from the manufacturer, not what to send a distributor. Enter the cases you expect per month and the factory lead time; it explodes the whole catalogue from your own case ratios and size mix, nets out stock and open orders, and caps anything that would expire first. Excel export included.',
+    icon: Factory,
   },
   {
     to: '/labs/cycle-count',

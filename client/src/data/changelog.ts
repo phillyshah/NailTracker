@@ -6,6 +6,17 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '3.53',
+    date: '2026-10-10',
+    changes: [
+      'New in TrackerLabs — Order Planner: what to buy from the manufacturer, as opposed to what to send a distributor. Enter the surgical cases you expect per month and how long the factory takes (6, 9, 12 months), and it works out how many nails that is, then how many lag, interlocking, cap and set screws go with them using the ratios measured from your own cases',
+      'Each category is split across sizes using the mix you have actually used, then stock on hand and anything already on order is subtracted — so the suggestion is what is genuinely missing',
+      'Quantities are capped at what can realistically be used before it expires, so a slow-moving size is never over-ordered. Capped rows are marked',
+      'You can type what is already on order against any item, and the plan nets it out. Excel export includes a second sheet listing every assumption the plan used',
+      'Fixed: usage rates (used by par levels set as months of cover) divided by the full look-back window even for items first used weeks ago, understating demand on new products. They now divide by the time an item has actually been in use',
+    ],
+  },
+  {
     version: '3.52',
     date: '2026-10-08',
     changes: [
@@ -38,14 +49,6 @@ export const changelog: ChangelogEntry[] = [
       'Reports, inventory and distributor screens load faster too — the server no longer sends label photos with list data that does not display them',
       'Fixed a crash that could show "This page didn\'t load" on Reports if the server returned an unexpected response',
       'If a page ever fails to load, the error screen now has a "Copy error details" button so problems can be reported and fixed quickly',
-    ],
-  },
-  {
-    version: '3.48',
-    date: '2026-08-13',
-    changes: [
-      'Fixed: pressing "View ticket" after recording usage opened a blank screen you could only escape by closing the app. The ticket now opens correctly. The same crash on transfer detail pages is fixed too',
-      'If a page ever fails to load, you now get a "This page didn\'t load" screen with Try again and Go to home buttons, instead of a blank page — the menu stays available so you are never stuck',
     ],
   },
 ];
