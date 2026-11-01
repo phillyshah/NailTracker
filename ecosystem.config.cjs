@@ -3,6 +3,8 @@ module.exports = {
     {
       name: 'summa-inventory',
       script: 'server/dist/index.js',
+      interpreter: '/opt/node22/bin/node',
+      exec_mode: 'fork',
       cwd: '/var/www/summa-inventory',
       env: {
         NODE_ENV: 'production',
