@@ -1,5 +1,11 @@
 # Changelog
 
+## Docs — 2026-11-01
+Docs only, no app change and no version bump.
+
+- `CLAUDE.md` / `HANDOFF.md`: the VPS now runs summa-inventory on **Node 22 (22.23.4 at `/opt/node22`)** instead of Node 20, under PM2 in **fork mode** with `interpreter: '/opt/node22/bin/node'` (matches `ecosystem.config.cjs`, commit 93b154e).
+- `HANDOFF.md`: the GitHub default branch is now `main`.
+
 ## v3.53 — 2026-10-10
 **Order Planner** (TrackerLabs, admin-only) — manufacturer purchasing on a 6-12 month lead time, plus a fix to the usage-rate arithmetic. Schema change: new `OpenOrder` table (SQL below).
 
