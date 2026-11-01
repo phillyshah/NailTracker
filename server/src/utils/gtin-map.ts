@@ -11,7 +11,7 @@
  *   SO-SPFN-{length}-{diameter}{L|R}-{angle}     = Long Nail (Left/Right)
  *   SO-SPFL-N{length}                            = Lag Screw Normal
  *   SO-SPFL-A{length}                            = Lag Screw Anti-Rotation
- *   SO-SPFL-T{length}                            = Lag Screw Telescopic
+ *   SO-SPFL-T{length} / PFL-T{length}            = Lag Screw Telescopic
  *   SO-S50I-SO-{length}-T                        = Interlocking Screw
  *   SO-SPFC-{size}                               = Cap Screw
  *   SO-SPFS-{ref}                                = Set Screw
@@ -103,6 +103,14 @@ export const gtinMap: Record<string, string> = {
   '9460045': 'Long Nail 380/11mm Left 130°',
   '9461066': 'Long Nail 400/11mm Left 130°',
   '9461073': 'Long Nail 420/11mm Left 130°',
+
+  // ── Lag Screws — Telescopic (PFL-T) ────────────────────────────────
+  // Catalogued v3.46 with the short PFL-T REF (no SO-SPFL- prefix).
+  '9454785': 'Lag Screw Telescopic 85mm',
+  '9454792': 'Lag Screw Telescopic 90mm',
+  '9454815': 'Lag Screw Telescopic 100mm',
+  '9454822': 'Lag Screw Telescopic 105mm',
+  '9454839': 'Lag Screw Telescopic 110mm',
 
   // ── Lag Screws — Normal (SO-SPFL-N) ────────────────────────────────
   '9461370': 'Lag Screw Normal 70mm',
@@ -224,6 +232,12 @@ export const gtinToRef: Record<string, string> = {
   '9461066': 'SO-SPFN-0400-11L-30',
   '9461073': 'SO-SPFN-0420-11L-30',
   // Lag Screw (Normal)
+  // Lag Screw (Telescopic)
+  '9454785': 'PFL-T085',
+  '9454792': 'PFL-T090',
+  '9454815': 'PFL-T100',
+  '9454822': 'PFL-T105',
+  '9454839': 'PFL-T110',
   '9461370': 'SO-SPFL-N070',
   '9461387': 'SO-SPFL-N075',
   '9461394': 'SO-SPFL-N080',
@@ -282,6 +296,22 @@ export function gtinShortToFullGtin(gtinShort: string): string {
 }
 
 /**
+ * Resolve an item-number (REF) search term to the gtinShort codes whose catalog
+ * REF contains it (case-insensitive). Scanned items store only the gtinShort, so
+ * an item-number search has to be translated back through the catalog — this is
+ * what lets "SO-SPFN-0380-10L-30" (or a partial like "0380-10L") find them.
+ */
+export function findGtinShortsByItemNumber(query: string): string[] {
+  const q = query.trim().toUpperCase();
+  if (!q) return [];
+  const out = new Set<string>();
+  for (const [gtinShort, ref] of Object.entries(gtinToRef)) {
+    if (ref.toUpperCase().includes(q)) out.add(gtinShort);
+  }
+  return [...out];
+}
+
+/**
  * Extract a Summa item number (REF code) from raw barcode/label text.
  * Returns the full REF code if found, else null.
  */
@@ -292,6 +322,7 @@ export function extractItemNumber(text: string): string | null {
   const patterns = [
     /\bSO-SPFN-\d{3,4}-\d{1,2}[LR]?-\d{2}\b/i,
     /\bSO-SPFL-[NAT]\d{2,3}\b/i,
+    /\bPFL-T\d{3}\b/i,
     /\bSO-S50I-SO-\d{2,3}-T\b/i,
     /\bSO-SPFC-\d{3}\b/i,
     /\bSO-SPFS-\d{3}\b/i,
@@ -325,6 +356,7 @@ const refCategories: [RegExp, string][] = [
   [/SO-SPFL-N/i, 'Lag Screw (Normal)'],
   [/SO-SPFL-A/i, 'Lag Screw (Anti-Rotation)'],
   [/SO-SPFL-T/i, 'Lag Screw (Telescopic)'],
+  [/PFL-T/i, 'Lag Screw (Telescopic)'],
   [/SO-S50I/i, 'Interlocking Screw'],
   [/SO-IS/i, 'Interlocking Screw'],
   [/SO-SPFC/i, 'Cap Screw'],
@@ -374,6 +406,12 @@ function parseRefCode(text: string): string | null {
     const angle = parseInt(lpfnMatch[3], 10) + 100;
     const side = lpfnMatch[4].toUpperCase() === 'L' ? 'Left' : 'Right';
     return `Long Nail ${length}/${diameter}mm ${side} ${angle}°`;
+  }
+
+  // Telescopic lag screw (short REF): PFL-T{length}
+  const pflTMatch = text.match(/PFL-T(\d{3})/i);
+  if (pflTMatch) {
+    return `Lag Screw Telescopic ${parseInt(pflTMatch[1], 10)}mm`;
   }
 
   // Lag screw: SO-SPFL-{type}{length}
@@ -461,3 +499,100 @@ export function getProductLabel(gtinShort: string, rawBarcode?: string): string 
 
   return `Unknown — GTIN: ${gtinShort}`;
 }
+
+/**
+ * The six Summa product types used for usage analytics, plus an 'Other' bucket.
+ * (Short vs Long Nail are split off the SO-SPFN family by the L/R side suffix.)
+ */
+export const PRODUCT_CATEGORIES = [
+  'Short Nail',
+  'Long Nail',
+  'Lag Screw',
+  'Interlocking Screw',
+  'Cap Screw',
+  'Set Screw',
+  'Other',
+] as const;
+
+export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
+
+/**
+ * Classify an item into one of the six product categories (or 'Other').
+ *
+ * REF code first (deterministic — the SPFN family is split into Short/Long by
+ * the diameter's L/R side suffix), then the resolved product label as a fallback
+ * for items only known via the GTIN catalog.
+ */
+export function getProductCategory(gtinShort: string, rawBarcode?: string): ProductCategory {
+  const ref = (rawBarcode && extractItemNumber(rawBarcode)) || gtinToRef[gtinShort] || '';
+  if (/SO-LPFN/i.test(ref)) return 'Long Nail';
+  if (/SO-SPFN/i.test(ref)) {
+    // Long nails carry a side letter right after the diameter, e.g. SO-SPFN-0300-10L-25.
+    return /SO-SPFN-\d{3,4}-\d{1,2}[LR]-/i.test(ref) ? 'Long Nail' : 'Short Nail';
+  }
+  if (/SO-SPFL/i.test(ref)) return 'Lag Screw';
+  if (/SO-S50I|SO-IS\b/i.test(ref)) return 'Interlocking Screw';
+  if (/SO-SPFC|SO-EC\b/i.test(ref)) return 'Cap Screw';
+  if (/SO-SPFS|SO-SS\b/i.test(ref)) return 'Set Screw';
+
+  // Fall back to the human label (handles items resolvable only via gtinMap).
+  const label = getProductLabel(gtinShort, rawBarcode);
+  if (/short nail/i.test(label)) return 'Short Nail';
+  if (/long nail/i.test(label)) return 'Long Nail';
+  if (/lag screw/i.test(label)) return 'Lag Screw';
+  if (/interlocking/i.test(label)) return 'Interlocking Screw';
+  if (/cap screw/i.test(label)) return 'Cap Screw';
+  if (/set screw/i.test(label)) return 'Set Screw';
+  return 'Other';
+}
+
+/**
+ * Coarser product GROUPS used by Par Levels — Short and Long nails collapse into
+ * one "Proximal Femur Nail" group so an admin can set one par for the whole nail
+ * family. A group par is the default for every SKU it contains; an individual
+ * SKU par (or a per-distributor override) takes precedence over it.
+ */
+export const PAR_GROUPS = [
+  'Proximal Femur Nail',
+  'Lag Screw',
+  'Interlocking Screw',
+  'Cap Screw',
+  'Set Screw',
+] as const;
+
+export type ParGroup = (typeof PAR_GROUPS)[number] | 'Other';
+
+/** Map an item to its Par Levels group (nails merged into one family). */
+export function getParGroup(gtinShort: string, rawBarcode?: string): ParGroup {
+  const c = getProductCategory(gtinShort, rawBarcode);
+  if (c === 'Short Nail' || c === 'Long Nail') return 'Proximal Femur Nail';
+  if (c === 'Other') return 'Other';
+  return c;
+}
+
+export interface CatalogItem {
+  itemNumber: string; // REF code
+  gtinShort: string;
+  productLabel: string;
+  group: ParGroup;
+}
+
+/**
+ * The full product catalog (one entry per item number), derived from the GTIN
+ * maps. Used by the reorder calculation so a group par can be applied to every
+ * SKU in that group, not just the ones with an explicit par row.
+ */
+export const productCatalog: CatalogItem[] = (() => {
+  const byItem = new Map<string, CatalogItem>();
+  for (const [gtinShort, itemNumber] of Object.entries(gtinToRef)) {
+    if (!byItem.has(itemNumber)) {
+      byItem.set(itemNumber, {
+        itemNumber,
+        gtinShort,
+        productLabel: gtinMap[gtinShort] || itemNumber,
+        group: getParGroup(gtinShort),
+      });
+    }
+  }
+  return Array.from(byItem.values()).sort((a, b) => a.itemNumber.localeCompare(b.itemNumber));
+})();

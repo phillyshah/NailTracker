@@ -17,6 +17,17 @@ const parseSchema = z.object({
   barcodes: z.array(z.string().min(1)).min(1, 'At least one barcode is required'),
 });
 
+const parseSpreadsheetSchema = z.object({
+  fileName: z.string().optional(),
+  dataBase64: z.string().min(1, 'File data is required'),
+});
+
+const scanManualSchema = z.object({
+  itemNumber: z.string().min(1, 'Item number is required'),
+  lot: z.string().min(1, 'Lot number is required'),
+  expDate: z.string().nullable().optional(),
+});
+
 const assignSchema = z.object({
   items: z.array(
     z.object({
@@ -38,6 +49,9 @@ const reassignSchema = z.object({
   distributorId: z.string().nullable().optional(),
   note: z.string().optional(),
   skipTransferRecord: z.boolean().optional(),
+  // Optional source-distributor guard. When set, the server returns 409 if the
+  // item is no longer at this distributor — race-safe for batch transfer.
+  expectedFromDistributorId: z.string().nullable().optional(),
 });
 
 const editSchema = z.object({
@@ -49,10 +63,17 @@ const editSchema = z.object({
 });
 
 router.post('/scan', validate(scanSchema), ctrl.scan);
+router.post('/scan-manual', validate(scanManualSchema), ctrl.scanManual);
 router.post('/parse', validate(parseSchema), ctrl.parse);
+router.post('/parse-spreadsheet', validate(parseSpreadsheetSchema), ctrl.parseSpreadsheet);
 router.post('/assign', validate(assignSchema), ctrl.assign);
 router.post('/backfill-expiry', ctrl.backfillExpiry);
 router.post('/backfill-labels', ctrl.backfillLabels);
+router.post('/backfill-manual-expiry', ctrl.backfillManualExpiry);
+router.post('/backfill-reparse', ctrl.backfillReparse);
+router.get('/reparse-preview', ctrl.reparsePreview);
+router.post('/reparse-apply', ctrl.reparseApply);
+router.get('/mine', ctrl.listMine);
 router.get('/', ctrl.list);
 router.get('/:id', ctrl.getOne);
 router.patch('/:id/reassign', validate(reassignSchema), ctrl.reassign);

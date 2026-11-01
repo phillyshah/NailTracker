@@ -2,6 +2,7 @@
   "name": "summa-inventory",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "workspaces": [
     "client",
     "server"
@@ -14,6 +15,14 @@
     "build": "npm run build:server && npm run build:client",
     "db:migrate": "npm run db:migrate --workspace=server",
     "db:seed": "npm run db:seed --workspace=server",
-    "test": "npm run test --workspace=server"
+    "test": "npm run test --workspace=server && npm run test --workspace=client",
+    "lint": "eslint .",
+    "typecheck": "tsc -p client/tsconfig.json --noEmit && tsc -p server/tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "typescript-eslint": "^8.67.0"
   }
 }

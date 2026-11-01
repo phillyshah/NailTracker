@@ -2,11 +2,14 @@ import type { Request, Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { success, error, str } from '../utils/response.js';
 import { parseGS1, isParseError } from '../utils/parseGS1.js';
+import { parseDateOnly, formatDateOnly, normalizeToUtcMidnight } from '../utils/date.js';
+import { extractBarcodes } from '../utils/spreadsheet.js';
 import {
   getProductLabel,
   getItemNumber,
   refToGtinShort,
   gtinShortToFullGtin,
+  findGtinShortsByItemNumber,
 } from '../utils/gtin-map.js';
 
 /**
@@ -41,6 +44,60 @@ export async function scan(req: Request, res: Response) {
 }
 
 /**
+ * POST /api/inventory/scan-manual
+ * Build a parsed item from individually-entered fields (Item Number / Lot /
+ * Expiration) instead of a scanned barcode. The Item Number is a Summa REF
+ * code, resolved to a GTIN via the product map (same resolution edit() uses),
+ * so the result is processed exactly as if it had come from a scan.
+ */
+export async function scanManual(req: Request, res: Response) {
+  try {
+    const { itemNumber, lot, expDate } = req.body as {
+      itemNumber: string;
+      lot: string;
+      expDate?: string | null;
+    };
+
+    const ref = itemNumber.trim().toUpperCase();
+    let gtin = '';
+    let gtinShort = '';
+
+    const canonicalShort = refToGtinShort[ref];
+    if (canonicalShort) {
+      gtinShort = canonicalShort;
+      gtin = gtinShortToFullGtin(canonicalShort);
+    } else if (/^\d{1,14}$/.test(itemNumber.trim())) {
+      // Graceful fallback: a numeric barcode value was typed instead of a REF.
+      gtin = itemNumber.trim().padStart(14, '0');
+      gtinShort = gtin.replace(/^0+/, '').slice(-7);
+    } else {
+      return error(res, `Unknown item number "${itemNumber.trim()}" — not found in product catalog`, 400);
+    }
+
+    const trimmedLot = lot.trim();
+    // Interpret a bare "YYYY-MM-DD" at local midnight (same as the scan path),
+    // not UTC midnight — otherwise it renders one day early when displayed.
+    const parsedExp = parseDateOnly(expDate);
+
+    return success(res, {
+      parsed: {
+        gtin,
+        gtinShort,
+        lot: trimmedLot,
+        expDate: parsedExp ? parsedExp.toISOString() : null,
+        udi: `${gtinShort}-${trimmedLot}`,
+        rawBarcode: ref,
+        productLabel: getProductLabel(gtinShort, ref),
+        status: 'new' as const,
+      },
+      existing: null,
+    });
+  } catch (err) {
+    return error(res, 'Manual entry failed', 500);
+  }
+}
+
+/**
  * POST /api/inventory/parse
  * Parse multiple barcodes. Same per-unit semantics as scan() —
  * matching UDIs are not duplicates.
@@ -68,6 +125,38 @@ export async function parse(req: Request, res: Response) {
 }
 
 /**
+ * POST /api/inventory/parse-spreadsheet
+ * Extract barcode strings from an uploaded CSV/TXT or Excel (.xlsx) file. The
+ * file arrives base64-encoded; parsing happens here (via exceljs) so .xlsx
+ * uploads work identically on desktop and mobile — the browser only reads the
+ * raw bytes. Returns the barcode strings; the client then runs them through the
+ * normal scan/parse flow.
+ */
+export async function parseSpreadsheet(req: Request, res: Response) {
+  try {
+    const { dataBase64 } = req.body as { fileName?: string; dataBase64: string };
+    const buf = Buffer.from(dataBase64, 'base64');
+    if (buf.length === 0) return error(res, 'The uploaded file is empty', 400);
+
+    const barcodes = await extractBarcodes(buf);
+    if (barcodes.length === 0) {
+      return error(
+        res,
+        'No barcode data found. Put one barcode per row in the first column.',
+        400,
+      );
+    }
+    return success(res, { barcodes });
+  } catch (err) {
+    return error(
+      res,
+      err instanceof Error ? err.message : 'Could not read the spreadsheet',
+      400,
+    );
+  }
+}
+
+/**
  * POST /api/inventory/assign
  * Assign one or more parsed items to a distributor. Optionally stores image.
  */
@@ -83,41 +172,47 @@ export async function assign(req: Request, res: Response) {
       }
     }
 
-    let created = 0;
-
-    for (const item of items) {
-      const newItem = await prisma.inventoryItem.create({
-        data: {
-          udi: item.udi,
-          gtin: item.gtin,
-          gtinShort: item.gtinShort,
-          lot: item.lot,
-          expDate: item.expDate ? new Date(item.expDate) : null,
-          rawBarcode: item.rawBarcode,
-          productLabel: item.productLabel,
-          imageData: item.imageData || imageData || null,
-          distributorId: distributorId || null,
-          assignedAt: distributorId ? new Date() : null,
-          assignedBy: req.user?.username || null,
-        },
-      });
-
-      if (distributorId) {
-        await prisma.assignmentHistory.create({
+    // One transaction so a mid-batch failure can't leave half the items (and
+    // half the history) committed — the caller either gets all of them or none.
+    // Returns the created ids so callers (e.g. Receive → assign to bank) can act
+    // on exactly the units they just created, not on every UDI match.
+    const createdIds = await prisma.$transaction(async (tx) => {
+      const ids: string[] = [];
+      for (const item of items) {
+        const newItem = await tx.inventoryItem.create({
           data: {
-            itemId: newItem.id,
-            toDistributorId: distributorId,
-            toDistributorName: distributor?.name || null,
-            changedBy: req.user?.username || null,
-            note: 'Initial assignment',
+            udi: item.udi,
+            gtin: item.gtin,
+            gtinShort: item.gtinShort,
+            lot: item.lot,
+            expDate: item.expDate ? new Date(item.expDate) : null,
+            rawBarcode: item.rawBarcode,
+            productLabel: item.productLabel,
+            imageData: item.imageData || imageData || null,
+            distributorId: distributorId || null,
+            assignedAt: distributorId ? new Date() : null,
+            assignedBy: req.user?.username || null,
           },
         });
+
+        if (distributorId) {
+          await tx.assignmentHistory.create({
+            data: {
+              itemId: newItem.id,
+              toDistributorId: distributorId,
+              toDistributorName: distributor?.name || null,
+              changedBy: req.user?.username || null,
+              note: 'Initial assignment',
+            },
+          });
+        }
+
+        ids.push(newItem.id);
       }
+      return ids;
+    });
 
-      created++;
-    }
-
-    return success(res, { created, skipped: 0 });
+    return success(res, { created: createdIds.length, skipped: 0, createdIds });
   } catch (err) {
     return error(res, 'Assignment failed', 500);
   }
@@ -147,12 +242,21 @@ export async function list(req: Request, res: Response) {
 
     const search = str(req.query.search);
     if (search) {
-      where.OR = [
+      const or: Record<string, unknown>[] = [
         { udi: { contains: search, mode: 'insensitive' } },
         { lot: { contains: search, mode: 'insensitive' } },
         { productLabel: { contains: search, mode: 'insensitive' } },
         { gtinShort: { contains: search, mode: 'insensitive' } },
+        // Manual entries store the REF in rawBarcode; this also matches raw GS1.
+        { rawBarcode: { contains: search, mode: 'insensitive' } },
       ];
+      // Item number (REF) search: scanned items store only the gtinShort, so
+      // translate the REF back through the catalog to the matching gtinShorts.
+      const refGtins = findGtinShortsByItemNumber(search);
+      if (refGtins.length > 0) {
+        or.push({ gtinShort: { in: refGtins } });
+      }
+      where.OR = or;
     }
 
     const expBefore = str(req.query.expBefore);
@@ -210,6 +314,22 @@ export async function list(req: Request, res: Response) {
   }
 }
 
+/**
+ * GET /api/inventory/mine
+ * Read-only list of the calling distributor account's own stock. Reuses `list`
+ * but forces the distributor filter to the user's own id (any client-supplied
+ * distributorId/unassigned is ignored).
+ */
+export async function listMine(req: Request, res: Response) {
+  const distributorId = req.user?.distributorId;
+  if (!distributorId) {
+    return error(res, 'No distributor is linked to this account', 403);
+  }
+  (req.query as Record<string, unknown>).distributorId = distributorId;
+  (req.query as Record<string, unknown>).unassigned = undefined;
+  return list(req, res);
+}
+
 export async function getOne(req: Request, res: Response) {
   try {
     const id = str(req.params.id);
@@ -252,20 +372,30 @@ async function nextTransferId(): Promise<string> {
 
 export async function reassign(req: Request, res: Response) {
   try {
-    const { distributorId, note, skipTransferRecord } = req.body as {
+    const { distributorId, note, skipTransferRecord, expectedFromDistributorId } = req.body as {
       distributorId?: string | null;
       note?: string;
       skipTransferRecord?: boolean;
+      expectedFromDistributorId?: string | null;
     };
     const id = str(req.params.id);
 
     const item = await prisma.inventoryItem.findUnique({
       where: { id },
-      include: { distributor: true },
+      include: { distributor: true, bank: true },
     });
 
     if (!item || item.deletedAt) {
       return error(res, 'Item not found', 404);
+    }
+
+    // Optional source guard for batch transfer: bail (409) if the item has
+    // moved since the user previewed it, rather than silently relocating it.
+    if (
+      expectedFromDistributorId !== undefined &&
+      item.distributorId !== expectedFromDistributorId
+    ) {
+      return error(res, 'Item is no longer at the expected source distributor', 409);
     }
 
     let newDistributor = null;
@@ -280,6 +410,13 @@ export async function reassign(req: Request, res: Response) {
     const newDistId = distributorId || null;
     const distributorChanged = oldDistId !== newDistId;
 
+    // A distributor-scoped bank only holds that distributor's stock (enforced by
+    // bank.addItems). So an item moving to a different distributor must drop its
+    // stale bankId, or it stays counted in the old distributor's bank — exactly
+    // the bank-vs-distributor discrepancy. Global banks (no distributorId) are
+    // left alone, and bank-level moves use transferBank (which keeps bankId).
+    const leavesBank = distributorChanged && item.bankId != null && item.bank?.distributorId != null;
+
     let transferId: string | null = null;
     if (distributorChanged && !skipTransferRecord) {
       transferId = await nextTransferId();
@@ -292,6 +429,7 @@ export async function reassign(req: Request, res: Response) {
           distributorId: newDistId,
           assignedAt: newDistId ? new Date() : null,
           assignedBy: req.user?.username || null,
+          ...(leavesBank ? { bankId: null } : {}),
         },
       }),
       prisma.assignmentHistory.create({
@@ -396,7 +534,7 @@ export async function edit(req: Request, res: Response) {
     }
 
     if (expDate !== undefined) {
-      newExpDate = expDate ? new Date(expDate) : null;
+      newExpDate = parseDateOnly(expDate);
     }
 
     if (typeof productLabel === 'string' && productLabel.trim()) {
@@ -412,8 +550,8 @@ export async function edit(req: Request, res: Response) {
     if (item.gtinShort !== newGtinShort) changes.push(`GTIN Short: ${item.gtinShort} → ${newGtinShort}`);
     if (item.lot !== newLot) changes.push(`Lot: ${item.lot} → ${newLot}`);
     if (item.udi !== newUdi) changes.push(`UDI: ${item.udi} → ${newUdi}`);
-    const oldExp = item.expDate ? item.expDate.toISOString().slice(0, 10) : 'none';
-    const nextExp = newExpDate ? newExpDate.toISOString().slice(0, 10) : 'none';
+    const oldExp = item.expDate ? formatDateOnly(item.expDate) : 'none';
+    const nextExp = newExpDate ? formatDateOnly(newExpDate) : 'none';
     if (oldExp !== nextExp) changes.push(`Expiry: ${oldExp} → ${nextExp}`);
     if (item.productLabel !== newProductLabel) {
       changes.push(`Label: ${item.productLabel ?? 'none'} → ${newProductLabel ?? 'none'}`);
@@ -553,6 +691,198 @@ export async function backfillLabels(_req: Request, res: Response) {
     return success(res, { total: items.length, updated });
   } catch (err) {
     return error(res, 'Label backfill failed', 500);
+  }
+}
+
+/**
+ * POST /api/inventory/backfill-manual-expiry
+ * Normalizes every stored expiry to the canonical representation: UTC midnight
+ * of its UTC calendar day (see utils/date.ts). This flattens any time-of-day a
+ * scan baked in (e.g. local-midnight-plus-offset) to a clean "T00:00:00.000Z"
+ * without shifting the calendar day, so the UTC display renders the intended
+ * date everywhere. Idempotent — only rows not already at UTC midnight change.
+ */
+export async function backfillManualExpiry(_req: Request, res: Response) {
+  try {
+    const items = await prisma.inventoryItem.findMany({
+      where: { deletedAt: null, expDate: { not: null } },
+      select: { id: true, expDate: true },
+    });
+
+    let updated = 0;
+    for (const item of items) {
+      const exp = item.expDate;
+      if (!exp) continue;
+      const corrected = normalizeToUtcMidnight(exp);
+      if (corrected.getTime() !== exp.getTime()) {
+        await prisma.inventoryItem.update({
+          where: { id: item.id },
+          data: { expDate: corrected },
+        });
+        updated++;
+      }
+    }
+
+    return success(res, { total: items.length, updated });
+  } catch (err) {
+    return error(res, 'Manual expiry backfill failed', 500);
+  }
+}
+
+/**
+ * Shared row shape + diff logic for the barcode-repair endpoints. A row's
+ * rawBarcode is the source of truth; we re-parse it and compute which stored
+ * fields drifted (the v3.23 lot-parsing fix means older imports can disagree).
+ */
+type ReparseRow = {
+  id: string;
+  rawBarcode: string;
+  lot: string;
+  udi: string;
+  gtinShort: string;
+  expDate: Date | null;
+  productLabel: string | null;
+};
+
+const REPARSE_SELECT = {
+  id: true,
+  rawBarcode: true,
+  lot: true,
+  udi: true,
+  gtinShort: true,
+  expDate: true,
+  productLabel: true,
+} as const;
+
+/** Field patch needed to bring a row in line with its barcode, or null if the
+ *  barcode is unparseable (e.g. a manual REF entry) or nothing changed. */
+function reparsePatch(item: ReparseRow): Record<string, unknown> | null {
+  const parsed = parseGS1(item.rawBarcode);
+  if (isParseError(parsed) || !parsed.lot) return null;
+
+  const data: Record<string, unknown> = {};
+  if (parsed.lot !== item.lot) data.lot = parsed.lot;
+  if (parsed.udi !== item.udi) data.udi = parsed.udi;
+  if (parsed.gtinShort !== item.gtinShort) data.gtinShort = parsed.gtinShort;
+  if (parsed.productLabel !== item.productLabel) data.productLabel = parsed.productLabel;
+  const newExp = parsed.expDate ? parsed.expDate.getTime() : null;
+  const oldExp = item.expDate ? item.expDate.getTime() : null;
+  if (newExp !== oldExp) data.expDate = parsed.expDate;
+
+  return Object.keys(data).length > 0 ? data : null;
+}
+
+/** Before/after display payload for the interactive repair stepper. */
+function reparseCandidate(item: ReparseRow) {
+  const parsed = parseGS1(item.rawBarcode);
+  if (isParseError(parsed) || !parsed.lot) return null;
+  if (!reparsePatch(item)) return null;
+
+  return {
+    id: item.id,
+    rawBarcode: item.rawBarcode,
+    before: {
+      lot: item.lot,
+      expDate: item.expDate ? item.expDate.toISOString() : null,
+      productLabel: item.productLabel,
+      itemNumber: getItemNumber(item.gtinShort, item.rawBarcode),
+    },
+    after: {
+      lot: parsed.lot,
+      expDate: parsed.expDate ? parsed.expDate.toISOString() : null,
+      productLabel: parsed.productLabel,
+      itemNumber: getItemNumber(parsed.gtinShort, parsed.rawBarcode),
+    },
+  };
+}
+
+/**
+ * POST /api/inventory/backfill-reparse
+ * Re-derives lot / expiry / GTIN / label from each item's stored rawBarcode
+ * using the current parser, repairing rows imported before the GS1 lot-vs-AI
+ * disambiguation fix (e.g. lots truncated like "J260225-L" with a bogus 2007
+ * expiry). The rawBarcode is the source of truth, so this is safe and
+ * idempotent — only rows whose stored values disagree with a fresh parse change.
+ * Rows whose rawBarcode isn't a parseable GS1 string (e.g. manual REF entries)
+ * are left untouched.
+ */
+export async function backfillReparse(_req: Request, res: Response) {
+  try {
+    const items = await prisma.inventoryItem.findMany({
+      where: { deletedAt: null },
+      select: REPARSE_SELECT,
+    });
+
+    let updated = 0;
+    for (const item of items) {
+      const patch = reparsePatch(item);
+      if (patch) {
+        await prisma.inventoryItem.update({ where: { id: item.id }, data: patch });
+        updated++;
+      }
+    }
+
+    return success(res, { total: items.length, updated });
+  } catch (err) {
+    return error(res, 'Re-parse backfill failed', 500);
+  }
+}
+
+/**
+ * GET /api/inventory/reparse-preview
+ * Read-only — returns the items whose stored lot/expiry/label disagree with a
+ * fresh parse of their barcode, with before/after values, so the admin can
+ * review and repair them one at a time (the interactive stepper). No mutation.
+ */
+export async function reparsePreview(_req: Request, res: Response) {
+  try {
+    const items = await prisma.inventoryItem.findMany({
+      where: { deletedAt: null },
+      select: REPARSE_SELECT,
+    });
+
+    const candidates = [];
+    for (const item of items) {
+      const c = reparseCandidate(item);
+      if (c) candidates.push(c);
+    }
+
+    return success(res, { total: items.length, candidates });
+  } catch (err) {
+    return error(res, 'Re-parse preview failed', 500);
+  }
+}
+
+/**
+ * POST /api/inventory/reparse-apply
+ * Body: { ids: string[] }
+ * Repairs only the given items, re-deriving each from its own barcode (the
+ * source of truth — client-sent values are never trusted). Idempotent.
+ */
+export async function reparseApply(req: Request, res: Response) {
+  try {
+    const { ids } = req.body as { ids?: string[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return error(res, 'ids is required and must be non-empty', 400);
+    }
+
+    const items = await prisma.inventoryItem.findMany({
+      where: { id: { in: ids }, deletedAt: null },
+      select: REPARSE_SELECT,
+    });
+
+    let updated = 0;
+    for (const item of items) {
+      const patch = reparsePatch(item);
+      if (patch) {
+        await prisma.inventoryItem.update({ where: { id: item.id }, data: patch });
+        updated++;
+      }
+    }
+
+    return success(res, { requested: ids.length, updated });
+  } catch (err) {
+    return error(res, 'Re-parse apply failed', 500);
   }
 }
 

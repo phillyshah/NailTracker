@@ -5,6 +5,7 @@ import { getTransfer } from '../api/transfers';
 import { SortableTh } from '../components/SortableTh';
 import { useSortable } from '../hooks/useSortable';
 import { APP_VERSION } from '../version';
+import { formatExpiry } from '../utils/expiry';
 
 interface TransferItem {
   id?: string;
@@ -33,6 +34,25 @@ export default function TransferDetail() {
     setTimeout(() => { document.title = original; }, 1000);
   }
 
+  // NOTE: every hook must run before the loading/error early returns below.
+  // `useSortable` is a hook; calling it after a conditional return changes the
+  // hook count between the pending render and the loaded render, which crashes
+  // React ("Rendered more hooks than during the previous render") and blanks the
+  // page. Derive from `transfer?` so this is safe while the query is pending.
+  const items = Array.isArray(transfer?.items) ? (transfer.items as TransferItem[]) : [];
+
+  const { sorted: sortedItems, sortKey, sortDir, toggleSort } = useSortable(
+    items,
+    {
+      productLabel: (i) => i.productLabel || '',
+      itemNumber: (i) => i.itemNumber || '',
+      lot: (i) => i.lot,
+      gtin: (i) => i.gtin,
+      expDate: (i) => i.expDate,
+    },
+    'productLabel',
+  );
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -54,20 +74,6 @@ export default function TransferDetail() {
       </div>
     );
   }
-
-  const items = Array.isArray(transfer.items) ? (transfer.items as TransferItem[]) : [];
-
-  const { sorted: sortedItems, sortKey, sortDir, toggleSort } = useSortable(
-    items,
-    {
-      productLabel: (i) => i.productLabel || '',
-      itemNumber: (i) => i.itemNumber || '',
-      lot: (i) => i.lot,
-      gtin: (i) => i.gtin,
-      expDate: (i) => i.expDate,
-    },
-    'productLabel',
-  );
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -122,7 +128,7 @@ export default function TransferDetail() {
                 <p className="text-xs font-mono text-gray-500">{item.itemNumber || '\u2014'}</p>
                 <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
                   <span>LOT: {item.lot}</span>
-                  <span>Exp: {item.expDate ? new Date(item.expDate).toLocaleDateString() : '\u2014'}</span>
+                  <span>Exp: {formatExpiry(item.expDate)}</span>
                 </div>
               </div>
             ))}
@@ -149,7 +155,7 @@ export default function TransferDetail() {
                     <td className="px-3 py-2 font-mono text-sm">{item.itemNumber || '\u2014'}</td>
                     <td className="px-3 py-2">{item.lot}</td>
                     <td className="px-3 py-2 font-mono text-sm">{item.gtin}</td>
-                    <td className="px-3 py-2">{item.expDate ? new Date(item.expDate).toLocaleDateString() : '\u2014'}</td>
+                    <td className="px-3 py-2">{formatExpiry(item.expDate)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -210,7 +216,7 @@ export default function TransferDetail() {
                   <td className="py-1 px-1 font-mono">{item.itemNumber || '\u2014'}</td>
                   <td className="py-1 px-1">{item.lot}</td>
                   <td className="py-1 px-1 font-mono">{item.gtin}</td>
-                  <td className="py-1 pl-1">{item.expDate ? new Date(item.expDate).toLocaleDateString() : '\u2014'}</td>
+                  <td className="py-1 pl-1">{formatExpiry(item.expDate)}</td>
                 </tr>
               ))}
             </tbody>

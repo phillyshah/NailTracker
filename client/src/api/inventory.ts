@@ -3,7 +3,7 @@ import type { ApiResponse, InventoryItem, ParsedItemWithStatus } from '../types'
 
 interface ScanResponse extends ApiResponse<{ parsed: ParsedItemWithStatus; existing: InventoryItem | null }> {}
 
-interface AssignResponse extends ApiResponse<{ created: number; skipped: number }> {}
+interface AssignResponse extends ApiResponse<{ created: number; skipped: number; createdIds?: string[] }> {}
 
 interface ListResponse extends ApiResponse<InventoryItem[]> {}
 
@@ -16,6 +16,51 @@ export async function scanBarcode(params: { barcode: string; imageData?: string 
     body: params,
   });
   return res.data!;
+}
+
+/**
+ * Build a parsed item from manually-entered fields (Item Number / Lot /
+ * Expiration). The server resolves the REF code to a GTIN and returns the same
+ * shape as scanBarcode, so the result can be received exactly like a scan.
+ */
+export async function scanManual(params: {
+  itemNumber: string;
+  lot: string;
+  expDate?: string | null;
+}) {
+  const res = await api<ScanResponse>('/inventory/scan-manual', {
+    method: 'POST',
+    body: params,
+  });
+  return res.data!;
+}
+
+/** Read a File as base64 (no data-URL prefix). */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Upload a CSV/TXT or Excel (.xlsx) file and get back the barcode strings it
+ * contains. Parsing happens server-side so .xlsx works the same on every
+ * platform — the browser only reads the raw bytes.
+ */
+export async function parseSpreadsheet(file: File): Promise<string[]> {
+  const dataBase64 = await fileToBase64(file);
+  const res = await api<ApiResponse<{ barcodes: string[] }>>('/inventory/parse-spreadsheet', {
+    method: 'POST',
+    body: { fileName: file.name, dataBase64 },
+  });
+  return res.data?.barcodes ?? [];
 }
 
 export async function assignItems(
@@ -53,6 +98,40 @@ export async function listInventory(filters: InventoryFilters = {}) {
   return api<ListResponse>('/inventory', { params });
 }
 
+/**
+ * A distributor account's own stock (server forces the distributor filter to the
+ * caller's own id). Supports the same search/paging filters as listInventory.
+ */
+export async function listMyInventory(
+  filters: Pick<InventoryFilters, 'page' | 'limit' | 'search' | 'sortBy' | 'sortDir'> = {},
+) {
+  const params: Record<string, string | number> = {};
+  for (const [k, v] of Object.entries(filters)) {
+    if (v === undefined || v === '') continue;
+    params[k] = v as string | number;
+  }
+  return api<ListResponse>('/inventory/mine', { params });
+}
+
+/**
+ * Fetch EVERY matching inventory item by paging through the server's 100-row
+ * cap. Use this for selection lists (Transfer pick-mode, the bank item picker)
+ * where the user must see/select the complete set — never a silent first 100.
+ * For browsing screens prefer the paginated `listInventory` + Prev/Next.
+ */
+export async function listAllInventory(filters: InventoryFilters = {}): Promise<InventoryItem[]> {
+  const pageSize = 100;
+  const first = await listInventory({ ...filters, page: 1, limit: pageSize });
+  const all: InventoryItem[] = [...(first.data ?? [])];
+  const total = first.meta?.total ?? all.length;
+  const pages = Math.ceil(total / pageSize);
+  for (let p = 2; p <= pages; p++) {
+    const res = await listInventory({ ...filters, page: p, limit: pageSize });
+    all.push(...(res.data ?? []));
+  }
+  return all;
+}
+
 export async function getItem(id: string) {
   return api<ItemResponse>(`/inventory/${encodeURIComponent(id)}`);
 }
@@ -61,13 +140,18 @@ export async function reassignItem(
   id: string,
   distributorId: string | null,
   note?: string,
-  options: { skipTransferRecord?: boolean } = {},
+  options: { skipTransferRecord?: boolean; expectedFromDistributorId?: string | null } = {},
 ) {
   return api<ApiResponse<{ message: string; transferId?: string | null }>>(
     `/inventory/${encodeURIComponent(id)}/reassign`,
     {
       method: 'PATCH',
-      body: { distributorId, note, skipTransferRecord: options.skipTransferRecord },
+      body: {
+        distributorId,
+        note,
+        skipTransferRecord: options.skipTransferRecord,
+        expectedFromDistributorId: options.expectedFromDistributorId,
+      },
     },
   );
 }
@@ -97,4 +181,50 @@ export async function deleteItem(id: string) {
   return api<ApiResponse<{ message: string }>>(`/inventory/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+}
+
+/**
+ * Admin maintenance: correct expiry dates on manually-entered items that were
+ * saved one day early (before the local-vs-UTC date fix). Idempotent.
+ */
+export async function backfillManualExpiry() {
+  return api<ApiResponse<{ total: number; updated: number }>>(
+    '/inventory/backfill-manual-expiry',
+    { method: 'POST' },
+  );
+}
+
+/**
+ * Admin maintenance: re-read each item's stored barcode and repair the lot
+ * number / expiry / label for rows imported before the GS1 lot-parsing fix
+ * (e.g. lots truncated like "J260225-L" with a bogus 2007 expiry). Idempotent.
+ */
+export async function backfillReparse() {
+  return api<ApiResponse<{ total: number; updated: number }>>(
+    '/inventory/backfill-reparse',
+    { method: 'POST' },
+  );
+}
+
+export interface ReparseCandidate {
+  id: string;
+  rawBarcode: string;
+  before: { lot: string; expDate: string | null; productLabel: string | null; itemNumber: string | null };
+  after: { lot: string; expDate: string | null; productLabel: string | null; itemNumber: string | null };
+}
+
+/** Admin maintenance: list the items whose stored fields disagree with a fresh
+ *  parse of their barcode (read-only — for the interactive repair stepper). */
+export async function reparsePreview() {
+  return api<ApiResponse<{ total: number; candidates: ReparseCandidate[] }>>(
+    '/inventory/reparse-preview',
+  );
+}
+
+/** Admin maintenance: repair only the given item ids (re-parsed server-side). */
+export async function reparseApply(ids: string[]) {
+  return api<ApiResponse<{ requested: number; updated: number }>>(
+    '/inventory/reparse-apply',
+    { method: 'POST', body: { ids } },
+  );
 }

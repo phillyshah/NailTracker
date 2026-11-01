@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 type Getter<T> = (item: T) => string | number | null | undefined;
 
@@ -15,6 +15,14 @@ export function useSortable<T>(
   const [sortKey, setSortKey] = useState(initialKey);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(initialDir);
 
+  // Callers pass `getters` as an inline object literal, so its identity changes
+  // every render. Keeping it in the memo's dep array meant the memo never hit
+  // and every parent render re-sorted and produced a fresh array identity,
+  // re-rendering every row. The getters are static per page, so a ref is the
+  // honest representation: always current, never a dependency.
+  const gettersRef = useRef(getters);
+  gettersRef.current = getters;
+
   function toggleSort(key: string) {
     if (key === sortKey) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -25,7 +33,7 @@ export function useSortable<T>(
   }
 
   const sorted = useMemo(() => {
-    const get = getters[sortKey];
+    const get = gettersRef.current[sortKey];
     if (!get) return items;
     const arr = [...items];
     arr.sort((a, b) => {
@@ -43,7 +51,7 @@ export function useSortable<T>(
       return sortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as);
     });
     return arr;
-  }, [items, sortKey, sortDir, getters]);
+  }, [items, sortKey, sortDir]);
 
   return { sorted, sortKey, sortDir, toggleSort };
 }

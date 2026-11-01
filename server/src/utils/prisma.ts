@@ -18,6 +18,16 @@ const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
 const pool = new pg.Pool({
   connectionString,
   ssl: { rejectUnauthorized: false },
+  // Every query crosses the public internet to Supabase, so the defaults are a
+  // poor fit. keepAlive stops idle sockets being silently reaped by NAT, which
+  // otherwise shows up as "Connection terminated unexpectedly" on the first
+  // request after a quiet period. The timeouts stop one slow query holding a
+  // pool slot indefinitely.
+  max: 10,
+  keepAlive: true,
+  connectionTimeoutMillis: 10_000,
+  idleTimeoutMillis: 30_000,
+  statement_timeout: 30_000,
 });
 const adapter = new PrismaPg(pool);
 

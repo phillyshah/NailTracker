@@ -1,8 +1,10 @@
 name: Deploy to VPS
 
+# Manual-only: run from the Actions tab ("Run workflow") rather than on every
+# push to main, so commits aren't marked failed while the VPS deploy is done
+# manually. Re-add a `push:` trigger once the VPS_SSH_KEY secret is fixed.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -22,4 +24,4 @@ jobs:
             npx prisma generate --schema=server/prisma/schema.prisma
             npx prisma migrate deploy --schema=server/prisma/schema.prisma
             npm run build
-            pm2 restart summa-inventory || pm2 start ecosystem.config.js
+            pm2 restart summa-inventory || pm2 start ecosystem.config.cjs

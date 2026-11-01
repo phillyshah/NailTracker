@@ -5,6 +5,8 @@ export interface User {
   id: string;
   username: string;
   role: string;
+  distributorId?: string | null;
+  distributor?: { name: string } | null;
   createdAt: string;
 }
 
@@ -13,10 +15,15 @@ export async function listUsers() {
   return res.data!;
 }
 
-export async function createUser(username: string, password: string, role: string) {
+export async function createUser(
+  username: string,
+  password: string,
+  role: string,
+  distributorId?: string | null,
+) {
   const res = await api<ApiResponse<User>>('/users', {
     method: 'POST',
-    body: { username, password, role },
+    body: { username, password, role, distributorId },
   });
   return res.data!;
 }
@@ -28,10 +35,10 @@ export async function updatePassword(id: string, password: string) {
   });
 }
 
-export async function updateRole(id: string, role: string) {
+export async function updateRole(id: string, role: string, distributorId?: string | null) {
   const res = await api<ApiResponse<User>>(`/users/${id}/role`, {
     method: 'PATCH',
-    body: { role },
+    body: { role, distributorId },
   });
   return res.data!;
 }

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { Download, Search, ChevronLeft } from 'lucide-react';
 import { getStockByItem, getStockByItemExportUrl, type StockByItemRow } from '../api/reports';
+import { listDistributors } from '../api/distributors';
 import { SortableTh } from '../components/SortableTh';
 import { useSortable } from '../hooks/useSortable';
 import { HelpBanner } from '../components/HelpBanner';
@@ -13,14 +14,24 @@ const HOME = 'home';
 export default function StockByItem() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  // '' = every location (the original view). 'home' or a distributor id narrows
+  // the report to that one column, and the Excel export follows the same filter.
+  const [locationId, setLocationId] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['stock-by-item'],
-    queryFn: getStockByItem,
+    queryKey: ['stock-by-item', locationId],
+    queryFn: () => getStockByItem({ locationId: locationId || undefined }),
   });
 
-  const locations = data?.locations ?? [];
-  const rows = data?.rows ?? [];
+  const { data: distributors = [] } = useQuery({
+    queryKey: ['distributors'],
+    queryFn: listDistributors,
+  });
+
+  // Memoized: a bare `?? []` mints a new array identity every render, which
+  // defeats the memos below and useSortable's (see CLAUDE.md).
+  const locations = useMemo(() => data?.locations ?? [], [data]);
+  const rows = useMemo(() => data?.rows ?? [], [data]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -58,15 +69,20 @@ export default function StockByItem() {
     navigate(`/inventory?${params.toString()}`);
   }
 
-  function drillTo(locationId: string, gtinShort: string) {
+  // `colId` is a column's location id — named distinctly from the `locationId`
+  // filter state above, which it would otherwise shadow.
+  function drillTo(colId: string, gtinShort: string) {
     const params = new URLSearchParams();
     params.set('gtinShort', gtinShort);
-    if (locationId === HOME) params.set('unassigned', 'true');
-    else params.set('distributorId', locationId);
+    if (colId === HOME) params.set('unassigned', 'true');
+    else params.set('distributorId', colId);
     navigate(`/inventory?${params.toString()}`);
   }
 
   const grandTotal = useMemo(() => rows.reduce((s, r) => s + r.total, 0), [rows]);
+
+  // With one location selected the Total column just repeats it, so hide it.
+  const showTotal = locations.length > 1;
 
   return (
     <div className="mx-auto max-w-4xl lg:max-w-7xl space-y-4">
@@ -82,7 +98,7 @@ export default function StockByItem() {
           <h2 className="text-xl font-bold text-gray-900">Stock by Item Number</h2>
         </div>
         <a
-          href={getStockByItemExportUrl()}
+          href={getStockByItemExportUrl({ locationId: locationId || undefined })}
           className="flex items-center gap-1.5 rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100"
         >
           <Download size={18} />
@@ -91,8 +107,23 @@ export default function StockByItem() {
       </div>
 
       <HelpBanner storageKey="stock-by-item">
-        Counts of each item number across Home Office and every distributor. Tap any column header to sort, tap any count to drill into the matching inventory.
+        Counts of each item number across Home Office and every distributor. Use <strong>Location</strong> to narrow to a single place \u2014 the Excel export follows whatever you pick. Tap any column header to sort, tap any count to drill into the matching inventory.
       </HelpBanner>
+
+      <label className="block">
+        <span className="text-sm font-medium text-gray-700">Location</span>
+        <select
+          value={locationId}
+          onChange={(e) => setLocationId(e.target.value)}
+          className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-2.5 text-base focus:border-primary-500 focus:outline-none sm:w-auto"
+        >
+          <option value="">All locations</option>
+          <option value={HOME}>Home Office</option>
+          {distributors.map((d) => (
+            <option key={d.id} value={d.id}>{d.name}</option>
+          ))}
+        </select>
+      </label>
 
       <div className="relative">
         <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -190,14 +221,16 @@ export default function StockByItem() {
                       )}
                     />
                   ))}
-                  <SortableTh
-                    label="Total"
-                    sortKey="total"
-                    currentKey={sortKey}
-                    currentDir={sortDir}
-                    onSort={toggleSort}
-                    className="px-4 py-3 text-right bg-primary-50"
-                  />
+                  {showTotal && (
+                    <SortableTh
+                      label="Total"
+                      sortKey="total"
+                      currentKey={sortKey}
+                      currentDir={sortDir}
+                      onSort={toggleSort}
+                      className="px-4 py-3 text-right bg-primary-50"
+                    />
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -236,14 +269,16 @@ export default function StockByItem() {
                         </td>
                       );
                     })}
-                    <td className="px-4 py-3 text-right font-bold bg-primary-50/40">
-                      <button
-                        onClick={() => drillToAll(r.gtinShort)}
-                        className="hover:underline"
-                      >
-                        {r.total}
-                      </button>
-                    </td>
+                    {showTotal && (
+                      <td className="px-4 py-3 text-right font-bold bg-primary-50/40">
+                        <button
+                          onClick={() => drillToAll(r.gtinShort)}
+                          className="hover:underline"
+                        >
+                          {r.total}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -268,7 +303,9 @@ export default function StockByItem() {
                       </td>
                     );
                   })}
-                  <td className="px-4 py-3 text-right bg-primary-100">{grandTotal}</td>
+                  {showTotal && (
+                    <td className="px-4 py-3 text-right bg-primary-100">{grandTotal}</td>
+                  )}
                 </tr>
               </tfoot>
             </table>

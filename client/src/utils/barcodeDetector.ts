@@ -1,5 +1,4 @@
-import { Html5Qrcode } from 'html5-qrcode';
-import { extractBarcodeText } from './ocrBarcode';
+import { extractAllBarcodesText } from './ocrBarcode';
 
 /**
  * BarcodeDetector browser API type declarations.
@@ -14,10 +13,13 @@ interface BarcodeDetectorOptions {
   formats: string[];
 }
 
-declare class BarcodeDetectorAPI {
-  constructor(options?: BarcodeDetectorOptions);
+interface BarcodeDetectorAPI {
   detect(image: ImageBitmapSource): Promise<DetectedBarcode[]>;
-  static getSupportedFormats(): Promise<string[]>;
+}
+
+interface BarcodeDetectorAPIStatic {
+  new(options?: BarcodeDetectorOptions): BarcodeDetectorAPI;
+  getSupportedFormats(): Promise<string[]>;
 }
 
 /**
@@ -45,11 +47,12 @@ export async function detectBarcodesFromImage(
     return [zxing];
   }
 
-  // Step 3: Try OCR as last resort — returns single barcode
+  // Step 3: Try OCR as last resort — reads printed REF/LOT/expiry text and can
+  // return several labels from one photo (implant stickers have no barcode).
   const ocr = await detectWithOCR(blob);
-  if (ocr) {
-    console.log('[BarcodeDetector] OCR detected:', ocr);
-    return [ocr];
+  if (ocr.length > 0) {
+    console.log(`[BarcodeDetector] OCR detected ${ocr.length} label(s):`, ocr);
+    return ocr;
   }
 
   console.warn('[BarcodeDetector] All detection methods failed');
@@ -72,7 +75,7 @@ export async function detectBarcodeFromImage(
  */
 async function detectAllWithNativeAPI(blob: Blob): Promise<string[]> {
   try {
-    const BarcodeDetector = (window as any).BarcodeDetector as typeof BarcodeDetectorAPI | undefined;
+    const BarcodeDetector = (window as any).BarcodeDetector as BarcodeDetectorAPIStatic | undefined;
     if (!BarcodeDetector) {
       console.log('[BarcodeDetector] Native API not available in this browser');
       return [];
@@ -98,6 +101,11 @@ async function detectAllWithNativeAPI(blob: Blob): Promise<string[]> {
  * html5-qrcode (zxing-js wrapper) — single barcode fallback.
  */
 async function detectWithHtml5Qrcode(blob: Blob, elementId: string): Promise<string | null> {
+  // Loaded on demand. html5-qrcode pulls in the whole zxing UMD via a namespace
+  // import, which cannot tree-shake -- ~369 kB raw / 107 kB gzip, 39% of the
+  // bundle. It is only ever reached when the native BarcodeDetector API is
+  // unavailable or finds nothing, so it has no business being on first paint.
+  const { Html5Qrcode } = await import('html5-qrcode');
   let el = document.getElementById(elementId);
   if (!el) {
     el = document.createElement('div');
@@ -125,14 +133,13 @@ async function detectWithHtml5Qrcode(blob: Blob, elementId: string): Promise<str
 }
 
 /**
- * OCR via Tesseract.js — single barcode fallback.
+ * OCR via Tesseract.js — reads printed label text and returns every label found.
  */
-async function detectWithOCR(blob: Blob): Promise<string | null> {
+async function detectWithOCR(blob: Blob): Promise<string[]> {
   try {
-    const result = await extractBarcodeText(blob);
-    return result;
+    return await extractAllBarcodesText(blob);
   } catch (err) {
     console.warn('[BarcodeDetector] OCR error:', err);
-    return null;
+    return [];
   }
 }

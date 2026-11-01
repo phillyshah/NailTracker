@@ -1,4 +1,5 @@
 import { cn } from '../utils/cn';
+import { formatExpiry, daysUntilExpiry } from '../utils/expiry';
 
 interface Props {
   expDate: string | null;
@@ -9,10 +10,9 @@ interface Props {
 export function ExpiryBadge({ expDate, className, showDate = false }: Props) {
   if (!expDate) return showDate ? <span className="text-sm text-gray-400">—</span> : null;
 
-  const exp = new Date(expDate);
-  const now = new Date();
-  const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const dateStr = exp.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  // Expiry is UTC-canonical — format and compare in UTC (see utils/expiry.ts).
+  const diffDays = daysUntilExpiry(expDate) ?? 0;
+  const dateStr = formatExpiry(expDate);
 
   // Not urgent — show plain date if in a table column, otherwise hide
   if (diffDays > 180) {

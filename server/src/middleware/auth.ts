@@ -5,6 +5,8 @@ export interface AuthPayload {
   userId: string;
   username: string;
   role: string;
+  // Set for role = "distributor": the distributor this account is scoped to.
+  distributorId?: string | null;
 }
 
 declare global {

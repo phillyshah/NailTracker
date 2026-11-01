@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { Plus, Boxes, Trash2, ArrowRightLeft, ChevronRight } from 'lucide-react';
-import { listBanks, createBank, deleteBank, transferBankToDistributor } from '../api/banks';
+import { Plus, Boxes, Trash2, ArrowRightLeft, ChevronRight, Pencil } from 'lucide-react';
+import { listBanks, createBank, updateBank, deleteBank, transferBankToDistributor } from '../api/banks';
 import { listDistributors } from '../api/distributors';
+import { Button } from '../components/Button';
 import { HelpBanner } from '../components/HelpBanner';
 import { ToastContainer } from '../components/Toast';
 import { useToast } from '../hooks/useToast';
@@ -18,6 +19,9 @@ export default function Banks() {
   const [newDistId, setNewDistId] = useState('');
   const [transferBankId, setTransferBankId] = useState('');
   const [transferDistId, setTransferDistId] = useState('');
+  const [editBankId, setEditBankId] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
 
   const { data: banks = [], isLoading } = useQuery({ queryKey: ['banks'], queryFn: listBanks });
   const { data: distributors = [] } = useQuery({ queryKey: ['distributors'], queryFn: listDistributors });
@@ -44,17 +48,33 @@ export default function Banks() {
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
+  const editMutation = useMutation({
+    mutationFn: () => updateBank(editBankId, { name: editName.trim(), description: editDesc.trim() || undefined }),
+    onSuccess: () => {
+      addToast('Bank updated', 'success');
+      setEditBankId('');
+      queryClient.invalidateQueries({ queryKey: ['banks'] });
+    },
+    onError: (err: Error) => addToast(err.message, 'error'),
+  });
+
   const transferMutation = useMutation({
     mutationFn: () => transferBankToDistributor(transferBankId, transferDistId),
     onSuccess: (data) => {
-      addToast(`${data.transferred} items moved`, 'success');
+      addToast(
+        `${data.transferred} items moved to ${data.toDistributorName}${data.transferId ? ` — ${data.transferId}` : ''}`,
+        'success',
+      );
       setTransferBankId('');
       setTransferDistId('');
       queryClient.invalidateQueries({ queryKey: ['banks'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-all'] });
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
+
+  const transferBank = banks.find((b) => b.id === transferBankId);
 
   return (
     <div className="mx-auto max-w-2xl lg:max-w-4xl">
@@ -62,12 +82,9 @@ export default function Banks() {
 
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Banks</h2>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
-        >
+        <Button size="sm" onClick={() => setShowCreate(true)}>
           <Plus size={18} /> New Bank
-        </button>
+        </Button>
       </div>
 
       <HelpBanner storageKey="banks">
@@ -159,11 +176,24 @@ export default function Banks() {
                 <button
                   onClick={() => {
                     setTransferBankId(bank.id);
-                    setTransferDistId(bank.distributorId || '');
+                    // Start empty — never preselect the current distributor, so
+                    // the user must actively choose a real destination.
+                    setTransferDistId('');
                   }}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   <ArrowRightLeft size={16} /> Move Bank
+                </button>
+                <button
+                  onClick={() => {
+                    setEditBankId(bank.id);
+                    setEditName(bank.name);
+                    setEditDesc(bank.description || '');
+                  }}
+                  className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  title="Rename or edit description"
+                >
+                  <Pencil size={16} /> Edit
                 </button>
                 <button
                   onClick={() => navigate(`/banks/${bank.id}`)}
@@ -187,23 +217,62 @@ export default function Banks() {
         </div>
       )}
 
+      {/* Edit bank modal */}
+      {editBankId && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => setEditBankId('')}>
+          <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Edit Bank</h3>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Bank name (e.g., Trauma Cart A, Case 47)"
+              className="mb-3 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+              autoFocus
+            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <input
+              type="text"
+              value={editDesc}
+              onChange={(e) => setEditDesc(e.target.value)}
+              placeholder="Description (optional)"
+              className="mb-4 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-primary-500 focus:outline-none"
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setEditBankId('')} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100">Cancel</button>
+              <button
+                onClick={() => editMutation.mutate()}
+                disabled={!editName.trim() || editMutation.isPending}
+                className="flex-1 rounded-xl bg-primary-600 px-4 py-3 text-base font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {editMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Transfer bank modal */}
       {transferBankId && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => setTransferBankId('')}>
           <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900 mb-4">Move Bank to Distributor</h3>
             <p className="text-sm text-gray-500 mb-3">
-              All items in this bank will be reassigned to the selected distributor.
+              All {transferBank?._count?.items ?? ''} items in this bank will move from{' '}
+              <strong>{transferBank?.distributor?.name || 'Unassigned'}</strong> to the destination you pick.
             </p>
             <select
               value={transferDistId}
               onChange={(e) => setTransferDistId(e.target.value)}
               className="mb-4 block w-full rounded-xl border border-gray-300 px-4 py-3 text-base bg-white focus:border-primary-500 focus:outline-none"
             >
-              <option value="">Select distributor...</option>
-              {distributors.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
+              <option value="">Select destination...</option>
+              {distributors
+                .filter((d) => d.id !== transferBank?.distributorId)
+                .map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
             </select>
             <div className="flex gap-3">
               <button onClick={() => setTransferBankId('')} className="flex-1 rounded-xl border border-gray-300 px-4 py-3 text-base font-medium hover:bg-gray-100">Cancel</button>
